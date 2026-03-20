@@ -1,0 +1,109 @@
+FASE 0: El Taller de Trabajo (Preparación para Windows 11)
+Objetivo: Instalar el motor y las herramientas necesarias en tu PC para poder crear código.
+
+0.1 Node.js (El Motor): Descargar e instalar la versión "LTS" de Node.js para Windows. Esto nos da acceso a npm y npx, las herramientas mágicas de la terminal.
+
+0.2 Visual Studio Code: Instalar tu editor de código.
+
+0.3 Extensiones de VS Code: Instalar Tailwind CSS IntelliSense (para que te autocomplete las clases) y ESLint (para detectar errores en JavaScript).
+
+0.4 Git: Instalar Git para Windows para tener "puntos de guardado" de tu código y no perder avances.
+
+FASE 1: Los Cimientos y la Bóveda (Inicialización)
+Objetivo: Crear el esqueleto de la aplicación y conectar la base de datos en la nube.
+
+1.1 Crear el Proyecto Next.js: Ejecutar el comando de instalación usando JavaScript (sin TypeScript), el App Router, y Tailwind CSS.
+
+1.2 La Base de Datos (PostgreSQL): Crear una cuenta gratuita en Supabase o Neon.
+
+1.3 El Traductor (Prisma ORM): Instalar Prisma en el proyecto para hablar con la base de datos usando JavaScript.
+
+1.4 El Candado de Seguridad (Auth.js): Configurar una pantalla de inicio de sesión (Google o Email) con una regla estricta: solo tú y tu esposa tienen autorización para ver el Dashboard.
+
+FASE 2: Arquitectura de Datos (El Molde y El Historial)
+Objetivo: Definir las 4 tablas en Prisma que reemplazarán tus celdas de Excel. (Cero "Hard Deletes", todo por historial).
+
+
+
+
+2.1 Tabla Accounts (Cuentas): Almacena tus saldos líquidos (ej. Checking: $289).
+
+2.2 Tabla CreditCards (Tarjetas): Almacena tu deuda actual (ej. Card Balance: $12,761).
+
+2.3 Tabla Templates (El Molde / Gastos Fijos): Almacena las reglas. (Ej. "Verizon, se cobra el día 17, $264"). Esta tabla no guarda si ya pagaste o no, solo la regla del gasto.
+
+2.4 Tabla History (El Historial de Transacciones): El registro inmutable. Cada vez que pagas algo, se guarda aquí: ("Verizon, Pagado el 17/Mar/2026").
+
+2.5 Sincronización: Enviar este plano desde Prisma hacia Supabase/Neon para crear las tablas físicas.
+
+
+
+
+FASE 3: Interfaz de Usuario (El Frontend Híbrido)
+Objetivo: Construir la pantalla principal estilo "Rocket Money" usando Tailwind CSS para la estructura y shadcn/ui para botones/modales.
+
+3.1 Los 3 Acordeones Superiores (shadcn/ui):
+
+Acordeón 1 (Cuentas): Muestra el saldo total líquido. Al expandir, ves las cuentas individuales editables.
+
+Acordeón 2 (Tarjetas): Muestra el total de deuda. Al expandir, ves y editas los saldos de cada tarjeta.
+
+Acordeón 3 (Restante / Efecto Cascada): Cerrado muestra con cuánto terminas el mes. Abierto desglosa tu "Restante" exacto para la Semana 1, 2, 3 y 4 (tu radar de supervivencia).
+
+3.3 El Calendario Híbrido (Hecho a medida con Tailwind Grid):
+
+Vista Compacta: Una cuadrícula de 7 columnas x 3 filas (21 días: tu semana actual + 2 futuras).
+
+Diseño Premium: Días del mes actual en blanco, días del mes anterior/siguiente (Leading/Trailing) en gris opaco. El "Día de Hoy" resaltado en un círculo azul.
+
+Vista Expandida: Al tocar el botón ⤢, la cuadrícula crece a 5-6 filas mostrando el mes completo.
+
+3.4 La Lista "Due Soon" (Próximos Pagos): Debajo del calendario, una lista vertical ordenada de lo que vence próximamente, indicando "in 2 days", con el botón de opciones (3 puntitos).
+
+
+
+
+
+
+
+
+
+
+
+
+
+FASE 4: El Motor Lógico (El Cerebro)
+Objetivo: Hacer que la pantalla lea la base de datos y calcule el futuro al vuelo.
+
+4.1 La Fusión Temporal: El servidor lee qué día es hoy. Va a la tabla Templates, genera los pagos de los próximos 30 días, va a la tabla History y oculta los que ya están pagados.
+
+4.2 Inyección de Datos: Manda estos datos limpios tanto a la lista "Due Soon" como a los cuadritos de colores del Calendario.
+
+4.3 Matemática del Restante: Next.js toma el saldo de tu Acordeón 1, le resta todos los "Due Soon" y proyecta los números de tu Acordeón 3 (Las 4 semanas).
+
+FASE 5: Interactividad y Mutación (La Acción)
+Objetivo: Darle vida a los botones y reemplazar el copiar/pegar manual.
+
+5.1 Actualizar Saldos: Hacer que los números dentro de los acordeones sean campos de texto. Al escribir un nuevo saldo bancario, la base de datos se actualiza en tiempo real.
+
+5.2 Marcar como Pagado: Configurar el botón de la lista "Due Soon". Al hacer clic, Next.js inserta un recibo en la tabla History y recarga la pantalla mágicamente, ocultando el gasto.
+
+5.3 El Pago Parcial (Split): Crear una ventana emergente (Modal). Si presupuestaste $350 para BJ's y gastas $100, ingresas el $100; el sistema registra el pago histórico y empuja los $250 restantes a la siguiente semana.
+
+FASE 6: Pulido, Amortización y Despliegue
+Objetivo: Detalles finales y subirlo a internet.
+
+6.1 Tabla del Auto: Crear la ruta /prestamo para replicar la matemática exacta del saldo restante a capital e intereses de tu coche.
+
+6.2 Optimización Móvil: Ajustar clases de Tailwind para asegurar que el calendario y los botones se toquen perfecto con el pulgar en la pantalla de un celular.
+
+6.3 Despliegue (Vercel): Subir el código a Vercel para que tengas una URL real (ej. midashboard.vercel.app) e instalarla como "App" en tu celular.
+
+FASE 7: Automatización y Alertas (El Asistente Activo)
+Objetivo: Que la app trabaje sola y te avise al celular.
+
+7.1 Tareas Programadas (CRON Jobs): Configurar Vercel para que despierte a tu aplicación todos los días a las 8:00 AM.
+
+7.2 Lógica de Alarma: La app escanea la base de datos buscando pagos (Templates sin History) que venzan en exactamente 3 días.
+
+7.3 El Mensajero (Telegram Bot): Conectar tu app a la API de un bot de Telegram. Si hay un pago cercano, tu celular vibra con un mensaje push nativo: "🚨 Alerta: Macy's ($54) vence en 3 días".

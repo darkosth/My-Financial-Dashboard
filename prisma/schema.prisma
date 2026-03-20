@@ -1,0 +1,104 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -----------------------------------------------------------------
+// 0. LAS LISTAS ESTRICTAS (Enums)
+// -----------------------------------------------------------------
+enum Category {
+  HOUSING         // Renta, hipoteca
+  TRANSPORTATION  // Gasolina, peajes, bus
+  FOOD            // Supermercado, restaurantes
+  UTILITIES       // Luz, agua, internet, teléfono
+  INSURANCE       // Seguros (auto, médico, vida)
+  MEDICAL         // Farmacia, doctor
+  SAVINGS         // Ahorros, inversiones
+  PERSONAL        // Ropa, peluquería, gym
+  ENTERTAINMENT   // Cine, salidas, hobbies
+  SUBSCRIPTIONS   // Netflix, Spotify, ARK servers
+  DEBT            // Préstamos, tarjetas de crédito
+  OTHER           // Cualquier otra cosa
+}
+
+enum Frequency {
+  WEEKLY     // EW (Cada semana)
+  BIWEEKLY   // E2W (Cada 2 semanas)
+  MONTHLY    // Mensual (Ej: Día 15)
+  YEARLY     // Anual
+}
+
+
+// -----------------------------------------------------------------
+// TABLAS DE LA BASE DE DATOS
+// -----------------------------------------------------------------
+
+// 1. Tabla de Cuentas (Tu dinero disponible)
+model Account {
+  id        String   @id @default(cuid())
+  name      String   
+  balance   Float    @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("accounts")
+}
+
+// 2. Tabla de Tarjetas (El dinero que debes)
+model CreditCard {
+  id             String   @id @default(cuid())
+  name           String   
+  balance        Float    @default(0)
+  creditLimit    Float    @default(0)
+  minimumPayment Float    @default(0) 
+  dueDate        Int      
+  createdAt      DateTime @default(now())
+
+  @@map("credit_cards") 
+}
+
+
+model Template {
+  id        String    @id @default(cuid())
+  name      String   
+  amount    Float    
+  frequency Frequency @default(MONTHLY) 
+  isAutoPay Boolean   @default(false) 
+  category  Category 
+  createdAt DateTime  @default(now())
+  dayOfMonth Int?     
+  lastPaidAt DateTime? 
+  
+  @@map("templates")
+}
+
+// 4. Tabla de Registros (Los Recibos)
+model History {
+  id          String   @id @default(cuid())
+  templateId  String   
+  amountPaid  Float    
+  datePaid    DateTime 
+  month       Int      
+  year        Int      
+  createdAt   DateTime @default(now())
+
+  @@map("history_records")
+}
+
+// 5. Tabla de Gastos Únicos (Tu borrador para la "Real Liquidity")
+model PendingExpense {
+  id          String   @id @default(cuid())
+  description String?  // El "?" lo hace opcional para Raquel (y para ti)
+  amount      Float    
+  createdAt   DateTime @default(now())
+
+  @@map("pending_expenses")
+}
