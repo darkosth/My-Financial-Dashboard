@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, MoreHorizontal, Plus, Repeat, CalendarDays, Settings2 } from "lucide-react";
+import { Search, MoreHorizontal, Plus, Repeat, CalendarDays, Settings2, ArrowUpDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -22,12 +22,35 @@ export default function TemplatesClient({ initialTemplates }) {
   const [isOpen, setIsOpen] = useState(false); // Controla si el modal está abierto
   const formRef = useRef(null);
   const [editingTemplate, setEditingTemplate] = useState(null); // Para controlar qué template se está editando
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" }); // Para controlar la ordenación de la tabla
 
-  // Filtramos los datos REALES
+  const requestSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+    // Filtramos los datos REALES
   const filteredTemplates = initialTemplates.filter((template) => 
     template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     template.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const sortedTemplates = [...filteredTemplates].sort((a, b) => {
+    if (!sortConfig.key) return 0; // Sin ordenación
+
+    let aValue = a[sortConfig.key];
+    let bValue = b[sortConfig.key];
+
+    if (typeof aValue === "string") aValue = aValue.toLowerCase();
+    if (typeof bValue === "string") bValue = bValue.toLowerCase();
+
+    if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+    if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+    return 0;
+  });
 
   const totalMonthlyBase = initialTemplates.reduce((acc, template) => {
     if (template.frequency === "MONTHLY") {
@@ -217,10 +240,50 @@ export default function TemplatesClient({ initialTemplates }) {
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow>
-                <TableHead className="pl-6">Nombre del Gasto</TableHead>
-                <TableHead>Frecuencia</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead className="text-right">Monto Presupuestado</TableHead>
+                {/* Nombre */}
+                <TableHead 
+                  className="pl-6 cursor-pointer hover:bg-slate-100 transition-colors" 
+                  onClick={() => requestSort('name')}
+                >
+                  <div className="flex items-center gap-2">
+                    Nombre del Gasto
+                    <ArrowUpDown className="h-4 w-4 text-slate-400" />
+                  </div>
+                </TableHead>
+
+                {/* Frecuencia */}
+                <TableHead 
+                  className="cursor-pointer hover:bg-slate-100 transition-colors"
+                  onClick={() => requestSort('frequency')}
+                >
+                  <div className="flex items-center gap-2">
+                    Frecuencia
+                    <ArrowUpDown className="h-4 w-4 text-slate-400" />
+                  </div>
+                </TableHead>
+
+                {/* Categoría */}
+                <TableHead 
+                  className="cursor-pointer hover:bg-slate-100 transition-colors"
+                  onClick={() => requestSort('category')}
+                >
+                  <div className="flex items-center gap-2">
+                    Categoría
+                    <ArrowUpDown className="h-4 w-4 text-slate-400" />
+                  </div>
+                </TableHead>
+
+                {/* Monto (Alineado a la derecha) */}
+                <TableHead 
+                  className="text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                  onClick={() => requestSort('amount')}
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Monto Presupuestado
+                    <ArrowUpDown className="h-4 w-4 text-slate-400" />
+                  </div>
+                </TableHead>
+                
                 <TableHead className="w-[50px] pr-6"></TableHead> 
               </TableRow>
             </TableHeader>
@@ -234,7 +297,7 @@ export default function TemplatesClient({ initialTemplates }) {
                 </TableRow>
               )}
 
-              {filteredTemplates.map((template) => (
+              {sortedTemplates.map((template) => (
                 <TableRow key={template.id} className="hover:bg-slate-50 transition-colors">
                   <TableCell className="pl-6">
                     <div className="font-medium text-slate-900 flex items-center gap-2">
