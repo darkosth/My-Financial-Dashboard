@@ -40,3 +40,47 @@ export async function createTemplate(formData) {
     return { success: false, error: "Failed to create template" };
   }
 }
+
+export async function deleteTemplate(id) {
+  try {
+    await prisma.template.delete({
+      where: {
+        id: id,
+      },
+    });
+    revalidatePath("/templates");
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting template:", error);
+    return { success: false, error: "Failed to delete template" };
+  }
+}
+
+export async function updateTemplate(id, formData) {
+  const name = formData.get("name");
+  const amount = parseFloat(formData.get("amount"));
+  const frequency = formData.get("frequency");
+  const category = formData.get("category");
+  const isAutoPay = formData.get("isAutoPay") === "on"; 
+  const dayOfMonth = formData.get("dayOfMonth") ? parseInt(formData.get("dayOfMonth")) : null;
+  
+  let lastPaidAt = null;
+  if (formData.get("lastPaidAt")) {
+    lastPaidAt = new Date(formData.get("lastPaidAt"));
+  }
+
+  try {
+    await prisma.template.update({
+      where: { id: id },
+      data: {
+        name, amount, frequency, category, isAutoPay, dayOfMonth, lastPaidAt,
+      },
+    });
+
+    revalidatePath("/templates"); // Refrescamos la pantalla
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating template:", error);
+    return { success: false, error: "Failed to update template" };
+  }
+}

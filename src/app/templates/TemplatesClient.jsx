@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -11,14 +11,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
-// Importamos tu motor de guardado
-import { createTemplate } from "@/lib/actions/templateActions";
+// Importamos tu motor de Negocios con la db
+import { createTemplate, deleteTemplate, updateTemplate } from "@/lib/actions/templateActions";
 
 export default function TemplatesClient({ initialTemplates }) {
+
+  // Estados locales para controlar la búsqueda, el filtro de frecuencia, edición y el modal
   const [searchTerm, setSearchTerm] = useState("");
   const [freq, setFreq] = useState("MONTHLY"); // Para saber qué campo de fecha mostrar
   const [isOpen, setIsOpen] = useState(false); // Controla si el modal está abierto
   const formRef = useRef(null);
+  const [editingTemplate, setEditingTemplate] = useState(null); // Para controlar qué template se está editando
 
   // Filtramos los datos REALES
   const filteredTemplates = initialTemplates.filter((template) => 
@@ -40,15 +43,36 @@ export default function TemplatesClient({ initialTemplates }) {
   }, 0);
 
   // La función que atrapa el formulario y lo envía al servidor
+  // La función que atrapa el formulario y decide si CREAR o ACTUALIZAR
   const handleSubmit = async (formData) => {
-    const result = await createTemplate(formData);
+    let result;
+    // ¿Nuestra memoria tiene algo guardado?
+    if (editingTemplate) {
+      // SÍ: Entonces le mandamos el ID viejo y los datos nuevos para que SOBREESCRIBA
+      result = await updateTemplate(editingTemplate.id, formData);
+    } else {
+      // NO: La memoria está vacía, entonces es un registro completamente NUEVO
+      result = await createTemplate(formData);
+    }
+
     if (result.success) {
       setIsOpen(false); // Cerramos el modal
+      setEditingTemplate(null); // ¡VITAL! Borramos la memoria para que el siguiente clic sea limpio
       formRef.current?.reset(); // Limpiamos el formulario
     } else {
       alert("Hubo un error al guardar. Revisa la consola.");
     }
   };
+
+  const handleDelete = async (id) => {
+  // Un popup nativo de confirmación para evitar borrados por accidente
+  if (window.confirm("Are you sure you want to delete this fixed expense?")) {
+    const result = await deleteTemplate(id);
+    if (!result.success) {
+      alert("Error deleting the item.");
+    }
+  }
+};
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -66,7 +90,14 @@ export default function TemplatesClient({ initialTemplates }) {
         {/* EL MODAL DE CREACIÓN */}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button className="shadow-sm">
+            <Button
+              className="shadow-sm"
+              onClick={() => {
+                setEditingTemplate(null); // Nos aseguramos de que no haya ningún template en edición cuando abrimos el modal para crear uno nuevo
+                setFreq("MONTHLY"); // Reseteamos la frecuencia al valor por defecto
+                setIsOpen(true);
+              }}
+              >
               <Plus className="mr-2 h-4 w-4" /> Nuevo Gasto Fijo
             </Button>
           </DialogTrigger>
@@ -82,18 +113,18 @@ export default function TemplatesClient({ initialTemplates }) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nombre</Label>
-                  <Input id="name" name="name" placeholder="Ej: Renta, Seguro..." required />
+                  <Input id="name" name="name" defaultValue={editingTemplate?.name} placeholder="Ej: Renta, Seguro..." required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="amount">Monto ($)</Label>
-                  <Input id="amount" name="amount" type="number" step="0.01" placeholder="0.00" required />
+                  <Input id="amount" name="amount" defaultValue={editingTemplate?.amount} type="number" step="0.01" placeholder="0.00" required />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="category">Categoría</Label>
-                  <select id="category" name="category" className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                  <select id="category" name="category" defaultValue={editingTemplate?.category || "HOUSING"} className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
                     <option value="HOUSING">Vivienda (Housing)</option>
                     <option value="TRANSPORTATION">Transporte (Auto/Gas)</option>
                     <option value="FOOD">Comida (Food)</option>
@@ -118,17 +149,17 @@ export default function TemplatesClient({ initialTemplates }) {
               {freq === "MONTHLY" ? (
                 <div className="space-y-2">
                   <Label htmlFor="dayOfMonth">Día de cobro (1-31)</Label>
-                  <Input id="dayOfMonth" name="dayOfMonth" type="number" min="1" max="31" placeholder="Ej: 15" required />
+                  <Input id="dayOfMonth" name="dayOfMonth" defaultValue={editingTemplate?.dayOfMonth} type="number" min="1" max="31"  placeholder="Ej: 15" required />
                 </div>
               ) : (
                 <div className="space-y-2">
                   <Label htmlFor="lastPaidAt">Última fecha de pago</Label>
-                  <Input id="lastPaidAt" name="lastPaidAt" type="date" required />
+                  <Input id="lastPaidAt" name="lastPaidAt" defaultValue={editingTemplate?.lastPaidAt ? new Date(editingTemplate.lastPaidAt).toISOString().split('T')[0] : ""} type="date" required />
                 </div>
               )}
 
               <div className="flex items-center space-x-2 pt-2">
-                <input type="checkbox" id="isAutoPay" name="isAutoPay" className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                <input type="checkbox" id="isAutoPay" name="isAutoPay" defaultChecked={editingTemplate?.isAutoPay} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
                 <Label htmlFor="isAutoPay" className="font-normal text-slate-700">Este pago está en Auto-Pay</Label>
               </div>
 
@@ -242,7 +273,16 @@ export default function TemplatesClient({ initialTemplates }) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setEditingTemplate(template); // Cargamos el template en edición
+                            setFreq(template.frequency); // Ajustamos la frecuencia para mostrar el campo correcto en el modal
+                            setIsOpen(true); // Abrimos el modal
+                          }} 
+                          className="text-blue-600 focus:text-blue-600 focus:bg-blue-50 cursor-pointer">
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDelete(template.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
                           Eliminar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
