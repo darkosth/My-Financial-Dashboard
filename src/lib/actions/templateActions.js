@@ -84,3 +84,19 @@ export async function updateTemplate(id, formData) {
     return { success: false, error: "Failed to update template" };
   }
 }
+
+export async function markAsPaid(id) {
+  try {
+    await prisma.template.update({
+      where: { id: id },
+      data: {
+        lastPaidAt: new Date(), // Le estampa la fecha y hora actual
+      },
+    });
+    revalidatePath("/"); // Refresca el Dashboard
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking template as paid:", error);
+    return { success: false, error: "Failed to mark as paid" };
+  }
+}
