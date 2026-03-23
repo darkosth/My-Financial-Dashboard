@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 // Importamos nuestras Server Actions
 import { createAccount, updateAccount, deleteAccount } from "@/lib/actions/accountActions";
 
-export default function AccountsCard({ accounts, totalLiquidity }) {
+export default function AccountsCard({ accounts, totalLiquidity, totalAccountBalances, pendingExpensesTotal }) {
   
   // LA MEMORIA DEL COMPONENTE
   const [isOpen, setIsOpen] = useState(false);
@@ -59,10 +59,22 @@ export default function AccountsCard({ accounts, totalLiquidity }) {
             
             <AccordionTrigger className="px-6 py-5 hover:no-underline hover:bg-slate-50 transition-all">
               <div className="flex justify-between items-center w-full pr-4">
-                <h2 className="text-xl font-semibold text-slate-900">Cuentas</h2>
-                <p className="text-2xl font-bold text-emerald-600">
-                  ${totalLiquidity.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </p>
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900">Cuentas</h2>
+                  {pendingExpensesTotal > 0 && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Balance manual ${totalAccountBalances.toLocaleString("en-US", { minimumFractionDigits: 2 })} - gastos únicos pendientes ${pendingExpensesTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-emerald-600">
+                    ${totalLiquidity.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </p>
+                  {pendingExpensesTotal > 0 && (
+                    <p className="text-xs text-slate-500">Liquidez real ajustada</p>
+                  )}
+                </div>
               </div>
             </AccordionTrigger>
             

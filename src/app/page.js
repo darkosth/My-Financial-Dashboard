@@ -1,86 +1,100 @@
-// OJO: Ya NO usamos "use client" aquí. Este es un Server Component puro.
-
-// Librerías de base de datos y matemáticas
+import { startOfDay } from "date-fns";
 import prisma from "@/lib/prisma";
-import { calculateWaterfall } from "@/lib/waterfallCalculations";
-import { startOfDay } from 'date-fns';
-
-// Componentes
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import AccountsCard from "@/components/dashboard/AccountsCard";
 import CreditCardsCard from "@/components/dashboard/CreditCardsCard";
 import UpcomingCard from "@/components/dashboard/UpcomingCard";
 import WaterfallCard from "@/components/dashboard/WaterfallCard";
+import { calculateWaterfall, getUpcomingPendingPayments } from "@/lib/waterfallCalculations";
 
-// Agregamos "async" porque vamos a esperar a que Neon nos responda
+const buildScheduledCreditCardPayments = (creditCards) =>
+  creditCards
+    .filter((card) => card.minimumPayment > 0 && card.dueDate)
+    .map((card) => ({
+      id: `credit-card:${card.id}`,
+      name: `${card.name} Minimum Payment`,
+      amount: card.minimumPayment,
+      frequency: "MONTHLY",
+      dayOfMonth: card.dueDate,
+      category: "DEBT",
+      isAutoPay: false,
+      kind: "credit-card",
+    }));
+
 export default async function Dashboard() {
-  
-  const accounts = await prisma.account.findMany({ orderBy: { createdAt: 'asc' } });
-  const creditCards = await prisma.creditCard.findMany({ orderBy: { createdAt: 'asc' } });
-  const templates = await prisma.template.findMany({ orderBy: { createdAt: 'asc' } });
+  const accounts = await prisma.account.findMany({ orderBy: { createdAt: "asc" } });
+  const creditCards = await prisma.creditCard.findMany({ orderBy: { createdAt: "asc" } });
+  const templates = await prisma.template.findMany({ orderBy: { createdAt: "asc" } });
+  const historyRecords = await prisma.history.findMany();
+  const creditCardHistoryRecords = await prisma.creditCardPaymentHistory.findMany();
+  const carryovers = await prisma.paymentCarryover.findMany();
+  const pendingExpenses = await prisma.pendingExpense.findMany({ orderBy: { createdAt: "desc" } });
 
-  // --- ANCLA DE TIEMPO --- 
   const today = startOfDay(new Date());
 
-  const totalLiquidity = accounts.reduce((acc, account) => acc + account.balance, 0);
+  const totalAccountBalances = accounts.reduce((acc, account) => acc + account.balance, 0);
+  const pendingExpensesTotal = pendingExpenses.reduce((acc, expense) => acc + expense.amount, 0);
+  const totalLiquidity = totalAccountBalances - pendingExpensesTotal;
   const totalDebt = creditCards.reduce((acc, card) => acc + card.balance, 0);
   const totalCreditLimit = creditCards.reduce((acc, card) => acc + card.creditLimit, 0);
   const totalAvailableCredit = totalCreditLimit - totalDebt;
-  const totalFixedExpenses = templates.reduce((acc, template) => acc + template.amount, 0);
+  const standardWeeklyIncome = 1000.0;
+  const scheduledCreditCardPayments = buildScheduledCreditCardPayments(creditCards);
 
-  // --- MATEMÁTICAS DE LA CASCADA ---
-  const StandardWeeklyIncome = 1000.00;
-
-  // Validamos que las plantillas tengan la información necesaria para ser consideradas en el cálculo
-  const validTemplates = templates.filter(t => 
-    (t.frequency === "MONTHLY" && t.dayOfMonth) || 
-    ((t.frequency === "WEEKLY" || t.frequency === "BIWEEKLY") && t.lastPaidAt)
+  const validTemplates = templates.filter(
+    (template) =>
+      (template.frequency === "MONTHLY" && template.dayOfMonth) ||
+      ((template.frequency === "WEEKLY" || template.frequency === "BIWEEKLY") && template.lastPaidAt)
   );
+  const scheduledPayments = [...validTemplates, ...scheduledCreditCardPayments];
 
-  const waterfallData = calculateWaterfall({ 
-    totalLiquidity, 
-    templates: validTemplates, 
-    today, 
-    standardWeeklyIncome: StandardWeeklyIncome 
+  const waterfallData = calculateWaterfall({
+    totalLiquidity,
+    templates: scheduledPayments,
+    historyRecords,
+    creditCardHistoryRecords,
+    carryovers,
+    today,
+    standardWeeklyIncome,
   });
 
-  const finalRemainingS4 = waterfallData[3].restante;
+  const upcomingPayments = getUpcomingPendingPayments({
+    templates: scheduledPayments,
+    historyRecords,
+    creditCardHistoryRecords,
+    carryovers,
+    today,
+    weeksAhead: 2,
+  });
+  const totalUpcomingExpenses = upcomingPayments.reduce((acc, payment) => acc + payment.amount, 0);
+  const finalRemainingS4 = waterfallData[3]?.restante ?? totalLiquidity;
 
-  // =========================================================
-  // 3. RENDERIZADO DEL DASHBOARD
-  // =========================================================
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans text-slate-900">
       <div className="max-w-5xl mx-auto space-y-8">
-        
-        {/* ENCABEZADO */}
         <DashboardHeader accounts={accounts} />
 
-        {/* SECCIÓN 1: LIQUIDEZ (Ya conectada con la tarjeta inteligente que hicimos) */}
-        {/* Nota: Cambié mockAccounts por accounts para que coincida con tu componente */}
-        <AccountsCard accounts={accounts} totalLiquidity={totalLiquidity} />
-
-        {/* SECCIÓN 2: TARJETAS DE CRÉDITO */}
-        <CreditCardsCard 
-          creditCards={creditCards} 
-          totalDebt={totalDebt} 
-          totalCreditLimit={totalCreditLimit} 
-          totalAvailableCredit={totalAvailableCredit} 
+        <AccountsCard
+          accounts={accounts}
+          totalLiquidity={totalLiquidity}
+          totalAccountBalances={totalAccountBalances}
+          pendingExpensesTotal={pendingExpensesTotal}
         />
 
-       {/* SECCIÓN 3: EFECTO CASCADA (RADAR DE SUPERVIVENCIA) */}
+        <CreditCardsCard
+          creditCards={creditCards}
+          totalDebt={totalDebt}
+          totalCreditLimit={totalCreditLimit}
+          totalAvailableCredit={totalAvailableCredit}
+        />
+
         <WaterfallCard
-         waterfallData={waterfallData}
-         finalRemainingS4={finalRemainingS4}
-          standardWeeklyIncome={StandardWeeklyIncome}
+          waterfallData={waterfallData}
+          finalRemainingS4={finalRemainingS4}
+          standardWeeklyIncome={standardWeeklyIncome}
         />
 
-        {/* SECCIÓN 4: UPCOMING EXPENSES */}
-        <UpcomingCard 
-          templates={templates} 
-          totalFixedExpenses={totalFixedExpenses} 
-        />
-
+        <UpcomingCard upcomingPayments={upcomingPayments} totalUpcomingExpenses={totalUpcomingExpenses} />
       </div>
     </main>
   );

@@ -63,15 +63,6 @@ Vista Expandida: Al tocar el botón ⤢, la cuadrícula crece a 5-6 filas mostra
 
 
 
-
-
-
-
-
-
-
-
-
 FASE 4: El Motor Lógico (El Cerebro)
 Objetivo: Hacer que la pantalla lea la base de datos y calcule el futuro al vuelo.
 
@@ -89,6 +80,13 @@ Objetivo: Darle vida a los botones y reemplazar el copiar/pegar manual.
 5.2 Marcar como Pagado: Configurar el botón de la lista "Due Soon". Al hacer clic, Next.js inserta un recibo en la tabla History y recarga la pantalla mágicamente, ocultando el gasto.
 
 5.3 El Pago Parcial (Split): Crear una ventana emergente (Modal). Si presupuestaste $350 para BJ's y gastas $100, ingresas el $100; el sistema registra el pago histórico y empuja los $250 restantes a la siguiente semana.
+
+
+
+
+
+
+
 
 FASE 6: Pulido, Amortización y Despliegue
 Objetivo: Detalles finales y subirlo a internet.

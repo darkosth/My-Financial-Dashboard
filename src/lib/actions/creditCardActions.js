@@ -2,6 +2,12 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getNextTemplateOccurrence, getTemplateCycleReference } from "@/lib/waterfallCalculations";
+
+const revalidateFinanceViews = () => {
+  revalidatePath("/");
+  revalidatePath("/calendar");
+};
 
 // 1. CREAR
 export async function createCreditCard(formData) {
@@ -16,7 +22,7 @@ export async function createCreditCard(formData) {
     await prisma.creditCard.create({
       data: { name, balance, creditLimit, minimumPayment, dueDate },
     });
-    revalidatePath("/");
+    revalidateFinanceViews();
     return { success: true };
   } catch (error) {
     console.error("Error creating credit card:", error);
@@ -37,7 +43,7 @@ export async function updateCreditCard(id, formData) {
       where: { id: id },
       data: { name, balance, creditLimit, minimumPayment, dueDate },
     });
-    revalidatePath("/");
+    revalidateFinanceViews();
     return { success: true };
   } catch (error) {
     console.error("Error updating credit card:", error);
@@ -51,10 +57,66 @@ export async function deleteCreditCard(id) {
     await prisma.creditCard.delete({
       where: { id: id },
     });
-    revalidatePath("/");
+    revalidateFinanceViews();
     return { success: true };
   } catch (error) {
     console.error("Error deleting credit card:", error);
     return { success: false, error: "Failed to delete credit card" };
+  }
+}
+
+export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = null) {
+  try {
+    const creditCard = await prisma.creditCard.findUnique({
+      where: { id: creditCardId },
+    });
+
+    if (!creditCard) {
+      throw new Error("Credit card not found");
+    }
+
+    const scheduledItem = {
+      id: `credit-card:${creditCard.id}`,
+      kind: "credit-card",
+      frequency: "MONTHLY",
+      dayOfMonth: creditCard.dueDate,
+      amount: creditCard.minimumPayment,
+    };
+    const occurrenceDate =
+      occurrenceDateInput ? new Date(occurrenceDateInput) : getNextTemplateOccurrence(scheduledItem, new Date());
+
+    if (!occurrenceDate) {
+      throw new Error("Could not calculate credit card payment occurrence");
+    }
+
+    const cycleReference = getTemplateCycleReference(scheduledItem, occurrenceDate);
+    const previousPayments = await prisma.creditCardPaymentHistory.findMany({
+      where: {
+        creditCardId,
+        cycleReference,
+      },
+    });
+    const alreadyPaid = previousPayments.reduce((acc, item) => acc + item.amountPaid, 0);
+    const pendingAmount = Math.max(creditCard.minimumPayment - alreadyPaid, 0);
+
+    if (pendingAmount <= 0) {
+      revalidateFinanceViews();
+      return { success: true };
+    }
+
+    await prisma.creditCardPaymentHistory.create({
+      data: {
+        creditCardId,
+        amountPaid: pendingAmount,
+        cycleReference,
+        datePaid: new Date(),
+      },
+    });
+
+    revalidateFinanceViews();
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking credit card payment as paid:", error);
+    return { success: false, error: "Failed to mark credit card payment as paid" };
   }
 }
