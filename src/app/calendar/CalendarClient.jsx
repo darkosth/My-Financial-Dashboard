@@ -1,19 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { addDays, addMonths, endOfMonth, format, isSameDay, isSameMonth, startOfDay, startOfMonth, subMonths } from "date-fns";
-import { es } from "date-fns/locale";
+import {
+  addDays,
+  addMonths,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from "date-fns";
 import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UpcomingCard from "@/components/dashboard/UpcomingCard";
-import { getProjectionWeekStart, getTemplateOccurrenceInInterval, isTemplatePaidForOccurrence } from "@/lib/waterfallCalculations";
+import { getTemplateCycleReference, getTemplateOccurrenceInInterval, isTemplatePaidForOccurrence } from "@/lib/waterfallCalculations";
 import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
 import { markWaterfallItemAsPaid, moveWaterfallItemToNextWeek } from "@/lib/actions/templateActions";
 
-const weekDaysHeaders = ["Jue", "Vie", "Sab", "Dom", "Lun", "Mar", "Mie"];
+const CALENDAR_WEEK_STARTS_ON = 0;
+const weekDaysHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarClient({
   templates,
@@ -61,12 +73,15 @@ export default function CalendarClient({
     alert("No se pudo mover el gasto.");
   };
 
+  const getCalendarGridStart = (date) => startOfWeek(startOfDay(date), { weekStartsOn: CALENDAR_WEEK_STARTS_ON });
+  const getCalendarGridEnd = (date) => endOfWeek(startOfDay(date), { weekStartsOn: CALENDAR_WEEK_STARTS_ON });
+
   const getDaysInGrid = () => {
     const startDate = isExpanded
-      ? getProjectionWeekStart(startOfMonth(currentDate))
-      : getProjectionWeekStart(currentDate);
+      ? getCalendarGridStart(startOfMonth(currentDate))
+      : getCalendarGridStart(currentDate);
     const endDate = isExpanded
-      ? addDays(getProjectionWeekStart(endOfMonth(currentDate)), 6)
+      ? getCalendarGridEnd(endOfMonth(currentDate))
       : addDays(startDate, 20);
 
     const days = [];
@@ -88,7 +103,19 @@ export default function CalendarClient({
         const template = templates.find((item) => item.id === record.templateId);
         expenses.push({
           id: `history-${record.id}`,
-          name: template?.name || "Pago registrado",
+          name: template?.name || "Recorded payment",
+          amount: record.amountPaid,
+          isPast: true,
+        });
+      }
+    });
+
+    creditCardHistoryRecords.forEach((record) => {
+      if (isSameDay(new Date(record.datePaid), targetDate)) {
+        const template = templates.find((item) => item.id === `credit-card:${record.creditCardId}`);
+        expenses.push({
+          id: `credit-card-history-${record.id}`,
+          name: template?.name || "Card payment",
           amount: record.amountPaid,
           isPast: true,
         });
@@ -99,7 +126,7 @@ export default function CalendarClient({
       if (isSameDay(new Date(expense.createdAt), targetDate)) {
         expenses.push({
           id: `pending-${expense.id}`,
-          name: expense.description || "Gasto unico",
+          name: expense.description || "One-time expense",
           amount: expense.amount,
           isPast: true,
         });
@@ -113,6 +140,10 @@ export default function CalendarClient({
         return;
       }
 
+      if (isTemplatePaidForOccurrence(template, occurrenceDate, historyRecords, creditCardHistoryRecords)) {
+        return;
+      }
+
       expenses.push({
         id: `${template.id}-${occurrenceDate.toISOString()}`,
         templateId: template.id,
@@ -120,7 +151,8 @@ export default function CalendarClient({
         name: template.name,
         amount: template.amount,
         occurrenceDate,
-        isPast: isTemplatePaidForOccurrence(template, occurrenceDate, historyRecords, creditCardHistoryRecords),
+        cycleReference: getTemplateCycleReference(template, occurrenceDate),
+        isPast: false,
       });
     });
 
@@ -140,24 +172,24 @@ export default function CalendarClient({
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <CalendarIcon className="h-8 w-8 text-slate-700" />
-            Calendario de Liquidez
+            Liquidity Calendar
           </h1>
-          <p className="text-muted-foreground">Planea tus pagos con semanas de jueves a miercoles y revisa lo ya registrado.</p>
+          <p className="text-muted-foreground">See actual payments and upcoming scheduled items on a Sunday to Saturday calendar.</p>
         </div>
 
         <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
           <Button variant="ghost" size="icon" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="w-36 text-center font-semibold text-slate-700 capitalize">
-            {format(currentDate, "MMMM yyyy", { locale: es })}
+          <div className="w-36 text-center font-semibold text-slate-700">
+            {format(currentDate, "MMMM yyyy")}
           </div>
           <Button variant="ghost" size="icon" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
           <div className="w-px h-6 bg-slate-200 mx-1"></div>
           <Button variant="ghost" className="text-sm font-medium" onClick={() => setCurrentDate(today)}>
-            Hoy
+            Today
           </Button>
           <div className="w-px h-6 bg-slate-200 mx-1"></div>
           <Button
@@ -238,7 +270,7 @@ export default function CalendarClient({
                         }
                         className="text-[10px] text-blue-600 font-medium pl-1 hover:text-blue-700"
                       >
-                        + {dayExpenses.length - 2} mas
+                        + {dayExpenses.length - 2} more
                       </button>
                     )}
                   </div>
@@ -273,20 +305,18 @@ export default function CalendarClient({
           <DialogHeader>
             <DialogTitle>{selectedExpense?.name}</DialogTitle>
             <DialogDescription>
-              Registra este pago o mueve el gasto a la siguiente semana sin marcarlo como pagado.
+              Record this payment or move it to next week without marking it as paid.
             </DialogDescription>
           </DialogHeader>
 
           {selectedExpense && (
             <div className="space-y-2 text-sm text-slate-600">
               <p>
-                Fecha programada:{" "}
-                <span className="font-medium text-slate-900">
-                  {format(new Date(selectedExpense.occurrenceDate), "EEE dd MMM", { locale: es })}
-                </span>
+                Scheduled date:{" "}
+                <span className="font-medium text-slate-900">{format(new Date(selectedExpense.occurrenceDate), "EEE dd MMM")}</span>
               </p>
               <p>
-                Monto:{" "}
+                Amount:{" "}
                 <span className="font-medium text-slate-900">
                   ${selectedExpense.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </span>
@@ -297,11 +327,11 @@ export default function CalendarClient({
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:items-stretch">
             {selectedExpense?.kind !== "credit-card" && (
               <Button variant="secondary" className="w-full" onClick={handleMoveToNextWeek}>
-                Mover a la siguiente semana
+                Move to next week
               </Button>
             )}
             <Button className="w-full" onClick={handleMarkAsPaid}>
-              Marcar como pagado
+              Mark as paid
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -318,9 +348,9 @@ export default function CalendarClient({
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle>
-              {expandedDay ? format(new Date(expandedDay.date), "EEEE dd MMM", { locale: es }) : "Detalle del dia"}
+              {expandedDay ? format(new Date(expandedDay.date), "EEEE dd MMM") : "Day details"}
             </DialogTitle>
-            <DialogDescription>Revisa todas las entradas de este dia y abre cualquier pago pendiente desde aqui.</DialogDescription>
+            <DialogDescription>Review every entry for this day and open any pending item from here.</DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
