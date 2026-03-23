@@ -13,7 +13,11 @@ const createPrismaClient = () => {
   return new PrismaClient({ adapter });
 };
 
-if (!globalForPrisma.prisma || !globalForPrisma.prisma.creditCardPaymentHistory) {
+if (
+  !globalForPrisma.prisma ||
+  !globalForPrisma.prisma.creditCardPaymentHistory ||
+  !globalForPrisma.prisma.appSettings
+) {
   globalForPrisma.prisma = createPrismaClient();
 }
 

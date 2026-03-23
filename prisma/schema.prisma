@@ -105,3 +105,12 @@ model PaymentCarryover {
   @@unique([templateId, originCycleReference])
   @@map("payment_carryovers")
 }
+
+model AppSettings {
+  id           Int      @id
+  weeklyIncome Float    @default(1000)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("app_settings")
+}

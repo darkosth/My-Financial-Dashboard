@@ -51,8 +51,10 @@ export default function UniqueExpensesClient({ initialExpenses }) {
     <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gastos Únicos</h1>
-          <p className="text-muted-foreground">Estos gastos se descuentan de tu liquidez hasta que actualices manualmente tus cuentas.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Gastos únicos</h1>
+          <p className="text-muted-foreground">
+            Estos gastos se descuentan de tu liquidez hasta que actualices manualmente tus cuentas.
+          </p>
         </div>
 
         <div className="text-right">
@@ -64,8 +66,8 @@ export default function UniqueExpensesClient({ initialExpenses }) {
       <Card className="shadow-sm border-slate-200">
         <CardHeader className="border-b bg-white pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <CardTitle className="text-xl">Borrador de Liquidez</CardTitle>
-            <CardDescription>Cuando ya actualices tus balances manualmente, usa “Borrar todo” para volver este borrador a cero.</CardDescription>
+            <CardTitle className="text-xl">Borrador de liquidez</CardTitle>
+            <CardDescription>Cuando actualices tus balances manualmente, usa “Borrar todo” para volver este borrador a cero.</CardDescription>
           </div>
 
           <div className="flex w-full md:w-auto gap-3">

@@ -14,10 +14,10 @@ import { markWaterfallItemAsPaid, moveWaterfallItemToNextWeek, updateTemplate } 
 import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
 
 const getFrequencyLabel = (payment) => {
-  if (payment.isCarryover) return "Restante movido";
+  if (payment.isCarryover) return "Saldo movido";
   if (payment.frequency === "MONTHLY") return `Día ${payment.dayOfMonth}`;
-  if (payment.frequency === "WEEKLY") return "Cada Semana";
-  return "Cada 2 Semanas";
+  if (payment.frequency === "WEEKLY") return "Cada semana";
+  return "Cada 2 semanas";
 };
 
 export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }) {
@@ -31,6 +31,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
       payment.kind === "credit-card"
         ? await markCreditCardAsPaid(payment.id.replace("credit-card:", ""), settlementDate)
         : await markWaterfallItemAsPaid(payment.id, settlementDate);
+
     if (result.success) {
       router.refresh();
     } else {
@@ -41,6 +42,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
   const handleMoveToNextWeek = async (payment) => {
     const settlementDate = payment.sourceCycleReference ?? payment.occurrenceDate;
     const result = await moveWaterfallItemToNextWeek(payment.id, settlementDate);
+
     if (result.success) {
       router.refresh();
     } else {
@@ -68,7 +70,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
           <div className="space-y-1">
             <CardTitle className="text-xl font-semibold flex items-center gap-2">
               <CalendarClock className="h-5 w-5 text-slate-500" />
-              Próximos Pagos
+              Próximos pagos
             </CardTitle>
           </div>
           <p className="text-2xl font-bold text-slate-700">
@@ -98,36 +100,36 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
               {upcomingPayments.map((payment) => {
                 const occurrenceDate = new Date(payment.occurrenceDate);
                 return (
-                <TableRow key={`${payment.id}-${occurrenceDate.toISOString()}`} className="hover:bg-slate-100/50">
-                  <TableCell className="pl-6">
-                    <div className="font-medium text-base">{payment.name}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{payment.category}</div>
-                  </TableCell>
-                  <TableCell className="text-slate-600">
-                    <div className="font-medium">{format(occurrenceDate, "EEE dd MMM")}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{getFrequencyLabel(payment)}</div>
-                    {payment.isAutoPay && (
-                      <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                        Auto
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold text-base">
-                    ${payment.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell className="text-right w-[50px] pr-6">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
+                  <TableRow key={`${payment.id}-${occurrenceDate.toISOString()}`} className="hover:bg-slate-100/50">
+                    <TableCell className="pl-6">
+                      <div className="font-medium text-base">{payment.name}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{payment.category}</div>
+                    </TableCell>
+                    <TableCell className="text-slate-600">
+                      <div className="font-medium">{format(occurrenceDate, "EEE dd MMM")}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{getFrequencyLabel(payment)}</div>
+                      {payment.isAutoPay && (
+                        <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                          Auto
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-base">
+                      ${payment.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="text-right w-[50px] pr-6">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             onClick={() => handleMarkAsPaid(payment)}
-                          className="font-medium text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 cursor-pointer"
+                            className="font-medium text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 cursor-pointer"
                           >
-                            Marcar como Pagado
+                            Marcar como pagado
                           </DropdownMenuItem>
                           {payment.kind !== "credit-card" && (
                             <>
@@ -144,15 +146,16 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                                 }}
                                 className="cursor-pointer"
                               >
-                                Editar Gasto
+                                Editar gasto
                               </DropdownMenuItem>
                             </>
                           )}
                         </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              )})}
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -161,7 +164,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Editar Regla de Pago</DialogTitle>
+            <DialogTitle>Editar regla de pago</DialogTitle>
           </DialogHeader>
           <TemplateForm
             key={editingTemplate ? editingTemplate.id : "upcoming-template"}

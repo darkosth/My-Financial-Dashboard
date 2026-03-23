@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UpcomingCard from "@/components/dashboard/UpcomingCard";
-import { getTemplateCycleReference, getTemplateOccurrenceInInterval, isTemplatePaidForOccurrence } from "@/lib/waterfallCalculations";
+import { getCalendarEventsForDay } from "@/lib/financeEngine";
 import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
 import { markWaterfallItemAsPaid, moveWaterfallItemToNextWeek } from "@/lib/actions/templateActions";
 
@@ -28,27 +28,30 @@ const CALENDAR_WEEK_STARTS_ON = 0;
 const weekDaysHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarClient({
-  templates,
+  scheduledPayments,
   historyRecords,
   creditCardHistoryRecords,
+  carryovers,
   pendingExpenses,
   upcomingPayments,
   totalUpcomingExpenses,
+  today,
 }) {
   const router = useRouter();
-  const today = startOfDay(new Date());
-  const [currentDate, setCurrentDate] = useState(today);
+  const normalizedToday = startOfDay(new Date(today));
+  const [currentDate, setCurrentDate] = useState(normalizedToday);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [expandedDay, setExpandedDay] = useState(null);
 
   const handleMarkAsPaid = async () => {
     if (!selectedExpense) return;
+    const settlementDate = selectedExpense.sourceCycleReference ?? selectedExpense.occurrenceDate;
 
     const result =
       selectedExpense.kind === "credit-card"
-        ? await markCreditCardAsPaid(selectedExpense.templateId.replace("credit-card:", ""), selectedExpense.occurrenceDate)
-        : await markWaterfallItemAsPaid(selectedExpense.templateId, selectedExpense.occurrenceDate);
+        ? await markCreditCardAsPaid(selectedExpense.templateId.replace("credit-card:", ""), settlementDate)
+        : await markWaterfallItemAsPaid(selectedExpense.templateId, settlementDate);
 
     if (result.success) {
       setSelectedExpense(null);
@@ -56,13 +59,14 @@ export default function CalendarClient({
       return;
     }
 
-    alert("No se pudo registrar el pago.");
+    alert("Could not register the payment.");
   };
 
   const handleMoveToNextWeek = async () => {
     if (!selectedExpense || selectedExpense.kind === "credit-card") return;
+    const settlementDate = selectedExpense.sourceCycleReference ?? selectedExpense.occurrenceDate;
 
-    const result = await moveWaterfallItemToNextWeek(selectedExpense.templateId, selectedExpense.occurrenceDate);
+    const result = await moveWaterfallItemToNextWeek(selectedExpense.templateId, settlementDate);
 
     if (result.success) {
       setSelectedExpense(null);
@@ -70,7 +74,7 @@ export default function CalendarClient({
       return;
     }
 
-    alert("No se pudo mover el gasto.");
+    alert("Could not move the expense.");
   };
 
   const getCalendarGridStart = (date) => startOfWeek(startOfDay(date), { weekStartsOn: CALENDAR_WEEK_STARTS_ON });
@@ -95,69 +99,16 @@ export default function CalendarClient({
     return days;
   };
 
-  const getExpensesForDay = (targetDate) => {
-    const expenses = [];
-
-    historyRecords.forEach((record) => {
-      if (isSameDay(new Date(record.datePaid), targetDate)) {
-        const template = templates.find((item) => item.id === record.templateId);
-        expenses.push({
-          id: `history-${record.id}`,
-          name: template?.name || "Recorded payment",
-          amount: record.amountPaid,
-          isPast: true,
-        });
-      }
+  const getEventsForDay = (day) =>
+    getCalendarEventsForDay({
+      scheduledPayments,
+      historyRecords,
+      creditCardHistoryRecords,
+      carryovers,
+      pendingExpenses,
+      today: normalizedToday,
+      targetDate: day,
     });
-
-    creditCardHistoryRecords.forEach((record) => {
-      if (isSameDay(new Date(record.datePaid), targetDate)) {
-        const template = templates.find((item) => item.id === `credit-card:${record.creditCardId}`);
-        expenses.push({
-          id: `credit-card-history-${record.id}`,
-          name: template?.name || "Card payment",
-          amount: record.amountPaid,
-          isPast: true,
-        });
-      }
-    });
-
-    pendingExpenses.forEach((expense) => {
-      if (isSameDay(new Date(expense.createdAt), targetDate)) {
-        expenses.push({
-          id: `pending-${expense.id}`,
-          name: expense.description || "One-time expense",
-          amount: expense.amount,
-          isPast: true,
-        });
-      }
-    });
-
-    templates.forEach((template) => {
-      const occurrenceDate = getTemplateOccurrenceInInterval(template, { start: targetDate, end: targetDate });
-
-      if (!occurrenceDate || occurrenceDate < today) {
-        return;
-      }
-
-      if (isTemplatePaidForOccurrence(template, occurrenceDate, historyRecords, creditCardHistoryRecords)) {
-        return;
-      }
-
-      expenses.push({
-        id: `${template.id}-${occurrenceDate.toISOString()}`,
-        templateId: template.id,
-        kind: template.kind ?? "template",
-        name: template.name,
-        amount: template.amount,
-        occurrenceDate,
-        cycleReference: getTemplateCycleReference(template, occurrenceDate),
-        isPast: false,
-      });
-    });
-
-    return expenses.sort((a, b) => a.amount - b.amount);
-  };
 
   const openExpenseDetails = (expense) => {
     if (expense.isPast || !expense.templateId) return;
@@ -172,24 +123,24 @@ export default function CalendarClient({
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <CalendarIcon className="h-8 w-8 text-slate-700" />
-            Liquidity Calendar
+            Calendario de liquidez
           </h1>
-          <p className="text-muted-foreground">See actual payments and upcoming scheduled items on a Sunday to Saturday calendar.</p>
+          <p className="text-muted-foreground">
+            Revisa pagos registrados y gastos programados en un calendario de Sunday a Saturday.
+          </p>
         </div>
 
         <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
           <Button variant="ghost" size="icon" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="w-36 text-center font-semibold text-slate-700">
-            {format(currentDate, "MMMM yyyy")}
-          </div>
+          <div className="w-36 text-center font-semibold text-slate-700">{format(currentDate, "MMMM yyyy")}</div>
           <Button variant="ghost" size="icon" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
           <div className="w-px h-6 bg-slate-200 mx-1"></div>
-          <Button variant="ghost" className="text-sm font-medium" onClick={() => setCurrentDate(today)}>
-            Today
+          <Button variant="ghost" className="text-sm font-medium" onClick={() => setCurrentDate(normalizedToday)}>
+            Hoy
           </Button>
           <div className="w-px h-6 bg-slate-200 mx-1"></div>
           <Button
@@ -218,9 +169,9 @@ export default function CalendarClient({
           <div className="grid grid-cols-7 border-l border-slate-200">
             {gridDays.map((day) => {
               const isCurrentMonth = isSameMonth(day, currentDate);
-              const isToday = isSameDay(day, today);
-              const dayExpenses = getExpensesForDay(day);
-              const dailyTotal = dayExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+              const isToday = isSameDay(day, normalizedToday);
+              const dayEvents = getEventsForDay(day);
+              const dailyTotal = dayEvents.reduce((acc, curr) => acc + curr.amount, 0);
 
               return (
                 <div
@@ -242,35 +193,34 @@ export default function CalendarClient({
                   </div>
 
                   <div className="flex-1 mt-1 space-y-1 overflow-hidden">
-                    {dayExpenses.slice(0, 2).map((expense) => (
+                    {dayEvents.slice(0, 2).map((event) => (
                       <button
-                        key={expense.id}
+                        key={event.id}
                         type="button"
-                        disabled={expense.isPast || !expense.templateId}
-                        onClick={() => openExpenseDetails(expense)}
+                        disabled={event.isPast || !event.templateId}
+                        onClick={() => openExpenseDetails(event)}
                         className={`
-                          w-full text-left
-                          text-[10px] md:text-xs px-1.5 py-0.5 rounded truncate font-medium border
-                          ${expense.isPast ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-red-50 text-red-700 border-red-100"}
-                          ${expense.isPast || !expense.templateId ? "cursor-default" : "hover:bg-red-100"}
+                          w-full text-left text-[10px] md:text-xs px-1.5 py-0.5 rounded truncate font-medium border
+                          ${event.isPast ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-red-50 text-red-700 border-red-100"}
+                          ${event.isPast || !event.templateId ? "cursor-default" : "hover:bg-red-100"}
                         `}
                       >
-                        {expense.name} <span className="opacity-75 font-normal">${expense.amount}</span>
+                        {event.name} <span className="opacity-75 font-normal">${event.amount}</span>
                       </button>
                     ))}
 
-                    {dayExpenses.length > 2 && (
+                    {dayEvents.length > 2 && (
                       <button
                         type="button"
                         onClick={() =>
                           setExpandedDay({
                             date: day,
-                            expenses: dayExpenses,
+                            events: dayEvents,
                           })
                         }
                         className="text-[10px] text-blue-600 font-medium pl-1 hover:text-blue-700"
                       >
-                        + {dayExpenses.length - 2} more
+                        + {dayEvents.length - 2} más
                       </button>
                     )}
                   </div>
@@ -304,19 +254,16 @@ export default function CalendarClient({
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{selectedExpense?.name}</DialogTitle>
-            <DialogDescription>
-              Record this payment or move it to next week without marking it as paid.
-            </DialogDescription>
+            <DialogDescription>Registra este pago o muévelo a la siguiente semana sin marcarlo como pagado.</DialogDescription>
           </DialogHeader>
 
           {selectedExpense && (
             <div className="space-y-2 text-sm text-slate-600">
               <p>
-                Scheduled date:{" "}
-                <span className="font-medium text-slate-900">{format(new Date(selectedExpense.occurrenceDate), "EEE dd MMM")}</span>
+                Fecha programada: <span className="font-medium text-slate-900">{format(new Date(selectedExpense.occurrenceDate), "EEE dd MMM")}</span>
               </p>
               <p>
-                Amount:{" "}
+                Monto:{" "}
                 <span className="font-medium text-slate-900">
                   ${selectedExpense.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </span>
@@ -327,11 +274,11 @@ export default function CalendarClient({
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:items-stretch">
             {selectedExpense?.kind !== "credit-card" && (
               <Button variant="secondary" className="w-full" onClick={handleMoveToNextWeek}>
-                Move to next week
+                Mover a la siguiente semana
               </Button>
             )}
             <Button className="w-full" onClick={handleMarkAsPaid}>
-              Mark as paid
+              Marcar como pagado
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -347,31 +294,29 @@ export default function CalendarClient({
       >
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>
-              {expandedDay ? format(new Date(expandedDay.date), "EEEE dd MMM") : "Day details"}
-            </DialogTitle>
-            <DialogDescription>Review every entry for this day and open any pending item from here.</DialogDescription>
+            <DialogTitle>{expandedDay ? format(new Date(expandedDay.date), "EEEE dd MMM") : "Detalle del día"}</DialogTitle>
+            <DialogDescription>Revisa todas las entradas de este día y abre cualquier pendiente desde aquí.</DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
-            {expandedDay?.expenses.map((expense) => (
+            {expandedDay?.events.map((event) => (
               <button
-                key={expense.id}
+                key={event.id}
                 type="button"
-                disabled={expense.isPast || !expense.templateId}
+                disabled={event.isPast || !event.templateId}
                 onClick={() => {
                   setExpandedDay(null);
-                  openExpenseDetails(expense);
+                  openExpenseDetails(event);
                 }}
                 className={`w-full rounded-lg border px-3 py-2 text-left ${
-                  expense.isPast || !expense.templateId
+                  event.isPast || !event.templateId
                     ? "cursor-default border-slate-200 bg-slate-50 text-slate-600"
                     : "border-red-100 bg-red-50 text-red-700 hover:bg-red-100"
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium">{expense.name}</span>
-                  <span className="text-sm font-semibold">${expense.amount}</span>
+                  <span className="text-sm font-medium">{event.name}</span>
+                  <span className="text-sm font-semibold">${event.amount}</span>
                 </div>
               </button>
             ))}

@@ -20,6 +20,7 @@ export async function createPendingExpense(formData) {
     });
 
     revalidatePath("/");
+    revalidatePath("/calendar");
     revalidatePath("/unique-expenses");
     return { success: true };
   } catch (error) {
@@ -35,6 +36,7 @@ export async function deletePendingExpense(id) {
     });
 
     revalidatePath("/");
+    revalidatePath("/calendar");
     revalidatePath("/unique-expenses");
     return { success: true };
   } catch (error) {
@@ -48,6 +50,7 @@ export async function clearPendingExpenses() {
     await prisma.pendingExpense.deleteMany();
 
     revalidatePath("/");
+    revalidatePath("/calendar");
     revalidatePath("/unique-expenses");
     return { success: true };
   } catch (error) {
