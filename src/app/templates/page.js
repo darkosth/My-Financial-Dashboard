@@ -1,13 +1,12 @@
-import prisma from "@/lib/prisma";
+import { loadFinanceData } from "@/lib/financeData";
 import TemplatesClient from "./TemplatesClient";
 
 export default async function TemplatesPage() {
-  // 1. Buscamos TODOS tus gastos fijos reales en Neon
-  const realTemplates = await prisma.template.findMany({
-    orderBy: { createdAt: 'desc' } // Los últimos creados salen primero
-  });
+  const financeData = await loadFinanceData();
+  const realTemplates = [...financeData.templates].sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
 
-  // 2. Renderizamos la página inyectando los datos reales
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans text-slate-900">
       <TemplatesClient initialTemplates={realTemplates} />

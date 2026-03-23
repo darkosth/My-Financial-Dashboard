@@ -5,19 +5,16 @@ import Navbar from "@/components/Layout/Navbar";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "My Finance App",
-  description: "A personal finance management tool. Track your expenses, set budgets, and achieve your financial goals with ease.",
+  title: "MyFinance",
+  description: "Private household cash-flow planning with projected liquidity, recurring bills, and calendar visibility.",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body className={inter.className}>
-        
-        <Navbar /> 
-        
+        <Navbar />
         {children}
-
       </body>
     </html>
   );

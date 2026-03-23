@@ -3,9 +3,10 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_WEEKLY_INCOME } from "@/lib/financeEngine";
+import { getCurrentUserContext } from "@/lib/workspaceContext";
 
 const revalidateFinanceViews = () => {
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   revalidatePath("/calendar");
 };
 
@@ -17,14 +18,24 @@ export async function updateAppSettings(formData) {
   }
 
   try {
-    await prisma.appSettings.upsert({
-      where: { id: 1 },
-      update: { weeklyIncome },
-      create: {
-        id: 1,
-        weeklyIncome,
-      },
+    const { activeWorkspace } = await getCurrentUserContext();
+    const existingSettings = await prisma.appSettings.findFirst({
+      where: { workspaceId: activeWorkspace.id },
     });
+
+    if (existingSettings) {
+      await prisma.appSettings.update({
+        where: { id: existingSettings.id },
+        data: { weeklyIncome },
+      });
+    } else {
+      await prisma.appSettings.create({
+        data: {
+          workspaceId: activeWorkspace.id,
+          weeklyIncome,
+        },
+      });
+    }
 
     revalidateFinanceViews();
     return { success: true };
@@ -35,10 +46,16 @@ export async function updateAppSettings(formData) {
 }
 
 export async function getAppSettings() {
-  const appSettings = await prisma.appSettings.findUnique({ where: { id: 1 } });
+  const { activeWorkspace } = await getCurrentUserContext();
+  const appSettings = prisma.appSettings?.findFirst
+    ? await prisma.appSettings.findFirst({
+        where: { workspaceId: activeWorkspace.id },
+      })
+    : null;
 
   return appSettings ?? {
     id: 1,
+    workspaceId: activeWorkspace.id,
     weeklyIncome: DEFAULT_WEEKLY_INCOME,
   };
 }

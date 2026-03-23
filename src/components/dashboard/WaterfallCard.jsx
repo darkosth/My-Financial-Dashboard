@@ -123,13 +123,17 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                             {data.title}
                           </h3>
                         </div>
-                        {data.weekNumber !== 1 && (
-                          <div className="flex justify-end">
+                        <div className="flex min-h-7 justify-end">
+                          {data.weekNumber !== 1 ? (
                             <Badge variant="outline" className="shrink-0 text-xs text-blue-600 border-blue-100 bg-blue-50">
                               +${standardWeeklyIncome.toLocaleString("en-US")} Ingreso
                             </Badge>
-                          </div>
-                        )}
+                          ) : (
+                            <Badge variant="outline" className="invisible shrink-0 text-xs">
+                              +${standardWeeklyIncome.toLocaleString("en-US")} Ingreso
+                            </Badge>
+                          )}
+                        </div>
                       </div>
 
                       <div

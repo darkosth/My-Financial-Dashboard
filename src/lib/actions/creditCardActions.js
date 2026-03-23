@@ -3,9 +3,10 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getNextTemplateOccurrence, getTemplateCycleReference } from "@/lib/waterfallCalculations";
+import { getCurrentUserContext } from "@/lib/workspaceContext";
 
 const revalidateFinanceViews = () => {
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   revalidatePath("/calendar");
 };
 
@@ -19,8 +20,9 @@ export async function createCreditCard(formData) {
   const dueDate = parseInt(formData.get("dueDate"));
 
   try {
+    const { activeWorkspace } = await getCurrentUserContext();
     await prisma.creditCard.create({
-      data: { name, balance, creditLimit, minimumPayment, dueDate },
+      data: { name, balance, creditLimit, minimumPayment, dueDate, workspaceId: activeWorkspace.id },
     });
     revalidateFinanceViews();
     return { success: true };
@@ -39,8 +41,17 @@ export async function updateCreditCard(id, formData) {
   const dueDate = parseInt(formData.get("dueDate"));
 
   try {
+    const { activeWorkspace } = await getCurrentUserContext();
+    const creditCard = await prisma.creditCard.findFirst({
+      where: { id, workspaceId: activeWorkspace.id },
+    });
+
+    if (!creditCard) {
+      throw new Error("Credit card not found");
+    }
+
     await prisma.creditCard.update({
-      where: { id: id },
+      where: { id: creditCard.id },
       data: { name, balance, creditLimit, minimumPayment, dueDate },
     });
     revalidateFinanceViews();
@@ -54,8 +65,17 @@ export async function updateCreditCard(id, formData) {
 // 3. ELIMINAR
 export async function deleteCreditCard(id) {
   try {
+    const { activeWorkspace } = await getCurrentUserContext();
+    const creditCard = await prisma.creditCard.findFirst({
+      where: { id, workspaceId: activeWorkspace.id },
+    });
+
+    if (!creditCard) {
+      throw new Error("Credit card not found");
+    }
+
     await prisma.creditCard.delete({
-      where: { id: id },
+      where: { id: creditCard.id },
     });
     revalidateFinanceViews();
     return { success: true };
@@ -67,8 +87,9 @@ export async function deleteCreditCard(id) {
 
 export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = null) {
   try {
-    const creditCard = await prisma.creditCard.findUnique({
-      where: { id: creditCardId },
+    const { activeWorkspace } = await getCurrentUserContext();
+    const creditCard = await prisma.creditCard.findFirst({
+      where: { id: creditCardId, workspaceId: activeWorkspace.id },
     });
 
     if (!creditCard) {
@@ -93,6 +114,7 @@ export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = n
     const previousPayments = await prisma.creditCardPaymentHistory.findMany({
       where: {
         creditCardId,
+        workspaceId: activeWorkspace.id,
         cycleReference,
       },
     });
@@ -108,6 +130,7 @@ export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = n
       data: {
         creditCardId,
         amountPaid: pendingAmount,
+        workspaceId: activeWorkspace.id,
         cycleReference,
         datePaid: new Date(),
       },

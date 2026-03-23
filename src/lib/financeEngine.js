@@ -38,6 +38,7 @@ export const getScheduledPayments = ({ templates = [], creditCards = [] }) => [
 
 export const buildFinanceSnapshot = (data, todayInput = new Date()) => {
   const today = startOfDay(todayInput);
+  const context = data.context ?? null;
   const accounts = data.accounts ?? [];
   const creditCards = data.creditCards ?? [];
   const templates = data.templates ?? [];
@@ -81,6 +82,7 @@ export const buildFinanceSnapshot = (data, todayInput = new Date()) => {
   const finalRemainingS4 = waterfallData[3]?.restante ?? totalLiquidity;
 
   return {
+    context,
     today,
     appSettings,
     scheduledPayments,

@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getCurrentUserContext } from "@/lib/workspaceContext";
 
 export async function createPendingExpense(formData) {
   const amount = parseFloat(formData.get("amount"));
@@ -12,14 +13,16 @@ export async function createPendingExpense(formData) {
   }
 
   try {
+    const { activeWorkspace } = await getCurrentUserContext();
     await prisma.pendingExpense.create({
       data: {
         amount,
         description,
+        workspaceId: activeWorkspace.id,
       },
     });
 
-    revalidatePath("/");
+    revalidatePath("/dashboard");
     revalidatePath("/calendar");
     revalidatePath("/unique-expenses");
     return { success: true };
@@ -31,11 +34,20 @@ export async function createPendingExpense(formData) {
 
 export async function deletePendingExpense(id) {
   try {
-    await prisma.pendingExpense.delete({
-      where: { id },
+    const { activeWorkspace } = await getCurrentUserContext();
+    const expense = await prisma.pendingExpense.findFirst({
+      where: { id, workspaceId: activeWorkspace.id },
     });
 
-    revalidatePath("/");
+    if (!expense) {
+      throw new Error("Pending expense not found");
+    }
+
+    await prisma.pendingExpense.delete({
+      where: { id: expense.id },
+    });
+
+    revalidatePath("/dashboard");
     revalidatePath("/calendar");
     revalidatePath("/unique-expenses");
     return { success: true };
@@ -47,9 +59,12 @@ export async function deletePendingExpense(id) {
 
 export async function clearPendingExpenses() {
   try {
-    await prisma.pendingExpense.deleteMany();
+    const { activeWorkspace } = await getCurrentUserContext();
+    await prisma.pendingExpense.deleteMany({
+      where: { workspaceId: activeWorkspace.id },
+    });
 
-    revalidatePath("/");
+    revalidatePath("/dashboard");
     revalidatePath("/calendar");
     revalidatePath("/unique-expenses");
     return { success: true };

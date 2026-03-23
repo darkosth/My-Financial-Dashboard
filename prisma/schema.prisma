@@ -28,10 +28,68 @@ enum Frequency {
   YEARLY
 }
 
+enum WorkspaceRole {
+  OWNER
+  MEMBER
+}
+
+model User {
+  id          String            @id @default(cuid())
+  email       String            @unique
+  name        String?
+  image       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  workspaces  WorkspaceMember[]
+  ownedSpaces Workspace[]       @relation("WorkspaceOwner")
+  preference  UserPreference?
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String            @id @default(cuid())
+  name        String
+  ownerUserId String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  owner       User              @relation("WorkspaceOwner", fields: [ownerUserId], references: [id])
+  members     WorkspaceMember[]
+  preferences UserPreference[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+  user        User          @relation(fields: [userId], references: [id])
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id])
+
+  @@unique([userId, workspaceId])
+  @@map("workspace_members")
+}
+
+model UserPreference {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  activeWorkspaceId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id])
+  activeWorkspace   Workspace? @relation(fields: [activeWorkspaceId], references: [id])
+
+  @@map("user_preferences")
+}
+
 model Account {
   id        String   @id @default(cuid())
   name      String
   balance   Float    @default(0)
+  workspaceId String?
   createdAt DateTime @default(now())
 
   @@map("accounts")
@@ -44,6 +102,7 @@ model CreditCard {
   creditLimit    Float    @default(0)
   minimumPayment Float    @default(0)
   dueDate        Int
+  workspaceId    String?
   createdAt      DateTime @default(now())
 
   @@map("credit_cards")
@@ -56,6 +115,7 @@ model Template {
   frequency  Frequency @default(MONTHLY)
   isAutoPay  Boolean   @default(false)
   category   Category
+  workspaceId String?
   createdAt  DateTime  @default(now())
   dayOfMonth Int?
   lastPaidAt DateTime?
@@ -67,6 +127,7 @@ model History {
   id             String   @id @default(cuid())
   templateId     String
   amountPaid     Float
+  workspaceId    String?
   datePaid       DateTime @default(now())
   cycleReference DateTime
   createdAt      DateTime @default(now())
@@ -78,6 +139,7 @@ model CreditCardPaymentHistory {
   id             String   @id @default(cuid())
   creditCardId   String
   amountPaid     Float
+  workspaceId    String?
   datePaid       DateTime @default(now())
   cycleReference DateTime
   createdAt      DateTime @default(now())
@@ -89,6 +151,7 @@ model PendingExpense {
   id          String   @id @default(cuid())
   description String?
   amount      Float
+  workspaceId String?
   createdAt   DateTime @default(now())
 
   @@map("pending_expenses")
@@ -100,6 +163,7 @@ model PaymentCarryover {
   originCycleReference DateTime
   targetWeekStart      DateTime
   remainingAmount      Float
+  workspaceId          String?
   createdAt            DateTime @default(now())
 
   @@unique([templateId, originCycleReference])
@@ -107,7 +171,8 @@ model PaymentCarryover {
 }
 
 model AppSettings {
-  id           Int      @id
+  id           Int      @id @default(autoincrement())
+  workspaceId  String?  @unique
   weeklyIncome Float    @default(1000)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

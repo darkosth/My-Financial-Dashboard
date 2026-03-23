@@ -8,9 +8,10 @@ import {
   getProjectionWeekStart,
   getTemplateCycleReference,
 } from "@/lib/waterfallCalculations";
+import { getCurrentUserContext } from "@/lib/workspaceContext";
 
 const revalidateFinanceViews = () => {
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   revalidatePath("/templates");
   revalidatePath("/calendar");
 };
@@ -21,8 +22,9 @@ const normalizeAmount = (value) => {
 };
 
 async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid, moveRemainingToNextWeek = false }) {
-  const template = await prisma.template.findUnique({
-    where: { id: templateId },
+  const { activeWorkspace } = await getCurrentUserContext();
+  const template = await prisma.template.findFirst({
+    where: { id: templateId, workspaceId: activeWorkspace.id },
   });
 
   if (!template) {
@@ -33,6 +35,7 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
   const alreadyPaid = await prisma.history.findMany({
     where: {
       templateId,
+      workspaceId: activeWorkspace.id,
       cycleReference,
     },
   });
@@ -47,6 +50,7 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
       data: {
         templateId: template.id,
         amountPaid: safeAmountPaid,
+        workspaceId: activeWorkspace.id,
         cycleReference,
         datePaid: new Date(),
       },
@@ -63,10 +67,12 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
       },
       update: {
         remainingAmount: remainingAfterPayment,
+        workspaceId: activeWorkspace.id,
         targetWeekStart: addDays(getProjectionWeekStart(occurrenceDate), 7),
       },
       create: {
         templateId: template.id,
+        workspaceId: activeWorkspace.id,
         originCycleReference: cycleReference,
         targetWeekStart: addDays(getProjectionWeekStart(occurrenceDate), 7),
         remainingAmount: remainingAfterPayment,
@@ -76,6 +82,7 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
     await prisma.paymentCarryover.deleteMany({
       where: {
         templateId: template.id,
+        workspaceId: activeWorkspace.id,
         originCycleReference: cycleReference,
       },
     });
@@ -108,6 +115,7 @@ export async function createTemplate(formData) {
   }
 
   try {
+    const { activeWorkspace } = await getCurrentUserContext();
     await prisma.template.create({
       data: {
         name,
@@ -115,13 +123,13 @@ export async function createTemplate(formData) {
         frequency,
         category,
         isAutoPay,
+        workspaceId: activeWorkspace.id,
         dayOfMonth,
         lastPaidAt,
       },
     });
 
-    revalidatePath("/templates");
-    revalidatePath("/calendar");
+    revalidateFinanceViews();
     return { success: true };
   } catch (error) {
     console.error("Error saving template to database:", error);
@@ -131,13 +139,21 @@ export async function createTemplate(formData) {
 
 export async function deleteTemplate(id) {
   try {
+    const { activeWorkspace } = await getCurrentUserContext();
+    const template = await prisma.template.findFirst({
+      where: { id, workspaceId: activeWorkspace.id },
+    });
+
+    if (!template) {
+      throw new Error("Template not found");
+    }
+
     await prisma.template.delete({
       where: {
-        id,
+        id: template.id,
       },
     });
-    revalidatePath("/templates");
-    revalidatePath("/calendar");
+    revalidateFinanceViews();
     return { success: true };
   } catch (error) {
     console.error("Error deleting template:", error);
@@ -159,8 +175,17 @@ export async function updateTemplate(id, formData) {
   }
 
   try {
+    const { activeWorkspace } = await getCurrentUserContext();
+    const template = await prisma.template.findFirst({
+      where: { id, workspaceId: activeWorkspace.id },
+    });
+
+    if (!template) {
+      throw new Error("Template not found");
+    }
+
     await prisma.template.update({
-      where: { id },
+      where: { id: template.id },
       data: {
         name,
         amount,
@@ -172,8 +197,7 @@ export async function updateTemplate(id, formData) {
       },
     });
 
-    revalidatePath("/templates");
-    revalidatePath("/calendar");
+    revalidateFinanceViews();
     return { success: true };
   } catch (error) {
     console.error("Error updating template:", error);
@@ -183,7 +207,8 @@ export async function updateTemplate(id, formData) {
 
 export async function markAsPaid(id) {
   try {
-    const template = await prisma.template.findUnique({ where: { id } });
+    const { activeWorkspace } = await getCurrentUserContext();
+    const template = await prisma.template.findFirst({ where: { id, workspaceId: activeWorkspace.id } });
     if (!template) {
       throw new Error("Gasto no encontrado");
     }
@@ -196,6 +221,7 @@ export async function markAsPaid(id) {
     const alreadyPaid = await prisma.history.findMany({
       where: {
         templateId: id,
+        workspaceId: activeWorkspace.id,
         cycleReference: getTemplateCycleReference(template, occurrenceDate),
       },
     });
@@ -216,7 +242,8 @@ export async function markAsPaid(id) {
 
 export async function markWaterfallItemAsPaid(templateId, occurrenceDate) {
   try {
-    const template = await prisma.template.findUnique({ where: { id: templateId } });
+    const { activeWorkspace } = await getCurrentUserContext();
+    const template = await prisma.template.findFirst({ where: { id: templateId, workspaceId: activeWorkspace.id } });
     if (!template) {
       throw new Error("Gasto no encontrado");
     }
@@ -224,6 +251,7 @@ export async function markWaterfallItemAsPaid(templateId, occurrenceDate) {
     const alreadyPaid = await prisma.history.findMany({
       where: {
         templateId,
+        workspaceId: activeWorkspace.id,
         cycleReference: getTemplateCycleReference(template, occurrenceDate),
       },
     });
