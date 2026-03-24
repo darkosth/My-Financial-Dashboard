@@ -73,19 +73,19 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
               Próximos pagos
             </CardTitle>
           </div>
-          <p className="text-2xl font-bold text-slate-700">
+          <p className="text-2xl font-bold text-slate-700 truncate">
             ${totalUpcomingExpenses.toLocaleString("en-US", { minimumFractionDigits: 2 })}{" "}
-            <span className="text-sm font-normal text-muted-foreground">/ próximas 2 semanas</span>
+            <span className="text-sm font-normal text-muted-foreground hidden sm:inline">/ próximas 2 semanas</span>
           </p>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-6">Gasto</TableHead>
-                <TableHead>Próximo cobro</TableHead>
-                <TableHead className="text-right">Monto</TableHead>
-                <TableHead className="w-[50px] pr-6"></TableHead>
+                <TableHead className="pl-4 sm:pl-6 w-[50%] sm:w-auto">Gasto</TableHead>
+                <TableHead className="hidden sm:table-cell">Próximo cobro</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Monto</TableHead>
+                <TableHead className="w-[40px] sm:w-[50px] pr-4 sm:pr-6"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -101,23 +101,48 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                 const occurrenceDate = new Date(payment.occurrenceDate);
                 return (
                   <TableRow key={`${payment.id}-${occurrenceDate.toISOString()}`} className="hover:bg-slate-100/50">
-                    <TableCell className="pl-6">
-                      <div className="font-medium text-base">{payment.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{payment.category}</div>
+                    <TableCell className="pl-4 sm:pl-6 max-w-[140px] sm:max-w-none">
+                      <div className="font-medium text-base truncate" title={payment.name}>
+                        {payment.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 truncate">
+                        {payment.category}
+                      </div>
+                      <div className="block sm:hidden mt-2 pt-2 border-t border-slate-100">
+                        <div className="font-medium text-slate-700 text-xs">
+                          {format(occurrenceDate, "EEE dd MMM")}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                          {getFrequencyLabel(payment)}
+                          {payment.isAutoPay && (
+                            <span className="text-[9px] text-blue-600 bg-blue-50 px-1 rounded border border-blue-200">
+                              Auto
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-slate-600">
+
+                    {/* COLUMNA 2: FECHA (SOLO DESKTOP) */}
+                    <TableCell className="hidden sm:table-cell text-slate-600">
                       <div className="font-medium">{format(occurrenceDate, "EEE dd MMM")}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{getFrequencyLabel(payment)}</div>
-                      {payment.isAutoPay && (
-                        <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                          Auto
-                        </span>
-                      )}
+                      <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                        {getFrequencyLabel(payment)}
+                        {payment.isAutoPay && (
+                          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                            Auto
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell className="text-right font-semibold text-base">
+
+                    {/* COLUMNA 3: MONTO */}
+                    <TableCell className="text-right font-semibold text-base whitespace-nowrap">
                       ${payment.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell className="text-right w-[50px] pr-6">
+
+                    {/* COLUMNA 4: ACCIONES */}
+                    <TableCell className="text-right w-[40px] sm:w-[50px] pr-4 sm:pr-6">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="h-8 w-8 p-0">
