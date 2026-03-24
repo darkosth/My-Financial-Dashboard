@@ -13,13 +13,6 @@ import TemplateForm from "@/components/forms/TemplateForm";
 import { markWaterfallItemAsPaid, moveWaterfallItemToNextWeek, updateTemplate } from "@/lib/actions/templateActions";
 import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
 
-const getFrequencyLabel = (payment) => {
-  if (payment.isCarryover) return "Saldo movido";
-  if (payment.frequency === "MONTHLY") return `Día ${payment.dayOfMonth}`;
-  if (payment.frequency === "WEEKLY") return "Cada semana";
-  return "Cada 2 semanas";
-};
-
 export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -101,19 +94,19 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                 const occurrenceDate = new Date(payment.occurrenceDate);
                 return (
                   <TableRow key={`${payment.id}-${occurrenceDate.toISOString()}`} className="hover:bg-slate-100/50">
+                    
+                    {/* COLUMNA 1: GASTO */}
                     <TableCell className="pl-4 sm:pl-6 max-w-[140px] sm:max-w-none">
                       <div className="font-medium text-base truncate" title={payment.name}>
                         {payment.name}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1 truncate">
-                        {payment.category}
-                      </div>
-                      <div className="block sm:hidden mt-2 pt-2 border-t border-slate-100">
-                        <div className="font-medium text-slate-700 text-xs">
-                          {format(occurrenceDate, "EEE dd MMM")}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                          {getFrequencyLabel(payment)}
+                      
+                      {/* INFO FUSIONADA (MÓVIL): Solo fecha y AutoPay */}
+                      <div className="block sm:hidden mt-1 pt-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-slate-600 text-xs">
+                            {format(occurrenceDate, "EEE dd MMM")}
+                          </span>
                           {payment.isAutoPay && (
                             <span className="text-[9px] text-blue-600 bg-blue-50 px-1 rounded border border-blue-200">
                               Auto
@@ -123,11 +116,10 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                       </div>
                     </TableCell>
 
-                    {/* COLUMNA 2: FECHA (SOLO DESKTOP) */}
+                    {/* COLUMNA 2: FECHA (DESKTOP) */}
                     <TableCell className="hidden sm:table-cell text-slate-600">
-                      <div className="font-medium">{format(occurrenceDate, "EEE dd MMM")}</div>
-                      <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                        {getFrequencyLabel(payment)}
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{format(occurrenceDate, "EEE dd MMM")}</span>
                         {payment.isAutoPay && (
                           <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
                             Auto
