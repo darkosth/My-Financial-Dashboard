@@ -60,7 +60,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
             <AccordionTrigger className="px-6 py-5 hover:no-underline hover:bg-slate-50 transition-all">
               <div className="flex justify-between items-center w-full pr-4">
                 <h2 className="text-xl font-semibold text-slate-900">Tarjetas de Crédito</h2>
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-2xl font-bold text-red-600 whitespace-nowrap">
                   -${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </p>
               </div>
