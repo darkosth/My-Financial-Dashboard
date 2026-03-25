@@ -56,6 +56,7 @@ model Workspace {
   owner       User              @relation("WorkspaceOwner", fields: [ownerUserId], references: [id])
   members     WorkspaceMember[]
   preferences UserPreference[]
+  invites     WorkspaceInvite[]
 
   @@map("workspaces")
 }
@@ -178,4 +179,17 @@ model AppSettings {
   updatedAt    DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+model WorkspaceInvite {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  workspaceId String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime? // Opcional: por si quieres que el link caduque en 7 días
+  active      Boolean   @default(true)
+  
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_invites")
 }

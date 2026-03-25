@@ -8,6 +8,7 @@ import WaterfallCard from "@/components/dashboard/WaterfallCard";
 
 export default async function DashboardPage() {
   const [session, snapshot] = await Promise.all([auth(), loadFinanceSnapshot()]);
+  
   const userDisplayName =
     session?.user?.name?.trim() ||
     session?.user?.email?.trim() ||

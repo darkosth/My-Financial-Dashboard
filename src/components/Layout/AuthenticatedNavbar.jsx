@@ -10,9 +10,9 @@ import {
   Menu,
   ReceiptText,
   Settings2,
+  Settings, // Nuevo ícono para la página de Settings
   Wallet,
   LogOut,
-  DollarSign,
   PlusCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createPendingExpense } from "@/lib/actions/pendingExpenseActions";
-import { updateAppSettings } from "@/lib/actions/settingsActions";
 
 const navLinks = [
   {
@@ -55,13 +54,11 @@ const getLinkClassName = (isActive) =>
     isActive ? "bg-emerald-50 text-emerald-700" : "text-slate-600 hover:bg-slate-100 hover:text-emerald-700"
   }`;
 
-export default function AuthenticatedNavbar({ userName, workspaceName, weeklyIncome, hasAccounts }) {
+export default function AuthenticatedNavbar({ userName, workspaceName, hasAccounts }) {
   const pathname = usePathname();
   const router = useRouter();
   const expenseFormRef = useRef(null);
-  const settingsFormRef = useRef(null);
   const [isExpenseOpen, setIsExpenseOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleExpenseSubmit = async (formData) => {
     const result = await createPendingExpense(formData);
@@ -72,18 +69,6 @@ export default function AuthenticatedNavbar({ userName, workspaceName, weeklyInc
       router.refresh();
     } else {
       alert("There was an error registering the one-time expense.");
-    }
-  };
-
-  const handleSettingsSubmit = async (formData) => {
-    const result = await updateAppSettings(formData);
-
-    if (result.success) {
-      settingsFormRef.current?.reset();
-      setIsSettingsOpen(false);
-      router.refresh();
-    } else {
-      alert("There was an error updating the settings.");
     }
   };
 
@@ -151,6 +136,16 @@ export default function AuthenticatedNavbar({ userName, workspaceName, weeklyInc
                   <DropdownMenuSeparator />
                 </div>
 
+                {/* ENLACE AL CENTRO DE MANDO (SETTINGS) */}
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="flex items-center gap-2 font-medium text-slate-900">
+                    <Settings className="h-4 w-4" />
+                    <span>Workspace Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
                 <DropdownMenuItem asChild>
                   <Link href="/templates" className="flex items-center gap-2">
                     <Settings2 className="h-4 w-4" />
@@ -167,65 +162,22 @@ export default function AuthenticatedNavbar({ userName, workspaceName, weeklyInc
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem onSelect={() => setIsSettingsOpen(true)}>
-                  <DollarSign className="h-4 w-4" />
-                  <span>Editar ingreso semanal</span>
-                </DropdownMenuItem>
-
                 <DropdownMenuItem onSelect={() => setIsExpenseOpen(true)}>
-                  <PlusCircle className="h-4 w-4" />
-                  <span>Registrar gasto unico</span>
+                  <PlusCircle className="h-4 w-4 text-emerald-600" />
+                  <span className="text-emerald-600 font-medium">Registrar gasto único</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
 
                 <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
                   <LogOut className="h-4 w-4" />
-                  <span>Cerrar sesion</span>
+                  <span>Cerrar sesión</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
       </nav>
-
-      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Ajustes de proyeccion</DialogTitle>
-            <DialogDescription>
-              Actualiza el ingreso semanal usado por el waterfall y las tarjetas de proyeccion.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form action={handleSettingsSubmit} ref={settingsFormRef} className="grid gap-5 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="weeklyIncome" className="text-slate-700">
-                Ingreso semanal
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-slate-500">$</span>
-                <Input
-                  id="weeklyIncome"
-                  name="weeklyIncome"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  defaultValue={weeklyIncome}
-                  className="pl-7 text-lg font-semibold"
-                  required
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="submit" className="w-full">
-                Guardar ajustes
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={isExpenseOpen} onOpenChange={setIsExpenseOpen}>
         <DialogContent className="sm:max-w-[425px]">

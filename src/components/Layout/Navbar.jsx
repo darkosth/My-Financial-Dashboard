@@ -3,7 +3,6 @@ import { CalendarIcon, LayoutDashboard, Wallet } from "lucide-react";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
-import { DEFAULT_WEEKLY_INCOME } from "@/lib/financeEngine";
 import AuthenticatedNavbar from "@/components/Layout/AuthenticatedNavbar";
 import GoogleSignInButton from "@/components/Layout/GoogleSignInButton";
 
@@ -46,14 +45,11 @@ export default async function Navbar() {
   }
 
   const context = await getCurrentUserContext();
-  const [appSettings, accountCount] = await Promise.all([
-    prisma.appSettings.findFirst({
-      where: { workspaceId: context.activeWorkspace.id },
-    }),
-    prisma.account.count({
-      where: { workspaceId: context.activeWorkspace.id },
-    }),
-  ]);
+  
+  // Ahora solo consultamos si tiene cuentas, ya no consultamos los settings aquí
+  const accountCount = await prisma.account.count({
+    where: { workspaceId: context.activeWorkspace.id },
+  });
 
   const userName =
     session?.user?.name?.trim() ||
@@ -66,7 +62,6 @@ export default async function Navbar() {
     <AuthenticatedNavbar
       userName={userName}
       workspaceName={context.activeWorkspace.name}
-      weeklyIncome={appSettings?.weeklyIncome ?? DEFAULT_WEEKLY_INCOME}
       hasAccounts={accountCount > 0}
     />
   );

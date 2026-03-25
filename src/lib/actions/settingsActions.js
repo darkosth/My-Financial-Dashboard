@@ -8,7 +8,12 @@ import { getCurrentUserContext } from "@/lib/workspaceContext";
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
   revalidatePath("/calendar");
+  revalidatePath("/settings"); // Agregamos la nueva ruta para que se refresque al guardar
 };
+
+// ==========================================
+// FUNCIONES ORIGINALES (INTACTAS)
+// ==========================================
 
 export async function updateAppSettings(formData) {
   const weeklyIncome = Number.parseFloat(formData.get("weeklyIncome"));
@@ -58,4 +63,42 @@ export async function getAppSettings() {
     workspaceId: activeWorkspace.id,
     weeklyIncome: DEFAULT_WEEKLY_INCOME,
   };
+}
+
+// ==========================================
+// NUEVA FUNCIÓN PARA LA PÁGINA SETTINGS
+// ==========================================
+
+export async function updateWeeklyIncome(workspaceId, newIncome) {
+  const weeklyIncome = Number.parseFloat(newIncome);
+
+  if (!Number.isFinite(weeklyIncome) || weeklyIncome < 0) {
+    return { success: false, error: "Invalid weekly income" };
+  }
+
+  try {
+    const existingSettings = await prisma.appSettings.findFirst({
+      where: { workspaceId: workspaceId },
+    });
+
+    if (existingSettings) {
+      await prisma.appSettings.update({
+        where: { id: existingSettings.id },
+        data: { weeklyIncome },
+      });
+    } else {
+      await prisma.appSettings.create({
+        data: {
+          workspaceId: workspaceId,
+          weeklyIncome,
+        },
+      });
+    }
+
+    revalidateFinanceViews();
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating weekly income:", error);
+    return { success: false, error: "Failed to update income" };
+  }
 }
