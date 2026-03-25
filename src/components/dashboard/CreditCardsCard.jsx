@@ -7,22 +7,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, Plus } from "lucide-react";
 
-// Importamos el Modal y los Inputs
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
-// Importamos el motor del servidor
 import { createCreditCard, updateCreditCard, deleteCreditCard } from "@/lib/actions/creditCardActions";
 
 export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAvailableCredit, totalDebt }) {
-  
-  // LA MEMORIA DEL COMPONENTE
   const [isOpen, setIsOpen] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
   const formRef = useRef(null);
 
-  // EL CEREBRO DE GUARDADO (Dos Caras)
   const handleSubmit = async (formData) => {
     let result;
     
@@ -41,7 +36,6 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
     }
   };
 
-  // EL CEREBRO DE BORRADO
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this credit card?")) {
       const result = await deleteCreditCard(id);
@@ -50,6 +44,9 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
       }
     }
   };
+
+  // Calculamos el total de los pagos mínimos para el Footer
+  const totalMinimumPayment = creditCards.reduce((sum, card) => sum + (card.minimumPayment || 0), 0);
 
   return (
     <section>
@@ -72,18 +69,16 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                   <TableHeader>
                     <TableRow>
                       <TableHead>Tarjeta</TableHead>
-                      <TableHead className="text-right">Límite</TableHead>
                       <TableHead className="text-right">Disponible</TableHead>
-                      <TableHead className="text-right">Deuda</TableHead>
+                      <TableHead className="text-right">Pago Mínimo</TableHead>
                       <TableHead className="w-[50px]"></TableHead> 
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     
-                    {/* Verificamos si no hay tarjetas */}
                     {creditCards.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-slate-500 py-4">
+                        <TableCell colSpan={4} className="text-center text-slate-500 py-4">
                           No tienes tarjetas de crédito registradas.
                         </TableCell>
                       </TableRow>
@@ -99,15 +94,15 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                               <span className="text-xs text-muted-foreground font-normal">Due {card.dueDate}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            ${card.creditLimit.toLocaleString("en-US", { minimumFractionDigits: 0 })}
-                          </TableCell>
+                          
                           <TableCell className="text-right text-emerald-600 font-medium">
                             ${availableCredit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </TableCell>
-                          <TableCell className="text-right font-semibold text-base">
-                            ${card.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          
+                          <TableCell className="text-right text-amber-600 font-semibold">
+                            ${(card.minimumPayment || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </TableCell>
+                          
                           <TableCell className="text-right w-[50px]">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -116,7 +111,6 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                {/* BOTÓN DE EDITAR */}
                                 <DropdownMenuItem 
                                   onClick={() => {
                                     setEditingCard(card);
@@ -126,7 +120,6 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                                 >
                                   Edit Card
                                 </DropdownMenuItem>
-                                {/* BOTÓN DE ELIMINAR */}
                                 <DropdownMenuItem 
                                   onClick={() => handleDelete(card.id)}
                                   className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
@@ -140,25 +133,24 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       );
                     })}
                   </TableBody>
+                  
+                  {/* FOOTER ACTUALIZADO */}
                   <TableFooter className="bg-slate-50 font-semibold">
                     <TableRow>
                       <TableCell>Totales</TableCell>
-                      <TableCell className="text-right text-slate-600">
-                        ${totalCreditLimit.toLocaleString("en-US", { minimumFractionDigits: 0 })}
-                      </TableCell>
                       <TableCell className="text-right text-emerald-600">
                         ${totalAvailableCredit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell className="text-right text-red-600">
-                        ${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      <TableCell className="text-right text-amber-600">
+                        ${totalMinimumPayment.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell></TableCell>
                     </TableRow>
                   </TableFooter>
                 </Table>
               </div>
+              
               <div className="px-6 pb-4 pt-2">
-                {/* BOTÓN DE CREAR NUEVA TARJETA */}
                 <Button 
                   variant="ghost" 
                   onClick={() => {
@@ -175,8 +167,13 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
         </Accordion>
       </Card>
 
-      {/* EL MODAL INVISIBLE (Solo aparece cuando isOpen es true) */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog 
+        open={isOpen} 
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) setEditingCard(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{editingCard ? "Edit Credit Card" : "Add New Credit Card"}</DialogTitle>
@@ -187,30 +184,84 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
           
           <form action={handleSubmit} ref={formRef} className="grid gap-4 py-4">
             
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre de la Tarjeta</Label>
-              <Input id="name" name="name" defaultValue={editingCard?.name} placeholder="Ej: Chase Freedom, Amex..." required />
+            <div className="grid gap-2 text-center">
+              {editingCard ? (
+                <div className="mb-2 space-y-1">
+                  <Label className="block w-full text-center uppercase tracking-wider text-slate-500">
+                    Tarjeta a actualizar
+                  </Label>
+                  <p className="text-lg font-bold text-slate-900 uppercase tracking-wider">
+                    {editingCard.name}
+                  </p>
+                  <input type="hidden" name="name" value={editingCard.name} />
+                </div>
+              ) : (
+                <div className="space-y-2 text-left">
+                  <Label htmlFor="name">Nombre de la Tarjeta</Label>
+                  <Input id="name" name="name" placeholder="Ej: Chase Freedom, Amex..." required />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="balance">Deuda Actual ($)</Label>
-                <Input id="balance" name="balance" type="number" step="0.01" defaultValue={editingCard?.balance} placeholder="0.00" required />
+                <Input 
+                  id="balance" 
+                  name="balance" 
+                  type="number" 
+                  step="0.01" 
+                  inputMode="decimal"
+                  defaultValue={editingCard?.balance} 
+                  placeholder="0.00" 
+                  required 
+                  onFocus={(e) => e.target.select()}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="creditLimit">Límite Total ($)</Label>
-                <Input id="creditLimit" name="creditLimit" type="number" step="0.01" defaultValue={editingCard?.creditLimit} placeholder="0.00" required />
+                <Input 
+                  id="creditLimit" 
+                  name="creditLimit" 
+                  type="number" 
+                  step="0.01" 
+                  inputMode="decimal"
+                  defaultValue={editingCard?.creditLimit} 
+                  placeholder="0.00" 
+                  required 
+                  onFocus={(e) => e.target.select()}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="minimumPayment">Pago Mín. ($) <span className="text-xs font-normal text-muted-foreground">(Opcional)</span></Label>
-                <Input id="minimumPayment" name="minimumPayment" type="number" step="0.01" defaultValue={editingCard?.minimumPayment} placeholder="Ej: 35.00" />
+                <Label htmlFor="minimumPayment">Pago Mín. ($)</Label>
+                <Input 
+                  id="minimumPayment" 
+                  name="minimumPayment" 
+                  type="number" 
+                  step="0.01" 
+                  inputMode="decimal"
+                  defaultValue={editingCard?.minimumPayment} 
+                  placeholder="0.00" 
+                  onFocus={(e) => e.target.select()}
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dueDate">Día de Corte (1-31)</Label>
-                <Input id="dueDate" name="dueDate" type="number" min="1" max="31" defaultValue={editingCard?.dueDate} placeholder="Ej: 15" required />
+                <Label htmlFor="dueDate">Día de Corte</Label>
+                <Input 
+                  id="dueDate" 
+                  name="dueDate" 
+                  type="number" 
+                  inputMode="numeric"
+                  min="1" 
+                  max="31" 
+                  defaultValue={editingCard?.dueDate} 
+                  placeholder="Ej: 15" 
+                  required 
+                  onFocus={(e) => e.target.select()}
+                />
               </div>
             </div>
 
