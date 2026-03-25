@@ -57,10 +57,14 @@ export default function AccountsCard({ accounts, totalLiquidity, totalAccountBal
                   )}
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-emerald-600">
+                  <p className="text-3xl font-black text-emerald-600 tabular-nums">
                     ${totalLiquidity.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </p>
-                  {pendingExpensesTotal > 0 && <p className="text-xs text-slate-500">Liquidez real ajustada</p>}
+                  {pendingExpensesTotal > 0 && (
+                    <p className="text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full inline-block mt-1">
+                      Ajustado por gastos únicos
+                    </p>
+                  )}
                 </div>
               </div>
             </AccordionTrigger>
@@ -132,39 +136,72 @@ export default function AccountsCard({ accounts, totalLiquidity, totalAccountBal
         </Accordion>
       </Card>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog 
+        open={isOpen} 
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) setEditingAccount(null); // Limpiamos el estado al cerrar el modal
+        }}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>{editingAccount ? "Editar cuenta" : "Agregar cuenta"}</DialogTitle>
-            <DialogDescription>Registra el dinero disponible que tienes actualmente en tu banco o en efectivo.</DialogDescription>
+            <DialogTitle>{editingAccount ? "Actualizar balance" : "Agregar cuenta"}</DialogTitle>
+            <DialogDescription>
+              {editingAccount 
+                ? "Actualiza el dinero disponible que tienes actualmente en esta cuenta."
+                : "Registra el dinero disponible que tienes actualmente en tu banco o en efectivo."}
+            </DialogDescription>
           </DialogHeader>
 
           <form action={handleSubmit} ref={formRef} className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Nombre de la cuenta</Label>
-              <Input
-                id="name"
-                name="name"
-                defaultValue={editingAccount?.name}
-                placeholder="Ej: Chase Checking, Efectivo..."
-                required
-              />
+              {editingAccount ? (
+
+                <div className="mb-2 space-y-1 text-center">
+                  <p className="text-lg font-semibold text-slate-900 uppercase tracking-wider" >
+                    {editingAccount.name}
+                  </p>
+                  <input type="hidden" name="name" value={editingAccount.name} />
+                </div>
+              ) : (
+                // Modo Creación: Input normal
+                <>
+                  <Label htmlFor="name">Nombre de la cuenta</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="Ej: Chase Checking, Efectivo..."
+                    required
+                  />
+                </>
+              )}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="balance">Balance actual ($)</Label>
+            
+            <div className="grid gap-2 text-center">
+              <Label 
+                htmlFor="balance" 
+                className="block w-full text-center uppercase tracking-wider text-slate-500"
+              >
+                Balance Actual ($)
+              </Label>
               <Input
                 id="balance"
                 name="balance"
                 type="number"
                 step="0.01"
+                inputMode="decimal"
+                className="text-center text-xl font-bold"
                 defaultValue={editingAccount?.balance}
                 placeholder="0.00"
                 required
+                autoFocus={!!editingAccount}
+                onFocus={(e) => e.target.select()}
               />
             </div>
+            
             <DialogFooter className="mt-4">
               <Button type="submit" className="w-full">
-                {editingAccount ? "Actualizar cuenta" : "Guardar cuenta"}
+                {editingAccount ? "Actualizar balance" : "Guardar cuenta"}
               </Button>
             </DialogFooter>
           </form>
