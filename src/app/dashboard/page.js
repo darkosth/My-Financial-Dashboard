@@ -5,6 +5,7 @@ import AccountsCard from "@/components/dashboard/AccountsCard";
 import CreditCardsCard from "@/components/dashboard/CreditCardsCard";
 import UpcomingCard from "@/components/dashboard/UpcomingCard";
 import WaterfallCard from "@/components/dashboard/WaterfallCard";
+import QuickExpenseButton from "@/app/dashboard/QuickExpenseButton";
 
 export default async function DashboardPage() {
   const [session, snapshot] = await Promise.all([auth(), loadFinanceSnapshot()]);
@@ -21,6 +22,10 @@ export default async function DashboardPage() {
       <div className="mx-auto max-w-5xl space-y-8">
         <DashboardHeader userDisplayName={userDisplayName} workspaceName={snapshot.context?.activeWorkspace?.name} />
 
+        <div className="flex justify-start">
+          <QuickExpenseButton hasAccounts={snapshot.accounts.length > 0} />
+        </div>
+        
         <AccountsCard
           accounts={snapshot.accounts}
           totalLiquidity={snapshot.totalLiquidity}

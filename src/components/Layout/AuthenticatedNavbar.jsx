@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createPendingExpense } from "@/lib/actions/pendingExpenseActions";
 
 const navLinks = [
   {
@@ -57,20 +56,6 @@ const getLinkClassName = (isActive) =>
 export default function AuthenticatedNavbar({ userName, workspaceName, hasAccounts }) {
   const pathname = usePathname();
   const router = useRouter();
-  const expenseFormRef = useRef(null);
-  const [isExpenseOpen, setIsExpenseOpen] = useState(false);
-
-  const handleExpenseSubmit = async (formData) => {
-    const result = await createPendingExpense(formData);
-
-    if (result.success) {
-      expenseFormRef.current?.reset();
-      setIsExpenseOpen(false);
-      router.refresh();
-    } else {
-      alert("There was an error registering the one-time expense.");
-    }
-  };
 
   const handleLogout = async () => {
     await signOut({ callbackUrl: "/" });
@@ -162,13 +147,6 @@ export default function AuthenticatedNavbar({ userName, workspaceName, hasAccoun
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem onSelect={() => setIsExpenseOpen(true)}>
-                  <PlusCircle className="h-4 w-4 text-emerald-600" />
-                  <span className="text-emerald-600 font-medium">Registrar gasto único</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
                 <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
                   <LogOut className="h-4 w-4" />
                   <span>Cerrar sesión</span>
@@ -178,55 +156,6 @@ export default function AuthenticatedNavbar({ userName, workspaceName, hasAccoun
           </div>
         </div>
       </nav>
-
-      <Dialog open={isExpenseOpen} onOpenChange={setIsExpenseOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Descontar liquidez</DialogTitle>
-            <DialogDescription>
-              Registra una compra rapida para restarla de tu liquidez real mientras actualizas tus cuentas manualmente.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form action={handleExpenseSubmit} ref={expenseFormRef} className="grid gap-5 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="amount" className="text-slate-700">
-                Monto del gasto
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-slate-500">$</span>
-                <Input
-                  id="amount"
-                  name="amount"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="0.00"
-                  className="pl-7 text-lg font-semibold"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="description" className="text-slate-700">
-                Descripcion <span className="font-normal text-muted-foreground">(opcional)</span>
-              </Label>
-              <Input
-                id="description"
-                name="description"
-                placeholder={hasAccounts ? "Ej: Cafe, gasolina, Home Depot..." : "Ej: Cafe, gasolina..."}
-              />
-            </div>
-
-            <DialogFooter>
-              <Button type="submit" className="w-full">
-                Restar de mi liquidez
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
