@@ -12,7 +12,7 @@ const getDayKey = (value) => startOfDay(new Date(value)).toISOString();
 
 export const buildScheduledCreditCardPayments = (creditCards = []) =>
   creditCards
-    .filter((card) => card.minimumPayment > 0 && card.dueDate)
+    .filter((card) => card.minimumPayment > 0 && card.dueDate && card.balance > 0)
     .map((card) => ({
       id: `credit-card:${card.id}`,
       name: `${card.name} Minimum Payment`,
