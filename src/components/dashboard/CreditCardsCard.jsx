@@ -45,10 +45,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
     }
   };
 
-  // Calculamos el total de los pagos mínimos para el Footer
   const totalMinimumPayment = creditCards.reduce((sum, card) => sum + (card.minimumPayment || 0), 0);
-
-  // Ordenamos las tarjetas de crédito: de mayor deuda a menor deuda (descendente)
   const sortedCreditCards = [...creditCards].sort((a, b) => b.balance - a.balance);
 
   return (
@@ -57,57 +54,58 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="credit-cards" className="border-none">
             
-            <AccordionTrigger className="px-6 py-5 hover:no-underline hover:bg-slate-50 transition-all">
-              <div className="flex justify-between items-center w-full pr-4">
-                <h2 className="text-xl font-semibold text-slate-900">Tarjetas de Crédito</h2>
-                <p className="text-2xl font-bold text-red-600 whitespace-nowrap">
+            <AccordionTrigger className="px-4 sm:px-6 py-5 hover:no-underline hover:bg-slate-50 transition-all">
+              <div className="flex justify-between items-center w-full pr-2 sm:pr-4">
+                <h2 className="text-lg sm:text-xl font-semibold text-slate-900">Tarjetas de Crédito</h2>
+                <p className="text-xl sm:text-2xl font-bold text-red-600 whitespace-nowrap">
                   -${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </p>
               </div>
             </AccordionTrigger>
             
             <AccordionContent className="pt-2 border-t">
-              <div className="px-6">
+              <div className="px-2 sm:px-6 overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Tarjeta</TableHead>
-                      <TableHead className="text-right">Disponible</TableHead>
-                      <TableHead className="text-right">Pago Mínimo</TableHead>
-                      <TableHead className="w-[50px]"></TableHead> 
+                      {/* Reducción de padding y tamaño de fuente en móviles */}
+                      <TableHead className="px-2 sm:px-4 text-xs sm:text-sm">Tarjeta</TableHead>
+                      <TableHead className="px-2 sm:px-4 text-right text-xs sm:text-sm">Disponible</TableHead>
+                      <TableHead className="px-2 sm:px-4 text-right text-xs sm:text-sm whitespace-nowrap">Pago Mín.</TableHead>
+                      <TableHead className="w-[30px] sm:w-[50px] px-0 sm:px-4"></TableHead> 
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     
                     {creditCards.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-slate-500 py-4">
+                        <TableCell colSpan={4} className="text-center text-slate-500 py-4 text-sm">
                           No tienes tarjetas de crédito registradas.
                         </TableCell>
                       </TableRow>
                     )}
 
-                    {/* Utilizamos la nueva constante sortedCreditCards en lugar de creditCards */}
                     {sortedCreditCards.map((card) => {
                       const availableCredit = card.creditLimit - card.balance;
                       return (
                         <TableRow key={card.id} className="hover:bg-slate-100/50">
-                          <TableCell className="font-medium text-base">
+                          {/* El secreto del Truncate está en el max-w */}
+                          <TableCell className="px-2 sm:px-4 font-medium text-base max-w-[120px] sm:max-w-[200px]">
                             <div className="flex flex-col">
-                              <span>{card.name}</span>
-                              <span className="text-xs text-muted-foreground font-normal">Due {card.dueDate}</span>
+                              <span className="truncate" title={card.name}>{card.name}</span>
+                              <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">Due {card.dueDate}</span>
                             </div>
                           </TableCell>
                           
-                          <TableCell className="text-right text-emerald-600 font-medium">
+                          <TableCell className="px-2 sm:px-4 text-right text-emerald-600 font-medium text-base">
                             ${availableCredit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </TableCell>
                           
-                          <TableCell className="text-right text-amber-600 font-semibold">
+                          <TableCell className="px-2 sm:px-4 text-right text-amber-600 font-semibold text-base">
                             ${(card.minimumPayment || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </TableCell>
                           
-                          <TableCell className="text-right w-[50px]">
+                          <TableCell className="px-0 sm:px-4 text-right w-[30px] sm:w-[50px]">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="h-8 w-8 p-0">
@@ -138,23 +136,22 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                     })}
                   </TableBody>
                   
-                  {/* FOOTER ACTUALIZADO */}
-                  <TableFooter className="bg-slate-50 font-semibold">
+                  <TableFooter className="bg-slate-50 font-semibold text-base">
                     <TableRow>
-                      <TableCell>Totales</TableCell>
-                      <TableCell className="text-right text-emerald-600">
+                      <TableCell className="px-2 sm:px-4">Totales</TableCell>
+                      <TableCell className="px-2 sm:px-4 text-right text-emerald-600">
                         ${totalAvailableCredit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell className="text-right text-amber-600">
+                      <TableCell className="px-2 sm:px-4 text-right text-amber-600">
                         ${totalMinimumPayment.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell></TableCell>
+                      <TableCell className="px-0 sm:px-4"></TableCell>
                     </TableRow>
                   </TableFooter>
                 </Table>
               </div>
               
-              <div className="px-6 pb-4 pt-2">
+              <div className="px-4 sm:px-6 pb-4 pt-2">
                 <Button 
                   variant="ghost" 
                   onClick={() => {
