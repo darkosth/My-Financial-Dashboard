@@ -48,6 +48,9 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
   // Calculamos el total de los pagos mínimos para el Footer
   const totalMinimumPayment = creditCards.reduce((sum, card) => sum + (card.minimumPayment || 0), 0);
 
+  // Ordenamos las tarjetas de crédito: de mayor deuda a menor deuda (descendente)
+  const sortedCreditCards = [...creditCards].sort((a, b) => b.balance - a.balance);
+
   return (
     <section>
       <Card className="overflow-hidden">
@@ -84,7 +87,8 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       </TableRow>
                     )}
 
-                    {creditCards.map((card) => {
+                    {/* Utilizamos la nueva constante sortedCreditCards en lugar de creditCards */}
+                    {sortedCreditCards.map((card) => {
                       const availableCredit = card.creditLimit - card.balance;
                       return (
                         <TableRow key={card.id} className="hover:bg-slate-100/50">
