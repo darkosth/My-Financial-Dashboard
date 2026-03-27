@@ -20,10 +20,16 @@ const normalizeDate = (value) => {
 };
 
 const toStartOfDay = (value) => startOfDay(normalizeDate(value) ?? new Date());
-const getCycleKey = (date) => format(toStartOfDay(date), "yyyy-MM-dd");
-const getWeekKey = (date) => format(toStartOfDay(date), "yyyy-MM-dd");
-const getItemKind = (item) => item.kind ?? "template";
 const getPaymentOwnerKey = (item) => `${getItemKind(item)}:${item.id}`;
+const getItemKind = (item) => item.kind ?? "template";
+const getCycleKey = (date) => {
+const d = normalizeDate(date);
+  return d ? d.toISOString().substring(0, 10) : "";
+};
+const getWeekKey = (date) => {
+  const d = normalizeDate(date);
+  return d ? d.toISOString().substring(0, 10) : "";
+};
 
 const getMonthlyOccurrenceForMonth = (baseDate, dayOfMonth) => {
   const safeDay = Math.min(dayOfMonth, getDaysInMonth(baseDate));

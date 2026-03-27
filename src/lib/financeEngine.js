@@ -8,7 +8,11 @@ import {
 } from "@/lib/waterfallCalculations";
 
 export const DEFAULT_WEEKLY_INCOME = 1000;
-const getDayKey = (value) => startOfDay(new Date(value)).toISOString();
+
+const getDayKey = (value) => {
+  if (!value) return "";
+  return new Date(value).toISOString().substring(0, 10);
+};
 
 export const buildScheduledCreditCardPayments = (creditCards = []) =>
   creditCards
