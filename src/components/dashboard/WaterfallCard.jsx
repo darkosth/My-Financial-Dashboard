@@ -216,8 +216,8 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="partialAmount">Monto pagado ahora</Label>
+            <div className="flex flex-col gap-2 items-center space-y-2">
+              <Label htmlFor="partialAmount">MONTO A PAGAR</Label>
               <Input
                 id="partialAmount"
                 type="number"
@@ -226,6 +226,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                 max={selectedDetail?.amount ?? undefined}
                 value={partialAmount}
                 onChange={(event) => setPartialAmount(event.target.value)}
+                className="w-[55%] text-center text-4xl h-15 font-bold focus-visible:ring-emerald-500 focus-visible:border-transparent"
               />
             </div>
             {selectedDetail && (
@@ -235,21 +236,22 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
             )}
           </div>
 
-          <DialogFooter className="flex-col gap-3 sm:flex-col sm:items-stretch">
+          <DialogFooter className="flex flex-col items-center gap-4 sm:flex-col">
             {selectedDetail?.kind !== "credit-card" && (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button variant="outline" className="w-full" onClick={handleMoveToNextWeek}>
-                  Pagar parcial y mover resto
-                </Button>
-                <Button variant="secondary" className="w-full" onClick={handleMoveWithoutPaying}>
-                  Mover a la siguiente semana
-                </Button>
+              <div className="flex w-full gap-2">
+                  <Button variant="outline" className="flex-1 h-auto py-2 text-xs sm:text-sm whitespace-normal text-center" onClick={handleMoveToNextWeek}>
+                    Pagar parcial y mover resto
+                  </Button>
+                  <Button variant="outline" className="flex-1 h-auto py-2 text-xs sm:text-sm whitespace-normal text-center" onClick={handleMoveWithoutPaying}>
+                    Mover a la siguiente semana
+                  </Button>
               </div>
             )}
-            <Button className="w-full" onClick={handleMarkAsPaid}>
-              Marcar todo como pagado
+            <Button className="w-[68%] sm:w-auto px-8 py-6 text-base sm:text-lg font-bold shadow-md hover:scale-105 transition-transform" onClick={handleMarkAsPaid}>
+              PAGO COMPLETO
             </Button>
           </DialogFooter>
+          
         </DialogContent>
       </Dialog>
     </section>
