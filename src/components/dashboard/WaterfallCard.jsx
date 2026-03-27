@@ -207,7 +207,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
           }
         }}
       >
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedDetail?.name}</DialogTitle>
             <DialogDescription>

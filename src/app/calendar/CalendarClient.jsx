@@ -251,7 +251,7 @@ export default function CalendarClient({
           }
         }}
       >
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedExpense?.name}</DialogTitle>
             <DialogDescription>Registra este pago o muévelo a la siguiente semana sin marcarlo como pagado.</DialogDescription>
@@ -292,7 +292,7 @@ export default function CalendarClient({
           }
         }}
       >
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[480px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{expandedDay ? format(new Date(expandedDay.date), "EEEE dd MMM") : "Detalle del día"}</DialogTitle>
             <DialogDescription>Revisa todas las entradas de este día y abre cualquier pendiente desde aquí.</DialogDescription>

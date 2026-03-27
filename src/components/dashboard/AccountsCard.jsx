@@ -143,7 +143,7 @@ export default function AccountsCard({ accounts, totalLiquidity, totalAccountBal
           if (!open) setEditingAccount(null); // Limpiamos el estado al cerrar el modal
         }}
       >
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingAccount ? "Actualizar balance" : "Agregar cuenta"}</DialogTitle>
             <DialogDescription>

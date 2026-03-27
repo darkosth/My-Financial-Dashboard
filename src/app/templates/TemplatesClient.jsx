@@ -124,7 +124,7 @@ export default function TemplatesClient({ initialTemplates }) {
               <Plus className="mr-2 h-4 w-4" /> Nuevo Gasto Fijo
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Crear Regla de Pago</DialogTitle>
               <DialogDescription>Añade un nuevo gasto fijo a tu radar financiero.</DialogDescription>

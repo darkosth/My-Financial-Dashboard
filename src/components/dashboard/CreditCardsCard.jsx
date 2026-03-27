@@ -175,7 +175,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
           if (!open) setEditingCard(null);
         }}
       >
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingCard ? "Edit Credit Card" : "Add New Credit Card"}</DialogTitle>
             <DialogDescription>
