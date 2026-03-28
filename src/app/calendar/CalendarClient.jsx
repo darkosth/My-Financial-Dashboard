@@ -271,13 +271,13 @@ export default function CalendarClient({
             </div>
           )}
 
-          <DialogFooter className="flex-col gap-2 sm:flex-col sm:items-stretch">
+          <DialogFooter className="flex flex-col items-center gap-4 sm:flex-col">
             {selectedExpense?.kind !== "credit-card" && (
-              <Button variant="secondary" className="w-full" onClick={handleMoveToNextWeek}>
+              <Button variant="secondary" className="flex-1 h-auto py-2 text-sm sm:text-sm whitespace-normal text-center" onClick={handleMoveToNextWeek}>
                 Mover a la siguiente semana
               </Button>
             )}
-            <Button className="w-full" onClick={handleMarkAsPaid}>
+            <Button className="w-[68%] sm:w-auto px-8 py-6 text-base sm:text-lg font-bold shadow-md hover:scale-105 transition-transform" onClick={handleMarkAsPaid}>
               Marcar como pagado
             </Button>
           </DialogFooter>
