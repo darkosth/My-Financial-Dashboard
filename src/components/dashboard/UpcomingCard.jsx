@@ -78,7 +78,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                 <TableHead className="pl-4 sm:pl-6 w-[50%] sm:w-auto">Gasto</TableHead>
                 <TableHead className="hidden sm:table-cell">Próximo cobro</TableHead>
                 <TableHead className="text-right whitespace-nowrap">Monto</TableHead>
-                <TableHead className="w-[40px] sm:w-[50px] pr-4 sm:pr-6"></TableHead>
+                <TableHead className="w-[40px] sm:w-[60px] pr-4 sm:pr-6"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -133,30 +133,30 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                       ${payment.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </TableCell>
 
-                    {/* COLUMNA 4: ACCIONES */}
-                    <TableCell className="text-right w-[40px] sm:w-[50px] pr-4 sm:pr-6">
+                    {/* COLUMNA 4: ACCIONES PREMIUM */}
+                    <TableCell className="text-right w-[40px] sm:w-[60px] pr-4 sm:pr-6">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
+                          <Button variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-slate-200/50 transition-colors">
+                            <MoreHorizontal className="h-5 w-5 text-slate-600" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        
+                        <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-slate-100">
                           <DropdownMenuItem
                             onClick={() => handleMarkAsPaid(payment)}
-                            className="font-medium text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 cursor-pointer"
+                            className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 transition-colors mb-1"
                           >
                             Marcar como pagado
                           </DropdownMenuItem>
+                          
                           {payment.kind !== "credit-card" && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => handleMoveToNextWeek(payment)}
-                                className="font-medium text-amber-600 focus:text-amber-700 focus:bg-amber-50 cursor-pointer"
-                              >
-                                Mover a la siguiente semana
-                              </DropdownMenuItem>
-                            </>
+                            <DropdownMenuItem
+                              onClick={() => handleMoveToNextWeek(payment)}
+                              className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-amber-600 focus:text-amber-700 focus:bg-amber-50 transition-colors"
+                            >
+                              Mover a la siguiente semana
+                            </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>

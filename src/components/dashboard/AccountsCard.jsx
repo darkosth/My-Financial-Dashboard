@@ -15,7 +15,7 @@ import { createAccount, updateAccount, deleteAccount } from "@/lib/actions/accou
 export default function AccountsCard({ accounts, totalLiquidity, pendingExpensesTotal }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
-  const [viewingAccount, setViewingAccount] = useState(null); // NUEVO ESTADO: Vista de solo lectura
+  const [viewingAccount, setViewingAccount] = useState(null);
   const formRef = useRef(null);
 
   const handleSubmit = async (formData) => {
@@ -80,7 +80,6 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                     {accounts.map((account) => (
                       <TableRow 
                         key={account.id} 
-                        // Hacemos la fila interactiva
                         className="hover:bg-slate-100/80 cursor-pointer transition-colors"
                         onClick={() => {
                           setViewingAccount(account);
@@ -93,37 +92,41 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                           ${account.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                         </TableCell>
                         
-                        {/* stopPropagation previene abrir los detalles al usar el dropdown */}
+                        {/* AQUI COMIENZA EL MENÚ DESPLEGABLE PREMIUM */}
                         <TableCell 
-                          className="text-right w-[50px]"
+                          className="px-0 sm:px-4 text-right w-[40px] sm:w-[60px]"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
+                              <Button variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-slate-200/50 transition-colors">
+                                <MoreHorizontal className="h-5 w-5 text-slate-600" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            
+                            <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl border-slate-100">
                               <DropdownMenuItem
                                 onClick={() => {
                                   setEditingAccount(account);
                                   setViewingAccount(null);
                                   setIsOpen(true);
                                 }}
-                                className="cursor-pointer text-blue-600 focus:text-blue-600 focus:bg-blue-50"
+                                className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-blue-600 focus:text-blue-700 focus:bg-blue-50 transition-colors mb-1"
                               >
                                 Editar cuenta
                               </DropdownMenuItem>
+                              
                               <DropdownMenuItem
                                 onClick={() => handleDelete(account.id)}
-                                className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-red-600 focus:text-red-700 focus:bg-red-50 transition-colors"
                               >
                                 Eliminar cuenta
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
+                        {/* AQUI TERMINA EL MENÚ */}
+
                       </TableRow>
                     ))}
                   </TableBody>
@@ -158,10 +161,8 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
           }
         }}
       >
-        {/* Corrección para móviles incluida aquí */}
         <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
           
-          {/* CARA 1: MODO DE LECTURA */}
           {viewingAccount ? (
             <div className="flex flex-col gap-6 py-4">
               <div className="text-center space-y-2 mt-4">
@@ -182,7 +183,6 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                 <Button 
                   className="w-full sm:w-auto px-10 py-6 text-lg font-semibold shadow-md hover:scale-105 transition-transform"
                   onClick={() => {
-                    // Transición suave hacia edición
                     setEditingAccount(viewingAccount);
                     setViewingAccount(null);
                   }}
@@ -192,8 +192,6 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
               </DialogFooter>
             </div>
           ) : (
-            
-            /* CARA 2: MODO FORMULARIO (Creación / Edición) */
             <>
               <DialogHeader>
                 <DialogTitle>{editingAccount ? "Actualizar balance" : "Agregar cuenta"}</DialogTitle>

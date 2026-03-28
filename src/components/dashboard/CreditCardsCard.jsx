@@ -74,7 +74,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       <TableHead className="px-2 sm:px-4 text-xs sm:text-sm">Tarjeta</TableHead>
                       <TableHead className="px-2 sm:px-4 text-right text-xs sm:text-sm">Disponible</TableHead>
                       <TableHead className="px-2 sm:px-4 text-right text-xs sm:text-sm whitespace-nowrap">Pago Mín.</TableHead>
-                      <TableHead className="w-[30px] sm:w-[50px] px-0 sm:px-4"></TableHead> 
+                      <TableHead className="w-[40px] sm:w-[60px] px-0 sm:px-4"></TableHead> 
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -115,37 +115,41 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                             ${(card.minimumPayment || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </TableCell>
                           
-                          {/* stopPropagation previene que al abrir el menú se active el onClick de la fila completa */}
+                          {/* AQUI COMIENZA EL MENÚ DESPLEGABLE PREMIUM */}
                           <TableCell 
-                            className="px-0 sm:px-4 text-right w-[30px] sm:w-[50px]"
+                            className="px-0 sm:px-4 text-right w-[40px] sm:w-[60px]"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
+                                <Button variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-slate-200/50 transition-colors">
+                                  <MoreHorizontal className="h-5 w-5 text-slate-600" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
+                              
+                              <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl border-slate-100">
                                 <DropdownMenuItem 
                                   onClick={() => {
                                     setEditingCard(card);
                                     setViewingCard(null);
                                     setIsOpen(true);
                                   }}
-                                  className="cursor-pointer text-blue-600 focus:text-blue-600 focus:bg-blue-50"
+                                  className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-blue-600 focus:text-blue-700 focus:bg-blue-50 transition-colors mb-1"
                                 >
                                   Edit Card
                                 </DropdownMenuItem>
+                                
                                 <DropdownMenuItem 
                                   onClick={() => handleDelete(card.id)}
-                                  className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                  className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-red-600 focus:text-red-700 focus:bg-red-50 transition-colors"
                                 >
                                   Delete Card
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
+                          {/* AQUI TERMINA EL MENÚ */}
+
                         </TableRow>
                       );
                     })}
