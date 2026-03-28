@@ -156,15 +156,6 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                               >
                                 Mover a la siguiente semana
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setEditingTemplate(payment);
-                                  setIsOpen(true);
-                                }}
-                                className="cursor-pointer"
-                              >
-                                Editar gasto
-                              </DropdownMenuItem>
                             </>
                           )}
                         </DropdownMenuContent>
