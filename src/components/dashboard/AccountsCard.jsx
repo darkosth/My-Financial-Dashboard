@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, Plus } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AppDialogContent, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createAccount, updateAccount, deleteAccount } from "@/lib/actions/accountActions";
@@ -47,17 +47,17 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
       <Card className="overflow-hidden">
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="cuentas" className="border-none">
-            <AccordionTrigger className="px-6 py-5 hover:no-underline hover:bg-slate-50 transition-all">
+            <AccordionTrigger className="px-6 py-5 hover:no-underline hover:bg-muted/50 transition-all">
               <div className="flex justify-between items-center w-full pr-4">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">LIQUIDEZ</h2>
+                  <h2 className="text-xl font-semibold text-foreground">Liquidez</h2>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-black text-emerald-600 tabular-nums">
+                  <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
                     ${totalLiquidity.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </p>
                   {pendingExpensesTotal > 0 && (
-                    <p className="text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full inline-block mt-1">
+                    <p className="text-[10px] font-medium text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full inline-block mt-1">
                       Ajustado por gastos únicos
                     </p>
                   )}
@@ -71,7 +71,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                   <TableBody>
                     {accounts.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center text-slate-500 py-4">
+                        <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
                           No tienes cuentas registradas.
                         </TableCell>
                       </TableRow>
@@ -80,7 +80,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                     {accounts.map((account) => (
                       <TableRow 
                         key={account.id} 
-                        className="hover:bg-slate-100/80 cursor-pointer transition-colors"
+                        className="hover:bg-muted/60 cursor-pointer transition-colors"
                         onClick={() => {
                           setViewingAccount(account);
                           setEditingAccount(null);
@@ -88,7 +88,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                         }}
                       >
                         <TableCell className="font-medium text-base w-1/2">{account.name}</TableCell>
-                        <TableCell className="text-right font-semibold text-base text-emerald-600">
+                        <TableCell className="text-right font-semibold text-base text-emerald-600 dark:text-emerald-400">
                           ${account.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                         </TableCell>
                         
@@ -99,26 +99,26 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                         >
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-slate-200/50 transition-colors">
-                                <MoreHorizontal className="h-5 w-5 text-slate-600" />
+                              <Button variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-muted transition-colors">
+                                <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
                               </Button>
                             </DropdownMenuTrigger>
                             
-                            <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl border-slate-100">
+                            <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl border-border">
                               <DropdownMenuItem
                                 onClick={() => {
                                   setEditingAccount(account);
                                   setViewingAccount(null);
                                   setIsOpen(true);
                                 }}
-                                className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-blue-600 focus:text-blue-700 focus:bg-blue-50 transition-colors mb-1"
+                                className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-blue-600 focus:text-blue-700 focus:bg-blue-50 dark:focus:bg-blue-950/40 transition-colors mb-1"
                               >
                                 Editar cuenta
                               </DropdownMenuItem>
                               
                               <DropdownMenuItem
                                 onClick={() => handleDelete(account.id)}
-                                className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-red-600 focus:text-red-700 focus:bg-red-50 transition-colors"
+                                className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-red-600 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-950/40 transition-colors"
                               >
                                 Eliminar cuenta
                               </DropdownMenuItem>
@@ -141,7 +141,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                     setViewingAccount(null);
                     setIsOpen(true);
                   }}
-                  className="w-full text-muted-foreground hover:text-slate-900 hover:bg-slate-100 border border-dashed border-slate-200 mt-2"
+                  className="w-full text-muted-foreground hover:text-foreground hover:bg-muted border border-dashed border-border mt-2"
                 >
                   <Plus className="h-4 w-4 mr-2" /> Agregar cuenta
                 </Button>
@@ -161,20 +161,20 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
           }
         }}
       >
-        <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
+        <AppDialogContent>
           
           {viewingAccount ? (
             <div className="flex flex-col gap-6 py-4">
               <div className="text-center space-y-2 mt-4">
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                <div className="inline-flex items-center px-3 py-1 rounded-full bg-muted text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Cuenta Registrada
                 </div>
-                <h3 className="text-3xl font-bold text-slate-900 tracking-tight">{viewingAccount.name}</h3>
+                <h3 className="text-3xl font-bold text-foreground tracking-tight">{viewingAccount.name}</h3>
               </div>
               
-              <div className="bg-slate-50 p-8 rounded-2xl border border-slate-100 shadow-sm text-center">
-                <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Dinero Disponible</p>
-                <p className="text-5xl font-black text-emerald-600">
+              <div className="bg-muted/40 p-8 rounded-2xl border border-border shadow-sm text-center">
+                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Dinero Disponible</p>
+                <p className="text-5xl font-black text-emerald-600 dark:text-emerald-400">
                   ${viewingAccount.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </p>
               </div>
@@ -206,7 +206,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                 <div className="grid gap-2">
                   {editingAccount ? (
                     <div className="mb-2 space-y-1 text-center">
-                      <p className="text-2xl font-bold text-slate-900 tracking-tight" >
+                      <p className="text-2xl font-bold text-foreground tracking-tight" >
                         {editingAccount.name}
                       </p>
                       <input type="hidden" name="name" value={editingAccount.name} />
@@ -225,10 +225,10 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                   )}
                 </div>
                 
-                <div className="grid gap-3 text-center bg-slate-50 p-6 rounded-xl border border-slate-100">
+                <div className="grid gap-3 text-center bg-muted/40 p-6 rounded-xl border border-border">
                   <Label 
                     htmlFor="balance" 
-                    className="block w-full text-center text-sm font-semibold uppercase tracking-wider text-slate-500"
+                    className="block w-full text-center text-sm font-semibold uppercase tracking-wider text-muted-foreground"
                   >
                     Nuevo Balance ($)
                   </Label>
@@ -238,7 +238,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                     type="number"
                     step="0.01"
                     inputMode="decimal"
-                    className="text-center text-3xl font-black text-emerald-600 focus-visible:ring-emerald-500 h-16"
+                    className="text-center text-3xl font-black text-emerald-600 dark:text-emerald-400 focus-visible:ring-emerald-500 h-16"
                     defaultValue={editingAccount?.balance}
                     placeholder="0.00"
                     required
@@ -255,7 +255,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
               </form>
             </>
           )}
-        </DialogContent>
+        </AppDialogContent>
       </Dialog>
     </section>
   );

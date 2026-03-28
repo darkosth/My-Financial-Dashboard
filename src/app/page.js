@@ -49,25 +49,25 @@ export default async function Home({ searchParams }) {
   const errorMessage = getErrorMessage(params?.error);
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#ecfdf5,_#f8fafc_42%,_#ffffff_82%)] px-6 py-12 text-slate-900 md:px-10">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#ecfdf5,_#f8fafc_42%,_#ffffff_82%)] px-6 py-12 text-foreground dark:bg-[radial-gradient(circle_at_top,_#064e3b33,_#0f172a_48%,_#020617_88%)] md:px-10">
       <section className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
         <div className="space-y-8">
-          <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700">
+          <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
             Cash-flow planning para tu hogar
           </div>
 
           <div className="space-y-5">
-            <h1 className="max-w-3xl text-5xl font-black tracking-tight text-slate-950 md:text-6xl">
+            <h1 className="max-w-3xl text-5xl font-black tracking-tight text-foreground md:text-6xl">
               Mira tu liquidez real antes de que la semana te sorprenda.
             </h1>
-            <p className="max-w-2xl text-lg leading-8 text-slate-600 md:text-xl">
+            <p className="max-w-2xl text-lg leading-8 text-muted-foreground md:text-xl">
               MyFinance te ayuda a decidir que pagar hoy, que mover, y como cierran tus proximas cuatro semanas sin perder
               de vista tarjetas, gastos recurrentes y gastos unicos.
             </p>
           </div>
 
           {errorMessage ? (
-            <div className="max-w-xl rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 shadow-sm">
+            <div className="max-w-xl rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-100">
               {errorMessage}
             </div>
           ) : null}
@@ -76,18 +76,18 @@ export default async function Home({ searchParams }) {
             <GoogleSignInButton className="h-12 rounded-full px-6 text-base shadow-lg shadow-emerald-500/15" showArrow />
             <a
               href="#how-it-works"
-              className="inline-flex h-12 items-center justify-center rounded-full border border-slate-200 bg-white px-6 text-base font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-border bg-card px-6 text-base font-medium text-foreground shadow-sm transition hover:border-border hover:bg-muted/60"
             >
               Ver como funciona
             </a>
           </div>
 
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             El acceso es privado. Si ya tienes autorizacion, entra con tu cuenta de Google y volveras al dashboard.
           </p>
         </div>
 
-        <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-6 shadow-xl shadow-slate-200/60 backdrop-blur">
+        <div className="rounded-[2rem] border border-border bg-card/80 p-6 shadow-xl shadow-slate-200/60 backdrop-blur dark:shadow-none dark:ring-1 dark:ring-border/60">
           <div className="rounded-[1.5rem] bg-slate-950 p-6 text-white">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -120,8 +120,8 @@ export default async function Home({ searchParams }) {
 
       <section id="how-it-works" className="mx-auto mt-20 max-w-6xl">
         <div className="mb-8 max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-600">Que hace por ti</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">Una vista util, no solo una lista de cuentas</h2>
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-400">Que hace por ti</p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground">Una vista util, no solo una lista de cuentas</h2>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -129,12 +129,12 @@ export default async function Home({ searchParams }) {
             const Icon = item.icon;
 
             return (
-              <article key={item.title} className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="inline-flex rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+              <article key={item.title} className="rounded-[1.75rem] border border-border bg-card p-6 shadow-sm">
+                <div className="inline-flex rounded-2xl bg-emerald-50 p-3 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="mt-5 text-lg font-semibold text-slate-900">{item.title}</h3>
-                <p className="mt-2 text-sm leading-7 text-slate-600">{item.description}</p>
+                <h3 className="mt-5 text-lg font-semibold text-foreground">{item.title}</h3>
+                <p className="mt-2 text-sm leading-7 text-muted-foreground">{item.description}</p>
               </article>
             );
           })}

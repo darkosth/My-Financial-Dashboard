@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, MoreHorizontal, Plus, Repeat, CalendarDays, Settings2, ArrowUpDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AppDialogContent, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
 // Importamos tu motor de Negocios con la db
@@ -104,7 +104,7 @@ export default function TemplatesClient({ initialTemplates }) {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Settings2 className="h-8 w-8 text-slate-700" />
+            <Settings2 className="h-8 w-8 text-foreground" />
             Gastos Fijos
           </h1>
           <p className="text-muted-foreground">Administra tus suscripciones, biles y presupuestos recurrentes.</p>
@@ -124,7 +124,7 @@ export default function TemplatesClient({ initialTemplates }) {
               <Plus className="mr-2 h-4 w-4" /> Nuevo Gasto Fijo
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
+          <AppDialogContent>
             <DialogHeader>
               <DialogTitle>Crear Regla de Pago</DialogTitle>
               <DialogDescription>Añade un nuevo gasto fijo a tu radar financiero.</DialogDescription>
@@ -147,7 +147,7 @@ export default function TemplatesClient({ initialTemplates }) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="category">Categoría</Label>
-                  <select id="category" name="category" defaultValue={editingTemplate?.category || "HOUSING"} className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                  <select id="category" name="category" defaultValue={editingTemplate?.category || "HOUSING"} className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
                     <option value="HOUSING">Vivienda (Housing)</option>
                     <option value="TRANSPORTATION">Transporte (Auto/Gas)</option>
                     <option value="FOOD">Comida (Food)</option>
@@ -160,7 +160,7 @@ export default function TemplatesClient({ initialTemplates }) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="frequency">Frecuencia</Label>
-                  <select id="frequency" name="frequency" value={freq} onChange={(e) => setFreq(e.target.value)} className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                  <select id="frequency" name="frequency" value={freq} onChange={(e) => setFreq(e.target.value)} className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
                     <option value="MONTHLY">Mensual</option>
                     <option value="WEEKLY">Semanal (EW)</option>
                     <option value="BIWEEKLY">Bisemanal (E2W)</option>
@@ -182,8 +182,8 @@ export default function TemplatesClient({ initialTemplates }) {
               )}
 
               <div className="flex items-center space-x-2 pt-2">
-                <input type="checkbox" id="isAutoPay" name="isAutoPay" defaultChecked={editingTemplate?.isAutoPay} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-                <Label htmlFor="isAutoPay" className="font-normal text-slate-700">Este pago está en Auto-Pay</Label>
+                <input type="checkbox" id="isAutoPay" name="isAutoPay" defaultChecked={editingTemplate?.isAutoPay} className="h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500" />
+                <Label htmlFor="isAutoPay" className="font-normal text-foreground">Este pago está en Auto-Pay</Label>
               </div>
 
               <DialogFooter className="mt-4">
@@ -191,28 +191,28 @@ export default function TemplatesClient({ initialTemplates }) {
               </DialogFooter>
             </form>
 
-          </DialogContent>
+          </AppDialogContent>
         </Dialog>
       </div>
 
       {/* TARJETAS DE RESUMEN */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-white shadow-sm border-slate-200">
+        <Card className="shadow-sm border-border">
           <CardContent className="p-6">
-            <p className="text-sm font-medium text-slate-500 mb-1">Total Base Mensual</p>
-            <p className="text-3xl font-bold text-slate-900">${totalMonthlyBase.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Total Base Mensual</p>
+            <p className="text-3xl font-bold text-foreground">${totalMonthlyBase.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
           </CardContent>
         </Card>
-        <Card className="bg-white shadow-sm border-slate-200">
+        <Card className="shadow-sm border-border">
           <CardContent className="p-6">
-            <p className="text-sm font-medium text-slate-500 mb-1">Reglas Activas</p>
-            <p className="text-3xl font-bold text-slate-900">{initialTemplates.length}</p>
+            <p className="text-sm font-medium text-muted-foreground mb-1">Reglas Activas</p>
+            <p className="text-3xl font-bold text-foreground">{initialTemplates.length}</p>
           </CardContent>
         </Card>
-        <Card className="bg-emerald-50 shadow-sm border-emerald-100">
+        <Card className="bg-emerald-50 shadow-sm border-emerald-100 dark:bg-emerald-950/35 dark:border-emerald-900/50">
           <CardContent className="p-6">
-            <p className="text-sm font-medium text-emerald-600 mb-1">En Auto-Pay</p>
-            <p className="text-3xl font-bold text-emerald-700">
+            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-1">En Auto-Pay</p>
+            <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
               {initialTemplates.filter(t => t.isAutoPay).length}
             </p>
           </CardContent>
@@ -220,67 +220,67 @@ export default function TemplatesClient({ initialTemplates }) {
       </div>
 
       {/* LA TABLA DE DATOS */}
-      <Card className="shadow-sm border-slate-200">
-        <CardHeader className="border-b bg-white pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <Card className="shadow-sm border-border">
+        <CardHeader className="border-b border-border bg-card pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <CardTitle className="text-xl">Reglas de Pago</CardTitle>
             <CardDescription>El motor que alimenta tu Radar de Supervivencia.</CardDescription>
           </div>
           <div className="relative w-full md:w-72">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input 
               type="text" placeholder="Buscar bil o categoría..." 
-              className="pl-9 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
+              className="pl-9 bg-muted/40 border-border focus-visible:ring-emerald-500"
               value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </CardHeader>
         
-        <CardContent className="p-0 bg-white">
+        <CardContent className="p-0 bg-card">
           <Table>
-            <TableHeader className="bg-slate-50/50">
+            <TableHeader className="bg-muted/40">
               <TableRow>
                 {/* Nombre */}
                 <TableHead 
-                  className="pl-6 cursor-pointer hover:bg-slate-100 transition-colors" 
+                  className="pl-6 cursor-pointer hover:bg-muted/60 transition-colors" 
                   onClick={() => requestSort('name')}
                 >
                   <div className="flex items-center gap-2">
                     Nombre del Gasto
-                    <ArrowUpDown className="h-4 w-4 text-slate-400" />
+                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </TableHead>
 
                 {/* Frecuencia */}
                 <TableHead 
-                  className="cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="cursor-pointer hover:bg-muted/60 transition-colors"
                   onClick={() => requestSort('frequency')}
                 >
                   <div className="flex items-center gap-2">
                     Frecuencia
-                    <ArrowUpDown className="h-4 w-4 text-slate-400" />
+                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </TableHead>
 
                 {/* Categoría */}
                 <TableHead 
-                  className="cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="cursor-pointer hover:bg-muted/60 transition-colors"
                   onClick={() => requestSort('category')}
                 >
                   <div className="flex items-center gap-2">
                     Categoría
-                    <ArrowUpDown className="h-4 w-4 text-slate-400" />
+                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </TableHead>
 
                 {/* Monto (Alineado a la derecha) */}
                 <TableHead 
-                  className="text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="text-right cursor-pointer hover:bg-muted/60 transition-colors"
                   onClick={() => requestSort('amount')}
                 >
                   <div className="flex items-center justify-end gap-2">
                     Monto Presupuestado
-                    <ArrowUpDown className="h-4 w-4 text-slate-400" />
+                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </TableHead>
                 
@@ -291,48 +291,48 @@ export default function TemplatesClient({ initialTemplates }) {
               
               {filteredTemplates.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-slate-500">
+                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
                     Aún no hay gastos registrados. ¡Agrega el primero!
                   </TableCell>
                 </TableRow>
               )}
 
               {sortedTemplates.map((template) => (
-                <TableRow key={template.id} className="hover:bg-slate-50 transition-colors">
+                <TableRow key={template.id} className="hover:bg-muted/50 transition-colors">
                   <TableCell className="pl-6">
-                    <div className="font-medium text-slate-900 flex items-center gap-2">
+                    <div className="font-medium text-foreground flex items-center gap-2">
                       {template.name}
                       {template.isAutoPay && (
-                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 text-blue-600 border-blue-200 bg-blue-50">Auto</Badge>
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300">Auto</Badge>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
                     {template.frequency === "MONTHLY" ? (
-                      <div className="flex items-center gap-2 text-slate-600 text-sm">
-                        <CalendarDays className="h-4 w-4 text-slate-400" />
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
                         <span>Día {template.dayOfMonth}</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-slate-600 text-sm">
-                        <Repeat className="h-4 w-4 text-slate-400" />
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <Repeat className="h-4 w-4 text-muted-foreground" />
                         <span>{template.frequency === "WEEKLY" ? "Cada Semana" : "Cada 2 Semanas"}</span>
                       </div>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-normal">
+                    <Badge variant="secondary" className="bg-muted text-muted-foreground font-normal">
                       {template.category}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right font-semibold text-slate-900 text-base">
+                  <TableCell className="text-right font-semibold text-foreground text-base">
                     ${template.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell className="text-right pr-6">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4 text-slate-400 hover:text-slate-900" />
+                          <MoreHorizontal className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -342,10 +342,10 @@ export default function TemplatesClient({ initialTemplates }) {
                             setFreq(template.frequency); // Ajustamos la frecuencia para mostrar el campo correcto en el modal
                             setIsOpen(true); // Abrimos el modal
                           }} 
-                          className="text-blue-600 focus:text-blue-600 focus:bg-blue-50 cursor-pointer">
+                          className="text-blue-600 focus:text-blue-600 focus:bg-blue-50 dark:focus:bg-blue-950/40 cursor-pointer">
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(template.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
+                        <DropdownMenuItem onClick={() => handleDelete(template.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/40 cursor-pointer">
                           Eliminar
                         </DropdownMenuItem>
                       </DropdownMenuContent>

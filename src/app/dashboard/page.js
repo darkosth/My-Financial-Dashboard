@@ -18,7 +18,7 @@ export default async function DashboardPage() {
     "Hola";
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6 font-sans text-slate-900 md:p-10">
+    <main className="min-h-screen bg-background p-6 font-sans text-foreground md:p-10">
       <div className="mx-auto max-w-5xl space-y-8">
         <DashboardHeader userDisplayName={userDisplayName} workspaceName={snapshot.context?.activeWorkspace?.name} />
 

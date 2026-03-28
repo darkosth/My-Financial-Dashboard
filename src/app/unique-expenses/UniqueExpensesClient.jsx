@@ -58,13 +58,13 @@ export default function UniqueExpensesClient({ initialExpenses }) {
         </div>
 
         <div className="text-right">
-          <p className="text-sm text-slate-500">Pendiente por reconciliar</p>
+          <p className="text-sm text-muted-foreground">Pendiente por reconciliar</p>
           <p className="text-3xl font-bold text-red-600">${totalPending.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
         </div>
       </div>
 
-      <Card className="shadow-sm border-slate-200">
-        <CardHeader className="border-b bg-white pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <Card className="shadow-sm border-border">
+        <CardHeader className="border-b border-border bg-card pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <CardTitle className="text-xl">Borrador de liquidez</CardTitle>
             <CardDescription>Cuando actualices tus balances manualmente, usa “Borrar todo” para volver este borrador a cero.</CardDescription>
@@ -72,11 +72,11 @@ export default function UniqueExpensesClient({ initialExpenses }) {
 
           <div className="flex w-full md:w-auto gap-3">
             <div className="relative flex-1 md:w-72">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Buscar gasto..."
-                className="pl-9 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
+                className="pl-9 bg-muted/40 border-border focus-visible:ring-emerald-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -87,9 +87,9 @@ export default function UniqueExpensesClient({ initialExpenses }) {
           </div>
         </CardHeader>
 
-        <CardContent className="p-0 bg-white">
+        <CardContent className="p-0 bg-card">
           <Table>
-            <TableHeader className="bg-slate-50/50">
+            <TableHeader className="bg-muted/40">
               <TableRow>
                 <TableHead className="pl-6 w-[140px]">Fecha</TableHead>
                 <TableHead>Descripción</TableHead>
@@ -100,7 +100,7 @@ export default function UniqueExpensesClient({ initialExpenses }) {
             <TableBody>
               {filteredExpenses.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-32 text-center text-slate-500">
+                  <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
                     {initialExpenses.length === 0
                       ? "No tienes gastos únicos pendientes."
                       : `No se encontraron gastos con "${searchTerm}".`}
@@ -109,18 +109,18 @@ export default function UniqueExpensesClient({ initialExpenses }) {
               )}
 
               {filteredExpenses.map((expense) => (
-                <TableRow key={expense.id} className="hover:bg-slate-50 transition-colors">
+                <TableRow key={expense.id} className="hover:bg-muted/50 transition-colors">
                   <TableCell className="pl-6">
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <CalendarIcon className="h-4 w-4 text-slate-400" />
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium text-sm">{format(new Date(expense.createdAt), "MMM dd")}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="font-medium text-slate-900">{expense.description || "Sin descripción"}</span>
+                    <span className="font-medium text-foreground">{expense.description || "Sin descripción"}</span>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1 text-slate-900 font-semibold">
+                    <div className="flex items-center justify-end gap-1 text-foreground font-semibold">
                       <ArrowDownRight className="h-4 w-4 text-red-500" />
                       ${expense.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </div>
@@ -129,13 +129,13 @@ export default function UniqueExpensesClient({ initialExpenses }) {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4 text-slate-400 hover:text-slate-900" />
+                          <MoreHorizontal className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onClick={() => handleDelete(expense.id)}
-                          className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                          className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/40 cursor-pointer"
                         >
                           Eliminar registro
                         </DropdownMenuItem>

@@ -29,12 +29,12 @@ export default function WeeklyIncomeForm({ currentIncome, workspaceId }) {
   return (
     <div className="space-y-4">
       <div className="relative flex items-center max-w-xs">
-        <DollarSign className="absolute left-3 w-5 h-5 text-slate-400" />
+        <DollarSign className="absolute left-3 w-5 h-5 text-muted-foreground" />
         <input
           type="number"
           value={income}
           onChange={(e) => setIncome(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-800 focus:border-slate-800 outline-none transition-all text-lg font-semibold text-slate-700"
+          className="w-full pl-10 pr-4 py-2 border-2 border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring outline-none transition-all text-lg font-semibold"
           placeholder="1000"
         />
       </div>

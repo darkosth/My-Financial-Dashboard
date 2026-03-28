@@ -35,10 +35,10 @@ export default function InviteButton({ workspaceId }) {
   };
 
   return (
-    <div className="p-5 border-2 border-slate-100 rounded-xl bg-white shadow-sm space-y-4 max-w-md">
+    <div className="p-5 border-2 border-border rounded-xl bg-card shadow-sm space-y-4 max-w-md">
       <div>
-        <h3 className="text-lg font-semibold text-slate-900">Share Workspace</h3>
-        <p className="text-sm text-slate-500 mt-1">
+        <h3 className="text-lg font-semibold text-foreground">Share Workspace</h3>
+        <p className="text-sm text-muted-foreground mt-1">
           Generate a magic link to invite a member. Anyone with this link can access your financial data.
         </p>
       </div>
@@ -54,7 +54,7 @@ export default function InviteButton({ workspaceId }) {
             type="text" 
             readOnly 
             value={inviteLink} 
-            className="flex-1 px-3 py-2 text-sm border rounded-md bg-slate-50 text-slate-600 outline-none focus:ring-2 focus:ring-slate-200 transition-all"
+            className="flex-1 px-3 py-2 text-sm border border-border rounded-md bg-muted/50 text-foreground outline-none focus:ring-2 focus:ring-ring transition-all"
           />
           <Button 
             onClick={handleCopy} 

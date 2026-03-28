@@ -46,6 +46,9 @@ function DialogOverlay({
   );
 }
 
+const appDialogShell =
+  "top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto text-foreground";
+
 function DialogContent({
   className,
   children,
@@ -67,12 +70,26 @@ function DialogContent({
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
               <XIcon />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">Cerrar</span>
             </Button>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
     </DialogPortal>
+  );
+}
+
+/** Same shell as dashboard modals: near-top on mobile, centered on sm+, scrollable, theme text. */
+function AppDialogContent({ className, size = "default", ...props }) {
+  return (
+    <DialogContent
+      className={cn(
+        appDialogShell,
+        size === "wide" ? "sm:max-w-[480px]" : "sm:max-w-[425px]",
+        className
+      )}
+      {...props}
+    />
   );
 }
 
@@ -105,7 +122,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close asChild>
-          <Button variant="outline">Close</Button>
+          <Button variant="outline">Cerrar</Button>
         </DialogPrimitive.Close>
       )}
     </div>
@@ -140,6 +157,7 @@ function DialogDescription({
 }
 
 export {
+  AppDialogContent,
   Dialog,
   DialogClose,
   DialogContent,

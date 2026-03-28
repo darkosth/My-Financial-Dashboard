@@ -6,7 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AppDialogContent, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Target, AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -73,24 +73,36 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
     <section>
       <Card
         className={`overflow-hidden border-2 shadow-lg transition-colors ${
-          isDanger ? "border-red-500 bg-red-50" : isHealthy ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white"
+          isDanger
+            ? "border-red-500 bg-red-50 dark:bg-red-950/30"
+            : isHealthy
+              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30"
+              : "border-border bg-card"
         }`}
       >
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="cascada" className="border-none">
             <AccordionTrigger
               className={`px-6 py-6 hover:no-underline transition-all ${
-                isDanger ? "hover:bg-red-100/50" : isHealthy ? "hover:bg-emerald-100/50" : "hover:bg-slate-50"
+                isDanger
+                  ? "hover:bg-red-100/50 dark:hover:bg-red-950/25"
+                  : isHealthy
+                    ? "hover:bg-emerald-100/50 dark:hover:bg-emerald-950/25"
+                    : "hover:bg-muted/50"
               }`}
             >
               <div className="flex justify-between items-center w-full pr-4">
                 <div className="flex items-center gap-3">
                   <Target
-                    className={`h-6 w-6 ${isDanger ? "text-red-600" : isHealthy ? "text-emerald-600" : "text-slate-500"}`}
+                    className={`h-6 w-6 ${isDanger ? "text-red-600" : isHealthy ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}
                   />
                   <h2
                     className={`text-xl font-bold tracking-tight ${
-                      isDanger ? "text-red-900" : isHealthy ? "text-emerald-900" : "text-slate-900"
+                      isDanger
+                        ? "text-red-900 dark:text-red-100"
+                        : isHealthy
+                          ? "text-emerald-900 dark:text-emerald-100"
+                          : "text-foreground"
                     }`}
                   >
                     Liquidez Proyectada a 4 Semanas
@@ -99,7 +111,11 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                 <div className="text-right">
                   <p
                     className={`text-3xl font-extrabold ${
-                      isDanger ? "text-red-600" : isHealthy ? "text-emerald-600" : "text-slate-700"
+                      isDanger
+                        ? "text-red-600"
+                        : isHealthy
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-muted-foreground"
                     }`}
                   >
                     ${finalRemainingS4.toLocaleString("en-US", { minimumFractionDigits: 2 })}
@@ -109,8 +125,8 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
               </div>
             </AccordionTrigger>
 
-            <AccordionContent className="p-0 border-t bg-white">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-0 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            <AccordionContent className="p-0 border-t bg-card">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-0 divide-y md:divide-y-0 md:divide-x divide-border">
                 {waterfallData.map((data) => {
                   const weekDanger = data.restante <= 0;
                   const hasExpenses = data.details && data.details.length > 0;
@@ -119,7 +135,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                     <div key={data.weekNumber} className="p-6 space-y-4 flex flex-col h-full">
                       <div className="space-y-1">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-base md:text-lg font-semibold text-slate-900 truncate whitespace-nowrap">
+                          <h3 className="text-base md:text-lg font-semibold text-foreground truncate whitespace-nowrap">
                             {data.title}
                           </h3>
                         </div>
@@ -137,9 +153,9 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                       </div>
 
                       <div
-                        className={`p-4 rounded-xl border ${weekDanger ? "border-red-100 bg-red-50" : "border-slate-100 bg-slate-50"}`}
+                        className={`p-4 rounded-xl border ${weekDanger ? "border-red-100 bg-red-50 dark:border-red-900/40 dark:bg-red-950/25" : "border-border bg-muted/40"}`}
                       >
-                        <p className={`text-2xl font-bold ${weekDanger ? "text-red-600" : "text-slate-900"}`}>
+                        <p className={`text-2xl font-bold ${weekDanger ? "text-red-600" : "text-foreground"}`}>
                           ${data.restante.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">Saldo acumulado</p>
@@ -148,9 +164,10 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                       <div className="flex-grow">
                         {hasExpenses ? (
                           <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
                               <AlertTriangle className="h-4 w-4 text-amber-500" />
-                              Gastos pendientes: <span className="text-slate-900">-${data.expensesInWeek.toLocaleString("en-US")}</span>
+                              Gastos pendientes:{" "}
+                              <span className="text-foreground">-${data.expensesInWeek.toLocaleString("en-US")}</span>
                             </div>
 
                             <ul className="mt-2 space-y-1">
@@ -166,10 +183,10 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                                     }}
                                     className={`w-full text-xs flex justify-between text-left ${
                                       detail.isPaid
-                                        ? "text-slate-300 line-through cursor-default"
+                                        ? "text-muted-foreground/50 line-through cursor-default"
                                         : detail.isMovedWithoutPayment
                                           ? "text-amber-600 hover:text-amber-700 cursor-pointer"
-                                          : "text-slate-500 hover:text-slate-900 cursor-pointer"
+                                          : "text-muted-foreground hover:text-foreground cursor-pointer"
                                     }`}
                                   >
                                     <span>
@@ -184,7 +201,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                             </ul>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 text-sm text-emerald-600 font-medium bg-emerald-50/50 p-2 rounded-md">
+                          <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50/50 dark:bg-emerald-950/30 p-2 rounded-md">
                             <CheckCircle2 className="h-4 w-4" />
                             <span>Semana libre de pagos</span>
                           </div>
@@ -207,7 +224,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
           }
         }}
       >
-        <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
+        <AppDialogContent>
           <DialogHeader>
             <DialogTitle>{selectedDetail?.name}</DialogTitle>
             <DialogDescription>
@@ -230,7 +247,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
               />
             </div>
             {selectedDetail && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Si lo mueves, esta semana se libera y el saldo pendiente aparecera en la siguiente sin marcarse como pagado hasta que lo registres.
               </p>
             )}
@@ -252,7 +269,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
             </Button>
           </DialogFooter>
           
-        </DialogContent>
+        </AppDialogContent>
       </Dialog>
     </section>
   );

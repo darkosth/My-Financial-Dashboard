@@ -24,7 +24,7 @@ export default function TemplateForm({ initialData = null, onSubmit, onCancel })
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="category">Categoría</Label>
-          <select id="category" name="category" defaultValue={initialData?.category || "OTHER"} className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+          <select id="category" name="category" defaultValue={initialData?.category || "OTHER"} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
             <option value="HOUSING">Vivienda</option>
             <option value="TRANSPORTATION">Transporte</option>
             <option value="FOOD">Comida</option>
@@ -37,7 +37,7 @@ export default function TemplateForm({ initialData = null, onSubmit, onCancel })
         </div>
         <div className="space-y-2">
           <Label htmlFor="frequency">Frecuencia</Label>
-          <select id="frequency" name="frequency" value={freq} onChange={(e) => setFreq(e.target.value)} className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+          <select id="frequency" name="frequency" value={freq} onChange={(e) => setFreq(e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
             <option value="MONTHLY">Mensual</option>
             <option value="WEEKLY">Semanal</option>
             <option value="BIWEEKLY">Bisemanal</option>
@@ -58,8 +58,8 @@ export default function TemplateForm({ initialData = null, onSubmit, onCancel })
       )}
 
       <div className="flex items-center space-x-2 pt-2">
-        <input type="checkbox" id="isAutoPay" name="isAutoPay" defaultChecked={initialData?.isAutoPay} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-        <Label htmlFor="isAutoPay" className="font-normal text-slate-700">Este pago está en Auto-Pay</Label>
+        <input type="checkbox" id="isAutoPay" name="isAutoPay" defaultChecked={initialData?.isAutoPay} className="h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500" />
+        <Label htmlFor="isAutoPay" className="font-normal text-foreground">Este pago está en Auto-Pay</Label>
       </div>
 
       <div className="flex justify-end gap-2 mt-4">

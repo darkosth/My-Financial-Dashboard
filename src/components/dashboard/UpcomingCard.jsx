@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AppDialogContent, Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CalendarClock, MoreHorizontal } from "lucide-react";
@@ -62,11 +62,11 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
         <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
           <div className="space-y-1">
             <CardTitle className="text-xl font-semibold flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-slate-500" />
+              <CalendarClock className="h-5 w-5 text-muted-foreground" />
               Próximos pagos
             </CardTitle>
           </div>
-          <p className="text-2xl font-bold text-slate-700 truncate">
+          <p className="text-2xl font-bold text-foreground truncate">
             ${totalUpcomingExpenses.toLocaleString("en-US", { minimumFractionDigits: 2 })}{" "}
             <span className="text-sm font-normal text-muted-foreground hidden sm:inline">/ próximas 2 semanas</span>
           </p>
@@ -84,7 +84,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
             <TableBody>
               {upcomingPayments.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-slate-500 py-6">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
                     No tienes pagos pendientes en las próximas 2 semanas.
                   </TableCell>
                 </TableRow>
@@ -93,7 +93,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
               {upcomingPayments.map((payment) => {
                 const occurrenceDate = new Date(payment.occurrenceDate);
                 return (
-                  <TableRow key={`${payment.id}-${occurrenceDate.toISOString()}`} className="hover:bg-slate-100/50">
+                  <TableRow key={`${payment.id}-${occurrenceDate.toISOString()}`} className="hover:bg-muted/50">
                     
                     {/* COLUMNA 1: GASTO */}
                     <TableCell className="pl-4 sm:pl-6 max-w-[140px] sm:max-w-none">
@@ -104,7 +104,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                       {/* INFO FUSIONADA (MÓVIL): Solo fecha y AutoPay */}
                       <div className="block sm:hidden mt-1 pt-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-slate-600 text-xs">
+                          <span className="font-medium text-muted-foreground text-xs">
                             {format(occurrenceDate, "EEE dd MMM")}
                           </span>
                           {payment.isAutoPay && (
@@ -117,7 +117,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                     </TableCell>
 
                     {/* COLUMNA 2: FECHA (DESKTOP) */}
-                    <TableCell className="hidden sm:table-cell text-slate-600">
+                    <TableCell className="hidden sm:table-cell text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{format(occurrenceDate, "EEE dd MMM")}</span>
                         {payment.isAutoPay && (
@@ -137,15 +137,15 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                     <TableCell className="text-right w-[40px] sm:w-[60px] pr-4 sm:pr-6">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-slate-200/50 transition-colors">
-                            <MoreHorizontal className="h-5 w-5 text-slate-600" />
+                          <Button variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-muted transition-colors">
+                            <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
                           </Button>
                         </DropdownMenuTrigger>
                         
-                        <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-slate-100">
+                        <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-border">
                           <DropdownMenuItem
                             onClick={() => handleMarkAsPaid(payment)}
-                            className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 transition-colors mb-1"
+                            className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/40 transition-colors mb-1"
                           >
                             Marcar como pagado
                           </DropdownMenuItem>
@@ -153,7 +153,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                           {payment.kind !== "credit-card" && (
                             <DropdownMenuItem
                               onClick={() => handleMoveToNextWeek(payment)}
-                              className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-amber-600 focus:text-amber-700 focus:bg-amber-50 transition-colors"
+                              className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-amber-600 focus:text-amber-700 focus:bg-amber-50 dark:focus:bg-amber-950/40 transition-colors"
                             >
                               Mover a la siguiente semana
                             </DropdownMenuItem>
@@ -170,7 +170,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
       </Card>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
+        <AppDialogContent>
           <DialogHeader>
             <DialogTitle>Editar regla de pago</DialogTitle>
           </DialogHeader>
@@ -180,7 +180,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
             onSubmit={handleEditSubmit}
             onCancel={() => setIsOpen(false)}
           />
-        </DialogContent>
+        </AppDialogContent>
       </Dialog>
     </section>
   );

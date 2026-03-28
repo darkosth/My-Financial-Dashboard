@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, ReceiptText } from "lucide-react";
 import {
+  AppDialogContent,
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -47,24 +47,24 @@ export default function QuickExpenseButton({ hasAccounts }) {
       </Button>
 
       <Dialog open={isExpenseOpen} onOpenChange={setIsExpenseOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <AppDialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl">
-              <ReceiptText className="w-6 h-6 text-emerald-600" />
+              <ReceiptText className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
               Descontar liquidez
             </DialogTitle>
-            <DialogDescription className="text-base text-slate-500">
+            <DialogDescription className="text-base">
               Anota esa compra rápida para restarla de los números de la casa al instante.
             </DialogDescription>
           </DialogHeader>
 
           <form action={handleExpenseSubmit} ref={expenseFormRef} className="grid gap-6 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="amount" className="text-slate-700 text-base font-medium">
+              <Label htmlFor="amount" className="text-foreground text-base font-medium">
                 Monto del gasto
               </Label>
               <div className="relative">
-                <span className="absolute left-4 top-3 text-slate-500 font-bold text-xl">$</span>
+                <span className="absolute left-4 top-3 text-muted-foreground font-bold text-xl">$</span>
                 <Input
                   id="amount"
                   name="amount"
@@ -72,7 +72,7 @@ export default function QuickExpenseButton({ hasAccounts }) {
                   step="0.01"
                   min="0.01"
                   placeholder="0.00"
-                  className="pl-9 py-6 text-2xl font-bold rounded-xl"
+                  className="bg-background pl-9 py-6 text-2xl font-bold rounded-xl"
                   required
                   autoFocus
                 />
@@ -80,13 +80,13 @@ export default function QuickExpenseButton({ hasAccounts }) {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="description" className="text-slate-700 text-base font-medium">
+              <Label htmlFor="description" className="text-foreground text-base font-medium">
                 Descripción <span className="font-normal text-muted-foreground">(opcional)</span>
               </Label>
               <Input
                 id="description"
                 name="description"
-                className="py-6 text-lg rounded-xl"
+                className="bg-background py-6 text-lg rounded-xl"
                 placeholder={hasAccounts ? "Ej: Antojos, gasolina, farmacia..." : "Ej: Comida..."}
               />
             </div>
@@ -101,7 +101,7 @@ export default function QuickExpenseButton({ hasAccounts }) {
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
+        </AppDialogContent>
       </Dialog>
     </>
   );

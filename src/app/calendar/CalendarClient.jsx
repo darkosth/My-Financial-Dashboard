@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AppDialogContent, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UpcomingCard from "@/components/dashboard/UpcomingCard";
 import { getCalendarEventsForDay } from "@/lib/financeEngine";
 import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
@@ -122,7 +122,7 @@ export default function CalendarClient({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <CalendarIcon className="h-8 w-8 text-slate-700" />
+            <CalendarIcon className="h-8 w-8 text-foreground" />
             Calendario de liquidez
           </h1>
           <p className="text-muted-foreground">
@@ -130,35 +130,35 @@ export default function CalendarClient({
           </p>
         </div>
 
-        <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-2 bg-card p-1 rounded-lg border border-border shadow-sm">
           <Button variant="ghost" size="icon" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="w-36 text-center font-semibold text-slate-700">{format(currentDate, "MMMM yyyy")}</div>
+          <div className="w-36 text-center font-semibold text-foreground">{format(currentDate, "MMMM yyyy")}</div>
           <Button variant="ghost" size="icon" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <div className="w-px h-6 bg-slate-200 mx-1"></div>
+          <div className="w-px h-6 bg-border mx-1" />
           <Button variant="ghost" className="text-sm font-medium" onClick={() => setCurrentDate(normalizedToday)}>
             Hoy
           </Button>
-          <div className="w-px h-6 bg-slate-200 mx-1"></div>
+          <div className="w-px h-6 bg-border mx-1" />
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40"
           >
             {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
         </div>
       </div>
 
-      <Card className="shadow-lg border-slate-200 overflow-hidden bg-white">
-        <CardHeader className="bg-slate-50 border-b p-0">
-          <div className="grid grid-cols-7 divide-x divide-slate-200">
+      <Card className="shadow-lg border-border overflow-hidden bg-card">
+        <CardHeader className="bg-muted/40 border-b border-border p-0">
+          <div className="grid grid-cols-7 divide-x divide-border">
             {weekDaysHeaders.map((day) => (
-              <div key={day} className="py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <div key={day} className="py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {day}
               </div>
             ))}
@@ -166,7 +166,7 @@ export default function CalendarClient({
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="grid grid-cols-7 border-l border-slate-200">
+          <div className="grid grid-cols-7 border-l border-border">
             {gridDays.map((day) => {
               const isCurrentMonth = isSameMonth(day, currentDate);
               const isToday = isSameDay(day, normalizedToday);
@@ -177,15 +177,15 @@ export default function CalendarClient({
                 <div
                   key={day.toISOString()}
                   className={`
-                    min-h-[120px] md:min-h-[140px] border-r border-b border-slate-200 p-1 md:p-2 flex flex-col justify-between transition-colors hover:bg-slate-50
-                    ${!isCurrentMonth ? "bg-slate-50/50" : "bg-white"}
+                    min-h-[120px] md:min-h-[140px] border-r border-b border-border p-1 md:p-2 flex flex-col justify-between transition-colors hover:bg-muted/50
+                    ${!isCurrentMonth ? "bg-muted/30" : "bg-card"}
                   `}
                 >
                   <div className="flex justify-end">
                     <div
                       className={`
                         w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium
-                        ${isToday ? "bg-blue-600 text-white shadow-md" : !isCurrentMonth ? "text-slate-400" : "text-slate-700"}
+                        ${isToday ? "bg-blue-600 text-white shadow-md" : !isCurrentMonth ? "text-muted-foreground" : "text-foreground"}
                       `}
                     >
                       {format(day, "d")}
@@ -201,8 +201,12 @@ export default function CalendarClient({
                         onClick={() => openExpenseDetails(event)}
                         className={`
                           w-full text-left text-[10px] md:text-xs px-1.5 py-0.5 rounded truncate font-medium border
-                          ${event.isPast ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-red-50 text-red-700 border-red-100"}
-                          ${event.isPast || !event.templateId ? "cursor-default" : "hover:bg-red-100"}
+                          ${
+                            event.isPast
+                              ? "bg-slate-100 text-slate-600 border-slate-200 dark:bg-muted dark:text-muted-foreground dark:border-border"
+                              : "bg-red-50 text-red-700 border-red-100 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900/50"
+                          }
+                          ${event.isPast || !event.templateId ? "cursor-default" : "hover:bg-red-100 dark:hover:bg-red-950/60"}
                         `}
                       >
                         {event.name} <span className="opacity-75 font-normal">${event.amount}</span>
@@ -218,7 +222,7 @@ export default function CalendarClient({
                             events: dayEvents,
                           })
                         }
-                        className="text-[10px] text-blue-600 font-medium pl-1 hover:text-blue-700"
+                        className="text-[10px] text-blue-600 font-medium pl-1 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                       >
                         + {dayEvents.length - 2} más
                       </button>
@@ -226,8 +230,12 @@ export default function CalendarClient({
                   </div>
 
                   {dailyTotal > 0 && (
-                    <div className="mt-2 border-t border-slate-100 pt-1">
-                      <p className={`text-[10px] md:text-xs font-bold text-right ${isToday ? "text-blue-700" : "text-slate-700"}`}>
+                    <div className="mt-2 border-t border-border pt-1">
+                      <p
+                        className={`text-[10px] md:text-xs font-bold text-right ${
+                          isToday ? "text-blue-700 dark:text-blue-400" : "text-foreground"
+                        }`}
+                      >
                         Total: ${dailyTotal.toLocaleString("en-US", { minimumFractionDigits: 0 })}
                       </p>
                     </div>
@@ -251,20 +259,21 @@ export default function CalendarClient({
           }
         }}
       >
-        <DialogContent className="sm:max-w-[425px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
+        <AppDialogContent>
           <DialogHeader>
             <DialogTitle>{selectedExpense?.name}</DialogTitle>
             <DialogDescription>Registra este pago o muévelo a la siguiente semana sin marcarlo como pagado.</DialogDescription>
           </DialogHeader>
 
           {selectedExpense && (
-            <div className="space-y-2 text-sm text-slate-600">
+            <div className="space-y-2 text-sm text-muted-foreground">
               <p>
-                Fecha programada: <span className="font-medium text-slate-900">{format(new Date(selectedExpense.occurrenceDate), "EEE dd MMM")}</span>
+                Fecha programada:{" "}
+                <span className="font-medium text-foreground">{format(new Date(selectedExpense.occurrenceDate), "EEE dd MMM")}</span>
               </p>
               <p>
                 Monto:{" "}
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-foreground">
                   ${selectedExpense.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </span>
               </p>
@@ -281,7 +290,7 @@ export default function CalendarClient({
               Marcar como pagado
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </AppDialogContent>
       </Dialog>
 
       <Dialog
@@ -292,7 +301,7 @@ export default function CalendarClient({
           }
         }}
       >
-        <DialogContent className="sm:max-w-[480px] top-[5%] translate-y-0 sm:top-[50%] sm:-translate-y-1/2 max-h-[85dvh] overflow-y-auto">
+        <AppDialogContent size="wide">
           <DialogHeader>
             <DialogTitle>{expandedDay ? format(new Date(expandedDay.date), "EEEE dd MMM") : "Detalle del día"}</DialogTitle>
             <DialogDescription>Revisa todas las entradas de este día y abre cualquier pendiente desde aquí.</DialogDescription>
@@ -310,8 +319,8 @@ export default function CalendarClient({
                 }}
                 className={`w-full rounded-lg border px-3 py-2 text-left ${
                   event.isPast || !event.templateId
-                    ? "cursor-default border-slate-200 bg-slate-50 text-slate-600"
-                    : "border-red-100 bg-red-50 text-red-700 hover:bg-red-100"
+                    ? "cursor-default border-border bg-muted text-muted-foreground"
+                    : "border-red-100 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200 dark:hover:bg-red-950/60"
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -321,7 +330,7 @@ export default function CalendarClient({
               </button>
             ))}
           </div>
-        </DialogContent>
+        </AppDialogContent>
       </Dialog>
     </div>
   );
