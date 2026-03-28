@@ -251,27 +251,6 @@ export default function TemplatesClient({ initialTemplates }) {
                   </div>
                 </TableHead>
 
-                {/* Frecuencia */}
-                <TableHead 
-                  className="cursor-pointer hover:bg-muted/60 transition-colors"
-                  onClick={() => requestSort('frequency')}
-                >
-                  <div className="flex items-center gap-2">
-                    Frecuencia
-                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </TableHead>
-
-                {/* Categoría */}
-                <TableHead 
-                  className="cursor-pointer hover:bg-muted/60 transition-colors"
-                  onClick={() => requestSort('category')}
-                >
-                  <div className="flex items-center gap-2">
-                    Categoría
-                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </TableHead>
 
                 {/* Monto (Alineado a la derecha) */}
                 <TableHead 
@@ -279,7 +258,7 @@ export default function TemplatesClient({ initialTemplates }) {
                   onClick={() => requestSort('amount')}
                 >
                   <div className="flex items-center justify-end gap-2">
-                    Monto Presupuestado
+                    Monto
                     <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </TableHead>
@@ -291,7 +270,7 @@ export default function TemplatesClient({ initialTemplates }) {
               
               {filteredTemplates.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={3} className="h-32 text-center text-muted-foreground">
                     Aún no hay gastos registrados. ¡Agrega el primero!
                   </TableCell>
                 </TableRow>
@@ -300,30 +279,27 @@ export default function TemplatesClient({ initialTemplates }) {
               {sortedTemplates.map((template) => (
                 <TableRow key={template.id} className="hover:bg-muted/50 transition-colors">
                   <TableCell className="pl-6">
-                    <div className="font-medium text-foreground flex items-center gap-2">
-                      {template.name}
-                      {template.isAutoPay && (
-                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300">Auto</Badge>
-                      )}
+                    <div className="flex flex-col">
+                      <div className="font-medium text-foreground flex items-center gap-2">
+                        {template.name}
+                        {template.isAutoPay && (
+                          <Badge variant="outline" className="text-[10px] h-5 px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300">Auto</Badge>
+                        )}
+                      </div>
+                      <div className="mt-1">
+                        {template.frequency === "MONTHLY" ? (
+                          <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>Día {template.dayOfMonth} </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                            <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{template.frequency === "WEEKLY" ? "Cada Semana" : "Cada 2 Semanas"}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    {template.frequency === "MONTHLY" ? (
-                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                        <span>Día {template.dayOfMonth}</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                        <Repeat className="h-4 w-4 text-muted-foreground" />
-                        <span>{template.frequency === "WEEKLY" ? "Cada Semana" : "Cada 2 Semanas"}</span>
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="bg-muted text-muted-foreground font-normal">
-                      {template.category}
-                    </Badge>
                   </TableCell>
                   <TableCell className="text-right font-semibold text-foreground text-base">
                     ${template.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
