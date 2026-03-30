@@ -1,49 +1,65 @@
 "use client";
-import { useState, useRef } from "react";
+
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { MoreHorizontal, Plus } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, Plus } from "lucide-react";
-
 import { AppDialogContent, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { createCreditCard, deleteCreditCard, updateCreditCard } from "@/lib/actions/creditCardActions";
+import { CREDIT_CARD_STALE_REVIEW_DAYS, getCreditCardLastReviewedAt, isCreditCardStale } from "@/lib/creditCardReview";
 
-import { createCreditCard, updateCreditCard, deleteCreditCard } from "@/lib/actions/creditCardActions";
+const formatReviewedDate = (value) =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+
+const staleRowClassName =
+  "border-l-4 border-l-red-500 bg-red-50/80 hover:bg-red-100/80 dark:border-l-red-400 dark:bg-red-950/30 dark:hover:bg-red-950/45";
+
+const staleBadgeClassName = "border-red-200 bg-red-100 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200";
+
+const staleBannerClassName = "rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 dark:border-red-900/50 dark:bg-red-950/35 dark:text-red-100";
 
 export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAvailableCredit, totalDebt }) {
-  // LA MEMORIA DEL COMPONENTE
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
-  const [viewingCard, setViewingCard] = useState(null); // NUEVO ESTADO: Para la vista de solo lectura
+  const [viewingCard, setViewingCard] = useState(null);
   const formRef = useRef(null);
 
   const handleSubmit = async (formData) => {
-    let result;
-    
-    if (editingCard) {
-      result = await updateCreditCard(editingCard.id, formData);
-    } else {
-      result = await createCreditCard(formData);
-    }
+    const result = editingCard ? await updateCreditCard(editingCard.id, formData) : await createCreditCard(formData);
 
     if (result.success) {
       setIsOpen(false);
       setEditingCard(null);
       setViewingCard(null);
       formRef.current?.reset();
+      router.refresh();
     } else {
       alert("Hubo un error al guardar la tarjeta.");
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("¿Seguro que quieres eliminar esta tarjeta de crédito?")) {
+    if (window.confirm("Seguro que quieres eliminar esta tarjeta de credito?")) {
       const result = await deleteCreditCard(id);
       if (!result.success) {
         alert("No se pudo eliminar la tarjeta.");
+      } else {
+        setIsOpen(false);
+        setEditingCard(null);
+        setViewingCard(null);
+        router.refresh();
       }
     }
   };
@@ -56,131 +72,136 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
       <Card className="overflow-hidden">
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="credit-cards" className="border-none">
-            
-            <AccordionTrigger className="px-4 sm:px-6 py-5 hover:no-underline hover:bg-muted/50 transition-all">
-              <div className="flex justify-between items-center w-full pr-2 sm:pr-4">
-                <h2 className="text-lg sm:text-xl font-semibold text-foreground">Tarjetas de Crédito</h2>
-                <p className="text-xl sm:text-2xl font-bold text-red-600 whitespace-nowrap">
+            <AccordionTrigger className="px-4 py-5 transition-all hover:bg-muted/50 hover:no-underline sm:px-6">
+              <div className="flex w-full items-center justify-between pr-2 sm:pr-4">
+                <h2 className="text-lg font-semibold text-foreground sm:text-xl">Tarjetas de Credito</h2>
+                <p className="whitespace-nowrap text-xl font-bold text-red-600 sm:text-2xl">
                   -${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </p>
               </div>
             </AccordionTrigger>
-            
-            <AccordionContent className="pt-2 border-t">
-              <div className="px-2 sm:px-6 overflow-hidden">
+
+            <AccordionContent className="border-t pt-2">
+              <div className="overflow-hidden px-2 sm:px-6">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="px-2 sm:px-4 text-xs sm:text-sm">Tarjeta</TableHead>
-                      <TableHead className="px-2 sm:px-4 text-right text-xs sm:text-sm">Disponible</TableHead>
-                      <TableHead className="px-2 sm:px-4 text-right text-xs sm:text-sm whitespace-nowrap">Pago Mín.</TableHead>
-                      <TableHead className="w-[40px] sm:w-[60px] px-0 sm:px-4"></TableHead> 
+                      <TableHead className="px-2 text-xs sm:px-4 sm:text-sm">Tarjeta</TableHead>
+                      <TableHead className="px-2 text-right text-xs sm:px-4 sm:text-sm">Disponible</TableHead>
+                      <TableHead className="px-2 text-right text-xs sm:px-4 sm:text-sm whitespace-nowrap">Pago Min.</TableHead>
+                      <TableHead className="w-[40px] px-0 sm:w-[60px] sm:px-4" />
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
-                    
                     {creditCards.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground py-4 text-sm">
-                          No tienes tarjetas de crédito registradas.
+                        <TableCell colSpan={4} className="py-4 text-center text-sm text-muted-foreground">
+                          No tienes tarjetas de credito registradas.
                         </TableCell>
                       </TableRow>
                     )}
 
                     {sortedCreditCards.map((card) => {
                       const availableCredit = card.creditLimit - card.balance;
+                      const stale = isCreditCardStale(card);
+
                       return (
-                        <TableRow 
-                          key={card.id} 
-                          // Convertimos la fila en un botón interactivo
-                          className="cursor-pointer transition-colors hover:bg-muted/60"
+                        <TableRow
+                          key={card.id}
+                          className={`cursor-pointer transition-colors ${stale ? staleRowClassName : "hover:bg-muted/60"}`}
                           onClick={() => {
                             setViewingCard(card);
                             setEditingCard(null);
                             setIsOpen(true);
                           }}
                         >
-                          <TableCell className="px-2 sm:px-4 font-medium text-sm sm:text-base max-w-[120px] sm:max-w-[200px]">
+                          <TableCell className="max-w-[120px] px-2 font-medium text-sm sm:max-w-[200px] sm:px-4 sm:text-base">
                             <div className="flex flex-col">
-                              <span className="truncate" title={card.name}>{card.name}</span>
-                              <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">Due {card.dueDate}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="truncate" title={card.name}>
+                                  {card.name}
+                                </span>
+                                {stale ? (
+                                  <Badge variant="outline" className={staleBadgeClassName}>
+                                    Actualizar
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              <span className="text-[10px] font-normal text-muted-foreground sm:text-xs">
+                                Due {card.dueDate}
+                              </span>
                             </div>
                           </TableCell>
-                          
-                          <TableCell className="px-2 sm:px-4 text-right text-emerald-600 dark:text-emerald-400 font-medium text-sm sm:text-base">
+
+                          <TableCell className="px-2 text-right text-sm font-medium text-emerald-600 dark:text-emerald-400 sm:px-4 sm:text-base">
                             ${availableCredit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </TableCell>
-                          
-                          <TableCell className="px-2 sm:px-4 text-right text-amber-600 font-semibold text-sm sm:text-base">
+
+                          <TableCell className="px-2 text-right text-sm font-semibold text-amber-600 sm:px-4 sm:text-base">
                             ${(card.minimumPayment || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </TableCell>
-                          
-                          {/* AQUI COMIENZA EL MENÚ DESPLEGABLE PREMIUM */}
-                          <TableCell 
-                            className="px-0 sm:px-4 text-right w-[40px] sm:w-[60px]"
-                            onClick={(e) => e.stopPropagation()}
-                          >
+
+                          <TableCell className="w-[40px] px-0 text-right sm:w-[60px] sm:px-4" onClick={(event) => event.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-10 w-10 p-0 rounded-full hover:bg-muted transition-colors">
+                                <Button variant="ghost" className="h-10 w-10 rounded-full p-0 transition-colors hover:bg-muted">
                                   <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              
-                              <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl border-border">
-                                <DropdownMenuItem 
+
+                              <DropdownMenuContent align="end" className="w-48 rounded-xl border-border p-2 shadow-xl">
+                                <DropdownMenuItem
                                   onClick={() => {
                                     setEditingCard(card);
                                     setViewingCard(null);
                                     setIsOpen(true);
                                   }}
-                                  className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-blue-600 transition-colors mb-1 hover:bg-blue-50 hover:text-blue-700 focus:bg-blue-50 focus:text-blue-700 data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:focus:bg-blue-950/50 dark:focus:text-blue-300 dark:data-[highlighted]:bg-blue-950/50 dark:data-[highlighted]:text-blue-300"
+                                  className="mb-1 cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 focus:bg-blue-50 focus:text-blue-700 data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700 sm:text-base dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:focus:bg-blue-950/50 dark:focus:text-blue-300 dark:data-[highlighted]:bg-blue-950/50 dark:data-[highlighted]:text-blue-300"
                                 >
                                   Editar tarjeta
                                 </DropdownMenuItem>
-                                
-                                <DropdownMenuItem 
+
+                                <DropdownMenuItem
                                   onClick={() => handleDelete(card.id)}
-                                  className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 focus:bg-red-50 focus:text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700 dark:hover:bg-red-950/45 dark:hover:text-red-200 dark:focus:bg-red-950/45 dark:focus:text-red-200 dark:data-[highlighted]:bg-red-950/45 dark:data-[highlighted]:text-red-200"
+                                  className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 focus:bg-red-50 focus:text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700 sm:text-base dark:hover:bg-red-950/45 dark:hover:text-red-200 dark:focus:bg-red-950/45 dark:focus:text-red-200 dark:data-[highlighted]:bg-red-950/45 dark:data-[highlighted]:text-red-200"
                                 >
                                   Eliminar tarjeta
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
-                          {/* AQUI TERMINA EL MENÚ */}
-
                         </TableRow>
                       );
                     })}
                   </TableBody>
-                  
-                  <TableFooter className="bg-muted/40 font-semibold text-sm sm:text-base">
+
+                  <TableFooter className="bg-muted/40 text-sm font-semibold sm:text-base">
                     <TableRow>
                       <TableCell className="px-2 sm:px-4">Totales</TableCell>
-                      <TableCell className="px-2 sm:px-4 text-right text-emerald-600 dark:text-emerald-400">
+                      <TableCell className="px-2 text-right text-emerald-600 dark:text-emerald-400 sm:px-4">
                         ${totalAvailableCredit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell className="px-2 sm:px-4 text-right text-amber-600">
+                      <TableCell className="px-2 text-right text-amber-600 sm:px-4">
                         ${totalMinimumPayment.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell className="px-0 sm:px-4"></TableCell>
+                      <TableCell className="px-0 sm:px-4" />
                     </TableRow>
                   </TableFooter>
                 </Table>
               </div>
-              
-              <div className="px-4 sm:px-6 pb-4 pt-2">
-                <Button 
-                  variant="ghost" 
+
+              <div className="px-4 pb-4 pt-2 sm:px-6">
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     setEditingCard(null);
                     setViewingCard(null);
                     setIsOpen(true);
                   }}
-                  className="w-full text-muted-foreground hover:text-foreground hover:bg-muted/70 border border-dashed border-border mt-2"
+                  className="mt-2 w-full border border-dashed border-border text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                 >
-                  <Plus className="h-4 w-4 mr-2" /> Nueva tarjeta de crédito
+                  <Plus className="mr-2 h-4 w-4" /> Nueva tarjeta de credito
                 </Button>
               </div>
             </AccordionContent>
@@ -188,9 +209,8 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
         </Accordion>
       </Card>
 
-      {/* EL MODAL DE DOS CARAS */}
-      <Dialog 
-        open={isOpen} 
+      <Dialog
+        open={isOpen}
         onOpenChange={(open) => {
           setIsOpen(open);
           if (!open) {
@@ -200,38 +220,45 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
         }}
       >
         <AppDialogContent>
-          
-          {/* CARA 1: MODO DE LECTURA (Detalles limpios) */}
           {viewingCard ? (
             <div className="flex flex-col gap-6 py-2">
-              <div className="text-center space-y-1 mt-4">
-                <h3 className="text-2xl font-bold text-foreground tracking-tight">{viewingCard.name}</h3>
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-muted text-sm font-medium text-muted-foreground">
-                  Día de corte: {viewingCard.dueDate}
+              {isCreditCardStale(viewingCard) ? (
+                <div className={staleBannerClassName}>
+                  Esta tarjeta lleva mas de {CREDIT_CARD_STALE_REVIEW_DAYS} dias sin actualizarse.
                 </div>
+              ) : null}
+
+              <div className="mt-4 space-y-1 text-center">
+                <h3 className="text-2xl font-bold tracking-tight text-foreground">{viewingCard.name}</h3>
+                <div className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
+                  Dia de corte: {viewingCard.dueDate}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Ultima actualizacion: {formatReviewedDate(getCreditCardLastReviewedAt(viewingCard))}
+                </p>
               </div>
-              
-              <div className="grid grid-cols-2 gap-4 bg-muted/40 p-5 rounded-2xl border border-border shadow-sm">
+
+              <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border bg-muted/40 p-5 shadow-sm">
                 <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Límite Total</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Limite Total</p>
                   <p className="text-lg font-semibold text-foreground">
                     ${viewingCard.creditLimit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Deuda Actual</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Deuda Actual</p>
                   <p className="text-lg font-bold text-red-600">
                     ${viewingCard.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Disponible</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Disponible</p>
                   <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
                     ${(viewingCard.creditLimit - viewingCard.balance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pago Mín.</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Pago Min.</p>
                   <p className="text-lg font-bold text-amber-600">
                     ${(viewingCard.minimumPayment || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </p>
@@ -239,10 +266,9 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
               </div>
 
               <DialogFooter className="mt-2 sm:justify-center">
-                <Button 
-                  className="w-full sm:w-auto px-8"
+                <Button
+                  className="w-full px-8 sm:w-auto"
                   onClick={() => {
-                    // Transición suave de lectura a edición
                     setEditingCard(viewingCard);
                     setViewingCard(null);
                   }}
@@ -252,27 +278,22 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
               </DialogFooter>
             </div>
           ) : (
-            
-            /* CARA 2: MODO FORMULARIO (Edición o Creación) */
             <>
               <DialogHeader>
-                <DialogTitle>{editingCard ? "Editar tarjeta" : "Nueva tarjeta de crédito"}</DialogTitle>
+                <DialogTitle>{editingCard ? "Editar tarjeta" : "Nueva tarjeta de credito"}</DialogTitle>
                 <DialogDescription>
-                  Indica deuda, límite y día de corte para seguir tu crédito en el tablero.
+                  Indica deuda, limite y dia de corte para seguir tu credito en el tablero.
                 </DialogDescription>
               </DialogHeader>
-              
+
               <form action={handleSubmit} ref={formRef} className="grid gap-4 py-4">
-                
                 <div className="grid gap-2 text-center">
                   {editingCard ? (
                     <div className="mb-2 space-y-1">
                       <Label className="block w-full text-center uppercase tracking-wider text-muted-foreground">
                         Tarjeta a actualizar
                       </Label>
-                      <p className="text-lg font-bold text-foreground uppercase tracking-wider">
-                        {editingCard.name}
-                      </p>
+                      <p className="text-lg font-bold uppercase tracking-wider text-foreground">{editingCard.name}</p>
                       <input type="hidden" name="name" value={editingCard.name} />
                     </div>
                   ) : (
@@ -286,31 +307,31 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="balance">Deuda Actual ($)</Label>
-                    <Input 
-                      id="balance" 
-                      name="balance" 
-                      type="number" 
-                      step="0.01" 
+                    <Input
+                      id="balance"
+                      name="balance"
+                      type="number"
+                      step="0.01"
                       inputMode="decimal"
-                      defaultValue={editingCard?.balance} 
-                      placeholder="0.00" 
-                      required 
-                      onFocus={(e) => e.target.select()}
-                      className="bg-background text-right font-medium text-red-600 dark:text-red-400 focus-visible:ring-red-500"
+                      defaultValue={editingCard?.balance}
+                      placeholder="0.00"
+                      required
+                      onFocus={(event) => event.target.select()}
+                      className="bg-background text-right font-medium text-red-600 focus-visible:ring-red-500 dark:text-red-400"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="creditLimit">Límite Total ($)</Label>
-                    <Input 
-                      id="creditLimit" 
-                      name="creditLimit" 
-                      type="number" 
-                      step="0.01" 
+                    <Label htmlFor="creditLimit">Limite Total ($)</Label>
+                    <Input
+                      id="creditLimit"
+                      name="creditLimit"
+                      type="number"
+                      step="0.01"
                       inputMode="decimal"
-                      defaultValue={editingCard?.creditLimit} 
-                      placeholder="0.00" 
-                      required 
-                      onFocus={(e) => e.target.select()}
+                      defaultValue={editingCard?.creditLimit}
+                      placeholder="0.00"
+                      required
+                      onFocus={(event) => event.target.select()}
                       className="bg-background text-right font-medium text-foreground"
                     />
                   </div>
@@ -318,32 +339,32 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="minimumPayment">Pago Mín. ($)</Label>
-                    <Input 
-                      id="minimumPayment" 
-                      name="minimumPayment" 
-                      type="number" 
-                      step="0.01" 
+                    <Label htmlFor="minimumPayment">Pago Min. ($)</Label>
+                    <Input
+                      id="minimumPayment"
+                      name="minimumPayment"
+                      type="number"
+                      step="0.01"
                       inputMode="decimal"
-                      defaultValue={editingCard?.minimumPayment} 
-                      placeholder="0.00" 
-                      onFocus={(e) => e.target.select()}
-                      className="bg-background text-right font-medium text-amber-600 dark:text-amber-400 focus-visible:ring-amber-500"
+                      defaultValue={editingCard?.minimumPayment}
+                      placeholder="0.00"
+                      onFocus={(event) => event.target.select()}
+                      className="bg-background text-right font-medium text-amber-600 focus-visible:ring-amber-500 dark:text-amber-400"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="dueDate">Día de Corte</Label>
-                    <Input 
-                      id="dueDate" 
-                      name="dueDate" 
-                      type="number" 
+                    <Label htmlFor="dueDate">Dia de Corte</Label>
+                    <Input
+                      id="dueDate"
+                      name="dueDate"
+                      type="number"
                       inputMode="numeric"
-                      min="1" 
-                      max="31" 
-                      defaultValue={editingCard?.dueDate} 
-                      placeholder="Ej: 15" 
-                      required 
-                      onFocus={(e) => e.target.select()}
+                      min="1"
+                      max="31"
+                      defaultValue={editingCard?.dueDate}
+                      placeholder="Ej: 15"
+                      required
+                      onFocus={(event) => event.target.select()}
                       className="bg-background text-center text-foreground"
                     />
                   </div>

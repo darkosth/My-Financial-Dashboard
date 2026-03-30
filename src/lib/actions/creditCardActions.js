@@ -16,13 +16,21 @@ export async function createCreditCard(formData) {
   const balance = parseFloat(formData.get("balance"));
   const creditLimit = parseFloat(formData.get("creditLimit"));
   // Si no te pasan un pago mínimo, por defecto asume el 2% del balance o 0
-  const minimumPayment = formData.get("minimumPayment") ? parseFloat(formData.get("minimumPayment")) : (balance * 0.07);
+  const minimumPayment = formData.get("minimumPayment") ? parseFloat(formData.get("minimumPayment")) : balance * 0.07;
   const dueDate = parseInt(formData.get("dueDate"));
 
   try {
     const { activeWorkspace } = await getCurrentUserContext();
     await prisma.creditCard.create({
-      data: { name, balance, creditLimit, minimumPayment, dueDate, workspaceId: activeWorkspace.id },
+      data: {
+        name,
+        balance,
+        creditLimit,
+        minimumPayment,
+        dueDate,
+        workspaceId: activeWorkspace.id,
+        lastReviewedAt: new Date(),
+      },
     });
     revalidateFinanceViews();
     return { success: true };
@@ -37,7 +45,7 @@ export async function updateCreditCard(id, formData) {
   const name = formData.get("name");
   const balance = parseFloat(formData.get("balance"));
   const creditLimit = parseFloat(formData.get("creditLimit"));
-  const minimumPayment = formData.get("minimumPayment") ? parseFloat(formData.get("minimumPayment")) : (balance * 0.02);
+  const minimumPayment = formData.get("minimumPayment") ? parseFloat(formData.get("minimumPayment")) : balance * 0.02;
   const dueDate = parseInt(formData.get("dueDate"));
 
   try {
@@ -52,7 +60,14 @@ export async function updateCreditCard(id, formData) {
 
     await prisma.creditCard.update({
       where: { id: creditCard.id },
-      data: { name, balance, creditLimit, minimumPayment, dueDate },
+      data: {
+        name,
+        balance,
+        creditLimit,
+        minimumPayment,
+        dueDate,
+        lastReviewedAt: new Date(),
+      },
     });
     revalidateFinanceViews();
     return { success: true };

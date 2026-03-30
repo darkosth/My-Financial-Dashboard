@@ -10,7 +10,7 @@ test("landing, dashboard and calendar render", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: /Hola,|Hello,/ })).toBeVisible();
   await expect(page.getByText(/Liquidez Proyectada a 4 Semanas/)).toBeVisible();
-  await expect(page.getByText(/Cuentas/)).toBeVisible();
+  await expect(page.getByText(/Workspace activo:/)).toBeVisible();
   await expect(page.getByRole("button", { name: /Open navigation menu/i })).toBeVisible();
 
   await page.goto("/calendar?e2e=1");
