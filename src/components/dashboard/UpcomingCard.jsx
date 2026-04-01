@@ -10,8 +10,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CalendarClock, MoreHorizontal } from "lucide-react";
 import TemplateForm from "@/components/forms/TemplateForm";
-import { markWaterfallItemAsPaid, moveWaterfallItemToNextWeek, updateTemplate } from "@/lib/actions/templateActions";
+import {
+  markCarryoverAsPaid,
+  markWaterfallItemAsPaid,
+  moveCarryoverToNextWeek,
+  moveWaterfallItemToNextWeek,
+  updateTemplate,
+} from "@/lib/actions/templateActions";
 import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
+import { getSettlementDate } from "@/lib/paymentResolution";
 
 export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }) {
   const router = useRouter();
@@ -19,10 +26,12 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
   const [editingTemplate, setEditingTemplate] = useState(null);
 
   const handleMarkAsPaid = async (payment) => {
-    const settlementDate = payment.sourceCycleReference ?? payment.occurrenceDate;
+    const settlementDate = getSettlementDate(payment);
     const result =
       payment.kind === "credit-card"
         ? await markCreditCardAsPaid(payment.id.replace("credit-card:", ""), settlementDate)
+        : payment.carryoverId
+          ? await markCarryoverAsPaid(payment.carryoverId)
         : await markWaterfallItemAsPaid(payment.id, settlementDate);
 
     if (result.success) {
@@ -33,8 +42,10 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
   };
 
   const handleMoveToNextWeek = async (payment) => {
-    const settlementDate = payment.sourceCycleReference ?? payment.occurrenceDate;
-    const result = await moveWaterfallItemToNextWeek(payment.id, settlementDate);
+    const settlementDate = getSettlementDate(payment);
+    const result = payment.carryoverId
+      ? await moveCarryoverToNextWeek(payment.carryoverId)
+      : await moveWaterfallItemToNextWeek(payment.id, settlementDate);
 
     if (result.success) {
       router.refresh();

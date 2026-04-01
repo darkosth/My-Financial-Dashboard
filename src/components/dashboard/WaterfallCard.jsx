@@ -12,10 +12,13 @@ import { Label } from "@/components/ui/label";
 import { Target, AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
   deferWaterfallItem,
+  markCarryoverAsPaid,
   markWaterfallItemAsPaid,
+  moveCarryoverToNextWeek,
   moveWaterfallItemToNextWeek,
 } from "@/lib/actions/templateActions";
 import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
+import { getSettlementDate } from "@/lib/paymentResolution";
 
 export default function WaterfallCard({ waterfallData, finalRemainingS4, standardWeeklyIncome }) {
   const router = useRouter();
@@ -31,11 +34,14 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
 
   const handleMarkAsPaid = async () => {
     if (!selectedDetail) return;
+    const settlementDate = getSettlementDate(selectedDetail);
 
     const result =
       selectedDetail.kind === "credit-card"
-        ? await markCreditCardAsPaid(selectedDetail.templateId.replace("credit-card:", ""), selectedDetail.occurrenceDate)
-        : await markWaterfallItemAsPaid(selectedDetail.templateId, selectedDetail.occurrenceDate);
+        ? await markCreditCardAsPaid(selectedDetail.templateId.replace("credit-card:", ""), settlementDate)
+        : selectedDetail.carryoverId
+          ? await markCarryoverAsPaid(selectedDetail.carryoverId)
+        : await markWaterfallItemAsPaid(selectedDetail.templateId, settlementDate);
 
     if (result.success) {
       resetDialog();
@@ -47,8 +53,11 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
 
   const handleMoveToNextWeek = async () => {
     if (!selectedDetail) return;
+    const settlementDate = getSettlementDate(selectedDetail);
 
-    const result = await deferWaterfallItem(selectedDetail.templateId, selectedDetail.occurrenceDate, partialAmount);
+    const result = selectedDetail.carryoverId
+      ? await moveCarryoverToNextWeek(selectedDetail.carryoverId, partialAmount)
+      : await deferWaterfallItem(selectedDetail.templateId, settlementDate, partialAmount);
     if (result.success) {
       resetDialog();
       router.refresh();
@@ -59,8 +68,11 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
 
   const handleMoveWithoutPaying = async () => {
     if (!selectedDetail) return;
+    const settlementDate = getSettlementDate(selectedDetail);
 
-    const result = await moveWaterfallItemToNextWeek(selectedDetail.templateId, selectedDetail.occurrenceDate);
+    const result = selectedDetail.carryoverId
+      ? await moveCarryoverToNextWeek(selectedDetail.carryoverId)
+      : await moveWaterfallItemToNextWeek(selectedDetail.templateId, settlementDate);
     if (result.success) {
       resetDialog();
       router.refresh();

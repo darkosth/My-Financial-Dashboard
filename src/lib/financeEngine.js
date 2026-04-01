@@ -166,6 +166,8 @@ export const getCalendarEventsForDay = ({
   });
 
   carryovers.forEach((carryover) => {
+    if ((carryover.remainingAmount ?? 0) <= 0) return;
+
     const targetWeekStart = startOfDay(new Date(carryover.targetWeekStart));
     if (targetWeekStart.getTime() !== day.getTime()) return;
 
@@ -179,16 +181,22 @@ export const getCalendarEventsForDay = ({
           getDayKey(record.cycleReference) === getDayKey(carryover.originCycleReference)
       )
       .reduce((acc, record) => acc + (record.amountPaid ?? 0), 0);
+    const effectiveRemaining = Math.min(
+      Math.max(carryover.remainingAmount ?? 0, 0),
+      Math.max(template.amount - paidAmount, 0)
+    );
+    if (effectiveRemaining <= 0) return;
     const carryoverLabel = paidAmount > 0 ? "restante" : "pendiente";
     const cycleKey = `${carryover.templateId}:${getDayKey(carryover.originCycleReference)}`;
     carryoverCycleKeys.add(cycleKey);
 
     events.push({
       id: `carryover-${carryover.id}`,
+      carryoverId: carryover.id,
       templateId: template.id,
       kind: "template",
       name: `${template.name} (${carryoverLabel})`,
-      amount: carryover.remainingAmount,
+      amount: effectiveRemaining,
       occurrenceDate: targetWeekStart,
       sourceCycleReference: carryover.originCycleReference,
       isPast: false,

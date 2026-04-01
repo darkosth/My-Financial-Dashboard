@@ -1,6 +1,6 @@
 "use server";
 
-import { addDays } from "date-fns";
+import { addDays, startOfDay } from "date-fns";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import {
@@ -93,6 +93,90 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
       where: { id: template.id },
       data: {
         lastPaidAt: occurrenceDate,
+      },
+    });
+  }
+
+  revalidateFinanceViews();
+  return { success: true };
+}
+
+async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWeek = false }) {
+  const { activeWorkspace } = await getCurrentUserContext();
+  const carryover = await prisma.paymentCarryover.findFirst({
+    where: { id: carryoverId, workspaceId: activeWorkspace.id },
+  });
+
+  if (!carryover) {
+    throw new Error("Gasto movido no encontrado");
+  }
+
+  const template = await prisma.template.findFirst({
+    where: { id: carryover.templateId, workspaceId: activeWorkspace.id },
+  });
+
+  if (!template) {
+    throw new Error("Gasto no encontrado");
+  }
+
+  const alreadyPaid = await prisma.history.findMany({
+    where: {
+      templateId: template.id,
+      workspaceId: activeWorkspace.id,
+      cycleReference: carryover.originCycleReference,
+    },
+  });
+
+  const paidAmountSoFar = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
+  const effectiveRemaining = Math.min(
+    Math.max(carryover.remainingAmount ?? 0, 0),
+    Math.max(template.amount - paidAmountSoFar, 0)
+  );
+  const remainingBeforeAction = effectiveRemaining;
+  const safeAmountPaid = Math.min(Math.max(amountPaid, 0), remainingBeforeAction);
+  const remainingAfterPayment = Math.max(remainingBeforeAction - safeAmountPaid, 0);
+
+  if (remainingBeforeAction <= 0) {
+    await prisma.paymentCarryover.delete({
+      where: { id: carryover.id },
+    });
+    revalidateFinanceViews();
+    return { success: true };
+  }
+
+  if (safeAmountPaid > 0) {
+    await prisma.history.create({
+      data: {
+        templateId: template.id,
+        amountPaid: safeAmountPaid,
+        workspaceId: activeWorkspace.id,
+        cycleReference: carryover.originCycleReference,
+        datePaid: new Date(),
+      },
+    });
+  }
+
+  if (remainingAfterPayment <= 0) {
+    await prisma.paymentCarryover.delete({
+      where: { id: carryover.id },
+    });
+    revalidateFinanceViews();
+    return { success: true };
+  }
+
+  if (moveRemainingToNextWeek) {
+    await prisma.paymentCarryover.update({
+      where: { id: carryover.id },
+      data: {
+        remainingAmount: remainingAfterPayment,
+        targetWeekStart: addDays(startOfDay(new Date(carryover.targetWeekStart)), 7),
+      },
+    });
+  } else {
+    await prisma.paymentCarryover.update({
+      where: { id: carryover.id },
+      data: {
+        remainingAmount: remainingAfterPayment,
       },
     });
   }
@@ -297,5 +381,43 @@ export async function moveWaterfallItemToNextWeek(templateId, occurrenceDate) {
   } catch (error) {
     console.error("Error moving waterfall item to next week:", error);
     return { success: false, error: "Failed to move waterfall item to next week" };
+  }
+}
+
+export async function markCarryoverAsPaid(carryoverId, amountPaidInput = null) {
+  try {
+    const { activeWorkspace } = await getCurrentUserContext();
+    const carryover = await prisma.paymentCarryover.findFirst({
+      where: { id: carryoverId, workspaceId: activeWorkspace.id },
+    });
+
+    if (!carryover) {
+      throw new Error("Gasto movido no encontrado");
+    }
+
+    const amountToPay =
+      amountPaidInput == null ? carryover.remainingAmount : normalizeAmount(amountPaidInput);
+
+    return await settleCarryover({
+      carryoverId,
+      amountPaid: amountToPay,
+      moveRemainingToNextWeek: false,
+    });
+  } catch (error) {
+    console.error("Error marking carryover as paid:", error);
+    return { success: false, error: "Failed to mark carryover as paid" };
+  }
+}
+
+export async function moveCarryoverToNextWeek(carryoverId, amountPaidInput = 0) {
+  try {
+    return await settleCarryover({
+      carryoverId,
+      amountPaid: normalizeAmount(amountPaidInput),
+      moveRemainingToNextWeek: true,
+    });
+  } catch (error) {
+    console.error("Error moving carryover to next week:", error);
+    return { success: false, error: "Failed to move carryover to next week" };
   }
 }

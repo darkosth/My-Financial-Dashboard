@@ -22,7 +22,13 @@ import { AppDialogContent, Dialog, DialogDescription, DialogFooter, DialogHeader
 import UpcomingCard from "@/components/dashboard/UpcomingCard";
 import { getCalendarEventsForDay } from "@/lib/financeEngine";
 import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
-import { markWaterfallItemAsPaid, moveWaterfallItemToNextWeek } from "@/lib/actions/templateActions";
+import {
+  markCarryoverAsPaid,
+  markWaterfallItemAsPaid,
+  moveCarryoverToNextWeek,
+  moveWaterfallItemToNextWeek,
+} from "@/lib/actions/templateActions";
+import { getSettlementDate } from "@/lib/paymentResolution";
 
 const CALENDAR_WEEK_STARTS_ON = 0;
 const weekDaysHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -46,11 +52,13 @@ export default function CalendarClient({
 
   const handleMarkAsPaid = async () => {
     if (!selectedExpense) return;
-    const settlementDate = selectedExpense.sourceCycleReference ?? selectedExpense.occurrenceDate;
+    const settlementDate = getSettlementDate(selectedExpense);
 
     const result =
       selectedExpense.kind === "credit-card"
         ? await markCreditCardAsPaid(selectedExpense.templateId.replace("credit-card:", ""), settlementDate)
+        : selectedExpense.carryoverId
+          ? await markCarryoverAsPaid(selectedExpense.carryoverId)
         : await markWaterfallItemAsPaid(selectedExpense.templateId, settlementDate);
 
     if (result.success) {
@@ -64,9 +72,11 @@ export default function CalendarClient({
 
   const handleMoveToNextWeek = async () => {
     if (!selectedExpense || selectedExpense.kind === "credit-card") return;
-    const settlementDate = selectedExpense.sourceCycleReference ?? selectedExpense.occurrenceDate;
+    const settlementDate = getSettlementDate(selectedExpense);
 
-    const result = await moveWaterfallItemToNextWeek(selectedExpense.templateId, settlementDate);
+    const result = selectedExpense.carryoverId
+      ? await moveCarryoverToNextWeek(selectedExpense.carryoverId)
+      : await moveWaterfallItemToNextWeek(selectedExpense.templateId, settlementDate);
 
     if (result.success) {
       setSelectedExpense(null);

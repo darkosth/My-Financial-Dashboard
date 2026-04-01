@@ -84,6 +84,10 @@ const getCarryoverMaps = (carryovers = []) => {
   const byTargetWeek = new Map();
 
   carryovers.forEach((carryover) => {
+    if ((carryover.remainingAmount ?? 0) <= 0) {
+      return;
+    }
+
     const originKey = `template:${carryover.templateId}:${getCycleKey(carryover.originCycleReference)}`;
     const targetWeekKey = getWeekKey(carryover.targetWeekStart);
 
@@ -251,11 +255,19 @@ export const getUpcomingPendingPayments = ({
     weekCarryovers.forEach((carryover) => {
       const item = templates.find((entry) => getItemKind(entry) === "template" && entry.id === carryover.templateId);
       if (!item) return;
+      const originCycleKey = `${getPaymentOwnerKey(item)}:${getCycleKey(carryover.originCycleReference)}`;
+      const originPaidAmount = paymentSummaryMap.get(originCycleKey) ?? 0;
+      const effectiveRemaining = Math.min(
+        Math.max(carryover.remainingAmount ?? 0, 0),
+        Math.max(item.amount - originPaidAmount, 0)
+      );
+      if (effectiveRemaining <= 0) return;
 
       upcomingPayments.push({
         ...item,
         kind: "template",
-        amount: carryover.remainingAmount,
+        carryoverId: carryover.id,
+        amount: effectiveRemaining,
         occurrenceDate: targetWeekStart,
         isCarryover: true,
         sourceCycleReference: carryover.originCycleReference,
@@ -331,17 +343,24 @@ export const calculateWaterfall = ({
       if (!item) return;
       const originCycleKey = `${getPaymentOwnerKey(item)}:${getCycleKey(carryover.originCycleReference)}`;
       const originPaidAmount = paymentSummaryMap.get(originCycleKey) ?? 0;
+      const effectiveRemaining = Math.min(
+        Math.max(carryover.remainingAmount ?? 0, 0),
+        Math.max(item.amount - originPaidAmount, 0)
+      );
+      if (effectiveRemaining <= 0) return;
       const carryoverLabel = originPaidAmount > 0 ? "restante" : "pendiente";
 
-      expensesInWeek += carryover.remainingAmount;
+      expensesInWeek += effectiveRemaining;
       details.push({
         kind: "template",
+        carryoverId: carryover.id,
         templateId: item.id,
         name: `${item.name} (${carryoverLabel})`,
-        amount: carryover.remainingAmount,
+        amount: effectiveRemaining,
         isPaid: false,
         isCarryover: true,
         occurrenceDate: interval.start,
+        sourceCycleReference: carryover.originCycleReference,
         cycleReference: carryover.originCycleReference,
       });
     });
