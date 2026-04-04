@@ -15,7 +15,6 @@ import { createAccount, updateAccount, deleteAccount } from "@/lib/actions/accou
 export default function AccountsCard({ accounts, totalLiquidity, pendingExpensesTotal }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
-  const [viewingAccount, setViewingAccount] = useState(null);
   const formRef = useRef(null);
 
   const handleSubmit = async (formData) => {
@@ -26,7 +25,6 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
     if (result.success) {
       setIsOpen(false);
       setEditingAccount(null);
-      setViewingAccount(null);
       formRef.current?.reset();
     } else {
       alert("Hubo un error al guardar la cuenta.");
@@ -34,7 +32,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("¿Seguro que quieres eliminar esta cuenta?")) return;
+    if (!window.confirm("Seguro que quieres eliminar esta cuenta?")) return;
 
     const result = await deleteAccount(id);
     if (!result.success) {
@@ -58,7 +56,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                   </p>
                   {pendingExpensesTotal > 0 && (
                     <p className="text-[10px] font-medium text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full inline-block mt-1">
-                      Ajustado por gastos únicos
+                      Ajustado por gastos unicos
                     </p>
                   )}
                 </div>
@@ -78,12 +76,11 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                     )}
 
                     {accounts.map((account) => (
-                      <TableRow 
-                        key={account.id} 
+                      <TableRow
+                        key={account.id}
                         className="hover:bg-muted/60 cursor-pointer transition-colors"
                         onClick={() => {
-                          setViewingAccount(account);
-                          setEditingAccount(null);
+                          setEditingAccount(account);
                           setIsOpen(true);
                         }}
                       >
@@ -91,9 +88,8 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                         <TableCell className="text-right font-semibold text-base text-emerald-600 dark:text-emerald-400">
                           ${account.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                         </TableCell>
-                        
-                        {/* AQUI COMIENZA EL MENÚ DESPLEGABLE PREMIUM */}
-                        <TableCell 
+
+                        <TableCell
                           className="px-0 sm:px-4 text-right w-[40px] sm:w-[60px]"
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -103,19 +99,18 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                                 <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
                               </Button>
                             </DropdownMenuTrigger>
-                            
+
                             <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl shadow-xl border-border">
                               <DropdownMenuItem
                                 onClick={() => {
                                   setEditingAccount(account);
-                                  setViewingAccount(null);
                                   setIsOpen(true);
                                 }}
                                 className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-blue-600 focus:text-blue-700 focus:bg-blue-50 dark:focus:bg-blue-950/40 transition-colors mb-1"
                               >
                                 Editar cuenta
                               </DropdownMenuItem>
-                              
+
                               <DropdownMenuItem
                                 onClick={() => handleDelete(account.id)}
                                 className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-red-600 focus:text-red-700 focus:bg-red-50 dark:focus:bg-red-950/40 transition-colors"
@@ -125,8 +120,6 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
-                        {/* AQUI TERMINA EL MENÚ */}
-
                       </TableRow>
                     ))}
                   </TableBody>
@@ -138,7 +131,6 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                   variant="ghost"
                   onClick={() => {
                     setEditingAccount(null);
-                    setViewingAccount(null);
                     setIsOpen(true);
                   }}
                   className="w-full text-muted-foreground hover:text-foreground hover:bg-muted border border-dashed border-border mt-2"
@@ -151,110 +143,76 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
         </Accordion>
       </Card>
 
-      <Dialog 
-        open={isOpen} 
+      <Dialog
+        open={isOpen}
         onOpenChange={(open) => {
           setIsOpen(open);
           if (!open) {
             setEditingAccount(null);
-            setViewingAccount(null);
           }
         }}
       >
         <AppDialogContent>
-          
-          {viewingAccount ? (
-            <div className="flex flex-col gap-6 py-4">
-              <div className="text-center space-y-2 mt-4">
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-muted text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Cuenta Registrada
-                </div>
-                <h3 className="text-3xl font-bold text-foreground tracking-tight">{viewingAccount.name}</h3>
-              </div>
-              
-              <div className="bg-muted/40 p-8 rounded-2xl border border-border shadow-sm text-center">
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Dinero Disponible</p>
-                <p className="text-5xl font-black text-emerald-600 dark:text-emerald-400">
-                  ${viewingAccount.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </p>
-              </div>
+          <DialogHeader>
+            <DialogTitle>{editingAccount ? "Actualizar balance" : "Agregar cuenta"}</DialogTitle>
+            <DialogDescription>
+              {editingAccount
+                ? "Actualiza el dinero disponible que tienes actualmente en esta cuenta."
+                : "Registra el dinero disponible que tienes actualmente en tu banco o en efectivo."}
+            </DialogDescription>
+          </DialogHeader>
 
-              <DialogFooter className="mt-4 sm:justify-center">
-                <Button 
-                  className="w-full sm:w-auto px-10 py-6 text-lg font-semibold shadow-md hover:scale-105 transition-transform"
-                  onClick={() => {
-                    setEditingAccount(viewingAccount);
-                    setViewingAccount(null);
-                  }}
-                >
-                  Actualizar Balance
-                </Button>
-              </DialogFooter>
-            </div>
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>{editingAccount ? "Actualizar balance" : "Agregar cuenta"}</DialogTitle>
-                <DialogDescription>
-                  {editingAccount 
-                    ? "Actualiza el dinero disponible que tienes actualmente en esta cuenta."
-                    : "Registra el dinero disponible que tienes actualmente en tu banco o en efectivo."}
-                </DialogDescription>
-              </DialogHeader>
-
-              <form action={handleSubmit} ref={formRef} className="grid gap-6 py-4">
-                <div className="grid gap-2">
-                  {editingAccount ? (
-                    <div className="mb-2 space-y-1 text-center">
-                      <p className="text-2xl font-bold text-foreground tracking-tight" >
-                        {editingAccount.name}
-                      </p>
-                      <input type="hidden" name="name" value={editingAccount.name} />
-                    </div>
-                  ) : (
-                    <>
-                      <Label htmlFor="name">Nombre de la cuenta</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        placeholder="Ej: Chase Checking, Efectivo..."
-                        required
-                        className="text-lg"
-                      />
-                    </>
-                  )}
+          <form action={handleSubmit} ref={formRef} className="grid gap-6 py-4">
+            <div className="grid gap-2">
+              {editingAccount ? (
+                <div className="mb-2 space-y-1 text-center">
+                  <p className="text-2xl font-bold text-foreground tracking-tight">
+                    {editingAccount.name}
+                  </p>
+                  <input type="hidden" name="name" value={editingAccount.name} />
                 </div>
-                
-                <div className="grid gap-3 text-center bg-muted/40 p-6 rounded-xl border border-border">
-                  <Label 
-                    htmlFor="balance" 
-                    className="block w-full text-center text-sm font-semibold uppercase tracking-wider text-muted-foreground"
-                  >
-                    Nuevo Balance ($)
-                  </Label>
+              ) : (
+                <>
+                  <Label htmlFor="name">Nombre de la cuenta</Label>
                   <Input
-                    id="balance"
-                    name="balance"
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    className="text-center text-3xl font-black text-emerald-600 dark:text-emerald-400 focus-visible:ring-emerald-500 h-16"
-                    defaultValue={editingAccount?.balance}
-                    placeholder="0.00"
+                    id="name"
+                    name="name"
+                    placeholder="Ej: Chase Checking, Efectivo..."
                     required
-                    autoFocus={!!editingAccount}
-                    onFocus={(e) => e.target.select()}
+                    className="text-lg"
                   />
-                </div>
-                
-                <DialogFooter className="mt-2">
-                  <Button type="submit" className="w-full py-6 text-lg font-bold">
-                    {editingAccount ? "Guardar cambios" : "Crear cuenta"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </>
-          )}
+                </>
+              )}
+            </div>
+
+            <div className="grid gap-3 text-center bg-muted/40 p-6 rounded-xl border border-border">
+              <Label
+                htmlFor="balance"
+                className="block w-full text-center text-sm font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                Nuevo Balance ($)
+              </Label>
+              <Input
+                id="balance"
+                name="balance"
+                type="number"
+                step="10"
+                inputMode="decimal"
+                className="text-center text-4xl font-black text-emerald-600 dark:text-emerald-400 focus-visible:ring-emerald-500 h-16"
+                defaultValue={editingAccount?.balance}
+                placeholder="0.00"
+                required
+                autoFocus={!!editingAccount}
+                onFocus={(e) => e.target.select()}
+              />
+            </div>
+
+            <DialogFooter className="mt-2">
+              <Button type="submit" className="w-full py-6 text-lg font-bold">
+                {editingAccount ? "Guardar cambios" : "Crear cuenta"}
+              </Button>
+            </DialogFooter>
+          </form>
         </AppDialogContent>
       </Dialog>
     </section>
