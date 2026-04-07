@@ -13,7 +13,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createCreditCard, deleteCreditCard, updateCreditCard } from "@/lib/actions/creditCardActions";
-import { CREDIT_CARD_STALE_REVIEW_DAYS, getCreditCardLastReviewedAt, isCreditCardStale } from "@/lib/creditCardReview";
+import {
+  CREDIT_CARD_STALE_REVIEW_DAYS,
+  getCreditCardLastReviewedAt,
+  getCreditCardMonthlyInterestEstimate,
+  isCreditCardStale,
+} from "@/lib/creditCardReview";
 
 const formatReviewedDate = (value) =>
   new Intl.DateTimeFormat("en-US", {
@@ -22,12 +27,19 @@ const formatReviewedDate = (value) =>
     year: "numeric",
   }).format(new Date(value));
 
+const formatCurrency = (value) =>
+  `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatApr = (value) => `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+
 const staleRowClassName =
   "border-l-4 border-l-red-500 bg-red-50/80 hover:bg-red-100/80 dark:border-l-red-400 dark:bg-red-950/30 dark:hover:bg-red-950/45";
 
-const staleBadgeClassName = "border-red-200 bg-red-100 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200";
+const staleBadgeClassName =
+  "border-red-200 bg-red-100 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200";
 
-const staleBannerClassName = "rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 dark:border-red-900/50 dark:bg-red-950/35 dark:text-red-100";
+const staleBannerClassName =
+  "rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 dark:border-red-900/50 dark:bg-red-950/35 dark:text-red-100";
 
 export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAvailableCredit, totalDebt }) {
   const router = useRouter();
@@ -65,6 +77,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
   };
 
   const totalMinimumPayment = creditCards.reduce((sum, card) => sum + (card.minimumPayment || 0), 0);
+  const totalMonthlyInterest = creditCards.reduce((sum, card) => sum + (getCreditCardMonthlyInterestEstimate(card) || 0), 0);
   const sortedCreditCards = [...creditCards].sort((a, b) => b.balance - a.balance);
 
   return (
@@ -89,6 +102,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       <TableHead className="px-2 text-xs sm:px-4 sm:text-sm">Tarjeta</TableHead>
                       <TableHead className="px-2 text-right text-xs sm:px-4 sm:text-sm">Disponible</TableHead>
                       <TableHead className="px-2 text-right text-xs sm:px-4 sm:text-sm whitespace-nowrap">Pago Min.</TableHead>
+                      <TableHead className="px-2 text-right text-xs sm:px-4 sm:text-sm whitespace-nowrap">Interes/Mes</TableHead>
                       <TableHead className="w-[40px] px-0 sm:w-[60px] sm:px-4" />
                     </TableRow>
                   </TableHeader>
@@ -96,7 +110,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                   <TableBody>
                     {creditCards.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="py-4 text-center text-sm text-muted-foreground">
+                        <TableCell colSpan={5} className="py-4 text-center text-sm text-muted-foreground">
                           No tienes tarjetas de credito registradas.
                         </TableCell>
                       </TableRow>
@@ -105,6 +119,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                     {sortedCreditCards.map((card) => {
                       const availableCredit = card.creditLimit - card.balance;
                       const stale = isCreditCardStale(card);
+                      const monthlyInterestEstimate = getCreditCardMonthlyInterestEstimate(card);
 
                       return (
                         <TableRow
@@ -128,18 +143,20 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                                   </Badge>
                                 ) : null}
                               </div>
-                              <span className="text-[10px] font-normal text-muted-foreground sm:text-xs">
-                                Due {card.dueDate}
-                              </span>
+                              <span className="text-[10px] font-normal text-muted-foreground sm:text-xs">Due {card.dueDate}</span>
                             </div>
                           </TableCell>
 
                           <TableCell className="px-2 text-right text-sm font-medium text-emerald-600 dark:text-emerald-400 sm:px-4 sm:text-base">
-                            ${availableCredit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                            {formatCurrency(availableCredit)}
                           </TableCell>
 
                           <TableCell className="px-2 text-right text-sm font-semibold text-amber-600 sm:px-4 sm:text-base">
-                            ${(card.minimumPayment || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                            {formatCurrency(card.minimumPayment || 0)}
+                          </TableCell>
+
+                          <TableCell className="px-2 text-right text-sm font-semibold text-foreground sm:px-4 sm:text-base">
+                            {monthlyInterestEstimate == null ? "--" : formatCurrency(monthlyInterestEstimate)}
                           </TableCell>
 
                           <TableCell className="w-[40px] px-0 text-right sm:w-[60px] sm:px-4" onClick={(event) => event.stopPropagation()}>
@@ -180,10 +197,13 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                     <TableRow>
                       <TableCell className="px-2 sm:px-4">Totales</TableCell>
                       <TableCell className="px-2 text-right text-emerald-600 dark:text-emerald-400 sm:px-4">
-                        ${totalAvailableCredit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        {formatCurrency(totalAvailableCredit)}
                       </TableCell>
                       <TableCell className="px-2 text-right text-amber-600 sm:px-4">
-                        ${totalMinimumPayment.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        {formatCurrency(totalMinimumPayment)}
+                      </TableCell>
+                      <TableCell className="px-2 text-right text-foreground sm:px-4">
+                        {formatCurrency(totalMonthlyInterest)}
                       </TableCell>
                       <TableCell className="px-0 sm:px-4" />
                     </TableRow>
@@ -241,26 +261,34 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
               <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border bg-muted/40 p-5 shadow-sm">
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Limite Total</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    ${viewingCard.creditLimit.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </p>
+                  <p className="text-lg font-semibold text-foreground">{formatCurrency(viewingCard.creditLimit)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Deuda Actual</p>
-                  <p className="text-lg font-bold text-red-600">
-                    ${viewingCard.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </p>
+                  <p className="text-lg font-bold text-red-600">{formatCurrency(viewingCard.balance)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Disponible</p>
                   <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                    ${(viewingCard.creditLimit - viewingCard.balance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    {formatCurrency(viewingCard.creditLimit - viewingCard.balance)}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Pago Min.</p>
-                  <p className="text-lg font-bold text-amber-600">
-                    ${(viewingCard.minimumPayment || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  <p className="text-lg font-bold text-amber-600">{formatCurrency(viewingCard.minimumPayment || 0)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">APR</p>
+                  <p className="text-lg font-semibold text-foreground">
+                    {viewingCard.apr == null ? "No configurado" : formatApr(viewingCard.apr)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Interes/Mes</p>
+                  <p className="text-lg font-semibold text-foreground">
+                    {getCreditCardMonthlyInterestEstimate(viewingCard) == null
+                      ? "No configurado"
+                      : formatCurrency(getCreditCardMonthlyInterestEstimate(viewingCard))}
                   </p>
                 </div>
               </div>
@@ -282,7 +310,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
               <DialogHeader>
                 <DialogTitle>{editingCard ? "Editar tarjeta" : "Nueva tarjeta de credito"}</DialogTitle>
                 <DialogDescription>
-                  Indica deuda, limite y dia de corte para seguir tu credito en el tablero.
+                  Indica deuda, limite, APR y dia de corte para seguir tu credito en el tablero.
                 </DialogDescription>
               </DialogHeader>
 
@@ -368,6 +396,21 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       className="bg-background text-center text-foreground"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="apr">APR (%)</Label>
+                  <Input
+                    id="apr"
+                    name="apr"
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    defaultValue={editingCard?.apr ?? ""}
+                    placeholder="Ej: 24.99"
+                    onFocus={(event) => event.target.select()}
+                    className="bg-background text-right font-medium text-foreground"
+                  />
                 </div>
 
                 <DialogFooter className="mt-4">

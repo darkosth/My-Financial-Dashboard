@@ -10,13 +10,21 @@ const revalidateFinanceViews = () => {
   revalidatePath("/calendar");
 };
 
-// 1. CREAR
+const parseOptionalApr = (value) => {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  const parsedValue = parseFloat(value);
+  return Number.isNaN(parsedValue) ? null : parsedValue;
+};
+
 export async function createCreditCard(formData) {
   const name = formData.get("name");
   const balance = parseFloat(formData.get("balance"));
   const creditLimit = parseFloat(formData.get("creditLimit"));
-  // Si no te pasan un pago mínimo, por defecto asume el 2% del balance o 0
   const minimumPayment = formData.get("minimumPayment") ? parseFloat(formData.get("minimumPayment")) : balance * 0.07;
+  const apr = parseOptionalApr(formData.get("apr"));
   const dueDate = parseInt(formData.get("dueDate"));
 
   try {
@@ -27,6 +35,7 @@ export async function createCreditCard(formData) {
         balance,
         creditLimit,
         minimumPayment,
+        apr,
         dueDate,
         workspaceId: activeWorkspace.id,
         lastReviewedAt: new Date(),
@@ -40,12 +49,12 @@ export async function createCreditCard(formData) {
   }
 }
 
-// 2. ACTUALIZAR
 export async function updateCreditCard(id, formData) {
   const name = formData.get("name");
   const balance = parseFloat(formData.get("balance"));
   const creditLimit = parseFloat(formData.get("creditLimit"));
   const minimumPayment = formData.get("minimumPayment") ? parseFloat(formData.get("minimumPayment")) : balance * 0.02;
+  const apr = parseOptionalApr(formData.get("apr"));
   const dueDate = parseInt(formData.get("dueDate"));
 
   try {
@@ -65,6 +74,7 @@ export async function updateCreditCard(id, formData) {
         balance,
         creditLimit,
         minimumPayment,
+        apr,
         dueDate,
         lastReviewedAt: new Date(),
       },
@@ -77,7 +87,6 @@ export async function updateCreditCard(id, formData) {
   }
 }
 
-// 3. ELIMINAR
 export async function deleteCreditCard(id) {
   try {
     const { activeWorkspace } = await getCurrentUserContext();
