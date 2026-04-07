@@ -196,7 +196,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                 id="balance"
                 name="balance"
                 type="number"
-                step="10"
+                step="0.01"
                 inputMode="decimal"
                 className="text-center text-4xl font-black text-emerald-600 dark:text-emerald-400 focus-visible:ring-emerald-500 h-16"
                 defaultValue={editingAccount?.balance}
