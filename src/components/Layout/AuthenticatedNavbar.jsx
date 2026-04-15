@@ -44,6 +44,14 @@ const getLinkClassName = (isActive) =>
       : "text-muted-foreground hover:bg-muted hover:text-emerald-700 dark:hover:text-emerald-400"
   }`;
 
+const mobileMenuContentClassName =
+  "w-64 max-sm:w-[min(22rem,calc(100vw-1rem))] max-sm:p-2 max-sm:duration-200 max-sm:ease-out max-sm:data-open:slide-in-from-right-8 max-sm:data-closed:slide-out-to-right-8";
+
+const mobileMenuItemClassName =
+  "max-sm:min-h-14 max-sm:gap-3 max-sm:px-4 max-sm:py-3 max-sm:text-lg";
+
+const mobileMenuIconClassName = "h-4 w-4 max-sm:h-6 max-sm:w-6";
+
 export default function AuthenticatedNavbar({ userName, workspaceName }) {
   const pathname = usePathname();
 
@@ -88,10 +96,10 @@ export default function AuthenticatedNavbar({ userName, workspaceName }) {
                 </Button>
               </DropdownMenuTrigger>
 
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel className="space-y-1">
-                  <div className="text-sm font-semibold text-foreground">{userName}</div>
-                  <div className="text-xs text-muted-foreground">{workspaceName}</div>
+              <DropdownMenuContent align="end" className={mobileMenuContentClassName}>
+                <DropdownMenuLabel className="space-y-1 max-sm:px-4 max-sm:py-3">
+                  <div className="text-sm font-semibold text-foreground max-sm:text-lg">{userName}</div>
+                  <div className="text-xs text-muted-foreground max-sm:text-sm">{workspaceName}</div>
                 </DropdownMenuLabel>
 
                 <DropdownMenuSeparator />
@@ -101,9 +109,9 @@ export default function AuthenticatedNavbar({ userName, workspaceName }) {
                     const Icon = link.icon;
 
                     return (
-                      <DropdownMenuItem key={link.href} asChild>
-                        <Link href={link.href} className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
+                      <DropdownMenuItem key={link.href} asChild className={mobileMenuItemClassName}>
+                        <Link href={link.href} className="flex items-center gap-2 max-sm:gap-3">
+                          <Icon className={mobileMenuIconClassName} />
                           <span>{link.label}</span>
                         </Link>
                       </DropdownMenuItem>
@@ -114,33 +122,33 @@ export default function AuthenticatedNavbar({ userName, workspaceName }) {
                 </div>
 
                 {/* ENLACE AL CENTRO DE MANDO (SETTINGS) */}
-                <DropdownMenuItem asChild>
-                  <Link href="/settings" className="flex items-center gap-2 font-medium text-foreground">
-                    <Settings className="h-4 w-4" />
+                <DropdownMenuItem asChild className={mobileMenuItemClassName}>
+                  <Link href="/settings" className="flex items-center gap-2 font-medium text-foreground max-sm:gap-3">
+                    <Settings className={mobileMenuIconClassName} />
                     <span>Workspace Settings</span>
                   </Link>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem asChild>
-                  <Link href="/templates" className="flex items-center gap-2">
-                    <Settings2 className="h-4 w-4" />
+                <DropdownMenuItem asChild className={mobileMenuItemClassName}>
+                  <Link href="/templates" className="flex items-center gap-2 max-sm:gap-3">
+                    <Settings2 className={mobileMenuIconClassName} />
                     <span>Templates</span>
                   </Link>
                 </DropdownMenuItem>
 
-                <DropdownMenuItem asChild>
-                  <Link href="/unique-expenses" className="flex items-center gap-2">
-                    <ReceiptText className="h-4 w-4" />
+                <DropdownMenuItem asChild className={mobileMenuItemClassName}>
+                  <Link href="/unique-expenses" className="flex items-center gap-2 max-sm:gap-3">
+                    <ReceiptText className={mobileMenuIconClassName} />
                     <span>Unique Expenses</span>
                   </Link>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
-                  <LogOut className="h-4 w-4" />
+                <DropdownMenuItem variant="destructive" onSelect={handleLogout} className={mobileMenuItemClassName}>
+                  <LogOut className={mobileMenuIconClassName} />
                   <span>Cerrar sesión</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
