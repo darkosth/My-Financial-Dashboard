@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +17,7 @@ import {
   updateTemplate,
 } from "@/lib/actions/templateActions";
 import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
+import { formatCalendarDateLabel, getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
 import { getSettlementDate } from "@/lib/paymentResolution";
 
 export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }) {
@@ -32,7 +32,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
         ? await markCreditCardAsPaid(payment.id.replace("credit-card:", ""), settlementDate)
         : payment.carryoverId
           ? await markCarryoverAsPaid(payment.carryoverId)
-        : await markWaterfallItemAsPaid(payment.id, settlementDate);
+          : await markWaterfallItemAsPaid(payment.id, settlementDate);
 
     if (result.success) {
       router.refresh();
@@ -102,22 +102,23 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
               )}
 
               {upcomingPayments.map((payment) => {
-                const occurrenceDate = new Date(payment.occurrenceDate);
+                const occurrenceDate = normalizeCalendarDate(payment.occurrenceDate);
+                const occurrenceLabel = formatCalendarDateLabel(
+                  occurrenceDate,
+                  { weekday: "short", day: "2-digit", month: "short" },
+                  "en-US"
+                );
+
                 return (
-                  <TableRow key={`${payment.id}-${occurrenceDate.toISOString()}`} className="hover:bg-muted/50">
-                    
-                    {/* COLUMNA 1: GASTO */}
+                  <TableRow key={`${payment.id}-${getCalendarDateKey(occurrenceDate)}`} className="hover:bg-muted/50">
                     <TableCell className="pl-4 sm:pl-6 max-w-[140px] sm:max-w-none">
                       <div className="font-medium text-base truncate" title={payment.name}>
                         {payment.name}
                       </div>
-                      
-                      {/* INFO FUSIONADA (MÓVIL): Solo fecha y AutoPay */}
+
                       <div className="block sm:hidden mt-1 pt-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-muted-foreground text-xs">
-                            {format(occurrenceDate, "EEE dd MMM")}
-                          </span>
+                          <span className="font-medium text-muted-foreground text-xs">{occurrenceLabel}</span>
                           {payment.isAutoPay && (
                             <span className="text-[9px] text-blue-600 bg-blue-50 px-1 rounded border border-blue-200">
                               Auto
@@ -127,10 +128,9 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                       </div>
                     </TableCell>
 
-                    {/* COLUMNA 2: FECHA (DESKTOP) */}
                     <TableCell className="hidden sm:table-cell text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{format(occurrenceDate, "EEE dd MMM")}</span>
+                        <span className="font-medium">{occurrenceLabel}</span>
                         {payment.isAutoPay && (
                           <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
                             Auto
@@ -139,12 +139,10 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                       </div>
                     </TableCell>
 
-                    {/* COLUMNA 3: MONTO */}
                     <TableCell className="text-right font-semibold text-base whitespace-nowrap">
                       ${payment.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </TableCell>
 
-                    {/* COLUMNA 4: ACCIONES PREMIUM */}
                     <TableCell className="text-right w-[40px] sm:w-[60px] pr-4 sm:pr-6">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -152,7 +150,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                             <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
                           </Button>
                         </DropdownMenuTrigger>
-                        
+
                         <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-border">
                           <DropdownMenuItem
                             onClick={() => handleMarkAsPaid(payment)}
@@ -160,7 +158,7 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
                           >
                             Marcar como pagado
                           </DropdownMenuItem>
-                          
+
                           {payment.kind !== "credit-card" && (
                             <DropdownMenuItem
                               onClick={() => handleMoveToNextWeek(payment)}

@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getNextTemplateOccurrence, getTemplateCycleReference } from "@/lib/waterfallCalculations";
+import { normalizeCalendarDate } from "@/lib/calendarDate";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 
 const revalidateFinanceViews = () => {
@@ -128,7 +129,9 @@ export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = n
       amount: creditCard.minimumPayment,
     };
     const occurrenceDate =
-      occurrenceDateInput ? new Date(occurrenceDateInput) : getNextTemplateOccurrence(scheduledItem, new Date());
+      occurrenceDateInput
+        ? normalizeCalendarDate(occurrenceDateInput)
+        : getNextTemplateOccurrence(scheduledItem, new Date());
 
     if (!occurrenceDate) {
       throw new Error("Could not calculate credit card payment occurrence");

@@ -6,12 +6,13 @@ import {
   getUpcomingPendingPayments,
   isTemplatePaidForOccurrence,
 } from "@/lib/waterfallCalculations";
+import { getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
 
 export const DEFAULT_WEEKLY_INCOME = 1000;
 
 const getDayKey = (value) => {
   if (!value) return "";
-  return new Date(value).toISOString().substring(0, 10);
+  return getCalendarDateKey(value);
 };
 
 export const buildScheduledCreditCardPayments = (creditCards = []) =>
@@ -41,7 +42,7 @@ export const getScheduledPayments = ({ templates = [], creditCards = [] }) => [
 ];
 
 export const buildFinanceSnapshot = (data, todayInput = new Date()) => {
-  const today = startOfDay(todayInput);
+  const today = startOfDay(normalizeCalendarDate(todayInput) ?? todayInput);
   const context = data.context ?? null;
   const accounts = data.accounts ?? [];
   const creditCards = data.creditCards ?? [];
@@ -119,8 +120,8 @@ export const getCalendarEventsForDay = ({
   today = new Date(),
   targetDate,
 }) => {
-  const normalizedToday = startOfDay(today);
-  const day = startOfDay(targetDate);
+  const normalizedToday = startOfDay(normalizeCalendarDate(today) ?? today);
+  const day = startOfDay(normalizeCalendarDate(targetDate) ?? targetDate);
   const events = [];
   const carryoverCycleKeys = new Set();
 
@@ -168,7 +169,7 @@ export const getCalendarEventsForDay = ({
   carryovers.forEach((carryover) => {
     if ((carryover.remainingAmount ?? 0) <= 0) return;
 
-    const targetWeekStart = startOfDay(new Date(carryover.targetWeekStart));
+    const targetWeekStart = startOfDay(normalizeCalendarDate(carryover.targetWeekStart) ?? new Date(carryover.targetWeekStart));
     if (targetWeekStart.getTime() !== day.getTime()) return;
 
     const template = scheduledPayments.find((item) => item.kind !== "credit-card" && item.id === carryover.templateId);

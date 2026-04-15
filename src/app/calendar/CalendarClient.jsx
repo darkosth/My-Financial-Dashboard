@@ -28,6 +28,7 @@ import {
   moveCarryoverToNextWeek,
   moveWaterfallItemToNextWeek,
 } from "@/lib/actions/templateActions";
+import { formatCalendarDateLabel, getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
 import { getSettlementDate } from "@/lib/paymentResolution";
 
 const CALENDAR_WEEK_STARTS_ON = 0;
@@ -44,7 +45,7 @@ export default function CalendarClient({
   today,
 }) {
   const router = useRouter();
-  const normalizedToday = startOfDay(new Date(today));
+  const normalizedToday = startOfDay(normalizeCalendarDate(today) ?? new Date(today));
   const [currentDate, setCurrentDate] = useState(normalizedToday);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
@@ -59,7 +60,7 @@ export default function CalendarClient({
         ? await markCreditCardAsPaid(selectedExpense.templateId.replace("credit-card:", ""), settlementDate)
         : selectedExpense.carryoverId
           ? await markCarryoverAsPaid(selectedExpense.carryoverId)
-        : await markWaterfallItemAsPaid(selectedExpense.templateId, settlementDate);
+          : await markWaterfallItemAsPaid(selectedExpense.templateId, settlementDate);
 
     if (result.success) {
       setSelectedExpense(null);
@@ -185,7 +186,7 @@ export default function CalendarClient({
 
               return (
                 <div
-                  key={day.toISOString()}
+                  key={getCalendarDateKey(day)}
                   className={`
                     min-h-[120px] md:min-h-[140px] border-r border-b border-border p-1 md:p-2 flex flex-col justify-between transition-colors hover:bg-muted/50
                     ${!isCurrentMonth ? "bg-muted/30" : "bg-card"}
@@ -279,7 +280,9 @@ export default function CalendarClient({
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>
                 Fecha programada:{" "}
-                <span className="font-medium text-foreground">{format(new Date(selectedExpense.occurrenceDate), "EEE dd MMM")}</span>
+                <span className="font-medium text-foreground">
+                  {formatCalendarDateLabel(selectedExpense.occurrenceDate, { weekday: "short", day: "2-digit", month: "short" })}
+                </span>
               </p>
               <p>
                 Monto:{" "}
@@ -313,7 +316,11 @@ export default function CalendarClient({
       >
         <AppDialogContent size="wide">
           <DialogHeader>
-            <DialogTitle>{expandedDay ? format(new Date(expandedDay.date), "EEEE dd MMM") : "Detalle del día"}</DialogTitle>
+            <DialogTitle>
+              {expandedDay
+                ? formatCalendarDateLabel(expandedDay.date, { weekday: "long", day: "2-digit", month: "short" })
+                : "Detalle del día"}
+            </DialogTitle>
             <DialogDescription>Revisa todas las entradas de este día y abre cualquier pendiente desde aquí.</DialogDescription>
           </DialogHeader>
 

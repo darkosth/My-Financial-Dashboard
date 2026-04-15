@@ -8,6 +8,7 @@ import {
   getProjectionWeekStart,
   getTemplateCycleReference,
 } from "@/lib/waterfallCalculations";
+import { normalizeCalendarDate, parseDateOnlyString } from "@/lib/calendarDate";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 
 const revalidateFinanceViews = () => {
@@ -31,7 +32,12 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
     throw new Error("Gasto no encontrado");
   }
 
-  const cycleReference = getTemplateCycleReference(template, occurrenceDate);
+  const normalizedOccurrenceDate = normalizeCalendarDate(occurrenceDate);
+  if (!normalizedOccurrenceDate) {
+    throw new Error("Fecha de ocurrencia invalida");
+  }
+
+  const cycleReference = getTemplateCycleReference(template, normalizedOccurrenceDate);
   const alreadyPaid = await prisma.history.findMany({
     where: {
       templateId,
@@ -68,13 +74,13 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
       update: {
         remainingAmount: remainingAfterPayment,
         workspaceId: activeWorkspace.id,
-        targetWeekStart: addDays(getProjectionWeekStart(occurrenceDate), 7),
+        targetWeekStart: addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7),
       },
       create: {
         templateId: template.id,
         workspaceId: activeWorkspace.id,
         originCycleReference: cycleReference,
-        targetWeekStart: addDays(getProjectionWeekStart(occurrenceDate), 7),
+        targetWeekStart: addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7),
         remainingAmount: remainingAfterPayment,
       },
     });
@@ -92,7 +98,7 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
     await prisma.template.update({
       where: { id: template.id },
       data: {
-        lastPaidAt: occurrenceDate,
+        lastPaidAt: normalizedOccurrenceDate,
       },
     });
   }
@@ -195,7 +201,7 @@ export async function createTemplate(formData) {
 
   let lastPaidAt = null;
   if (formData.get("lastPaidAt")) {
-    lastPaidAt = new Date(formData.get("lastPaidAt"));
+    lastPaidAt = parseDateOnlyString(formData.get("lastPaidAt"));
   }
 
   try {
@@ -255,7 +261,7 @@ export async function updateTemplate(id, formData) {
 
   let lastPaidAt = null;
   if (formData.get("lastPaidAt")) {
-    lastPaidAt = new Date(formData.get("lastPaidAt"));
+    lastPaidAt = parseDateOnlyString(formData.get("lastPaidAt"));
   }
 
   try {
@@ -299,7 +305,7 @@ export async function markAsPaid(id) {
 
     const occurrenceDate = getNextTemplateOccurrence(template, new Date());
     if (!occurrenceDate) {
-      throw new Error("No se pudo calcular la próxima ocurrencia del gasto");
+      throw new Error("No se pudo calcular la proxima ocurrencia del gasto");
     }
 
     const alreadyPaid = await prisma.history.findMany({
@@ -332,18 +338,19 @@ export async function markWaterfallItemAsPaid(templateId, occurrenceDate) {
       throw new Error("Gasto no encontrado");
     }
 
+    const normalizedOccurrenceDate = normalizeCalendarDate(occurrenceDate);
     const alreadyPaid = await prisma.history.findMany({
       where: {
         templateId,
         workspaceId: activeWorkspace.id,
-        cycleReference: getTemplateCycleReference(template, occurrenceDate),
+        cycleReference: getTemplateCycleReference(template, normalizedOccurrenceDate),
       },
     });
     const paidAmount = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
 
     return await settleTemplateOccurrence({
       templateId,
-      occurrenceDate: new Date(occurrenceDate),
+      occurrenceDate: normalizedOccurrenceDate,
       amountPaid: Math.max(template.amount - paidAmount, 0),
       moveRemainingToNextWeek: false,
     });
@@ -355,7 +362,7 @@ export async function markWaterfallItemAsPaid(templateId, occurrenceDate) {
 
 export async function deferWaterfallItem(templateId, occurrenceDate, amountPaidInput) {
   try {
-    const occurrence = new Date(occurrenceDate);
+    const occurrence = normalizeCalendarDate(occurrenceDate);
     const amountPaid = normalizeAmount(amountPaidInput);
 
     return await settleTemplateOccurrence({
@@ -374,7 +381,7 @@ export async function moveWaterfallItemToNextWeek(templateId, occurrenceDate) {
   try {
     return await settleTemplateOccurrence({
       templateId,
-      occurrenceDate: new Date(occurrenceDate),
+      occurrenceDate: normalizeCalendarDate(occurrenceDate),
       amountPaid: 0,
       moveRemainingToNextWeek: true,
     });

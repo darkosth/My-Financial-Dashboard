@@ -5,31 +5,22 @@ import {
   format,
   getDaysInMonth,
   isWithinInterval,
-  parseISO,
   setDate,
   startOfDay,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
+import { getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
 
 export const WEEK_STARTS_ON = 4;
 
-const normalizeDate = (value) => {
-  if (!value) return null;
-  return typeof value === "string" ? parseISO(value) : new Date(value);
-};
+const normalizeDate = (value) => normalizeCalendarDate(value);
 
 const toStartOfDay = (value) => startOfDay(normalizeDate(value) ?? new Date());
 const getPaymentOwnerKey = (item) => `${getItemKind(item)}:${item.id}`;
 const getItemKind = (item) => item.kind ?? "template";
-const getCycleKey = (date) => {
-const d = normalizeDate(date);
-  return d ? d.toISOString().substring(0, 10) : "";
-};
-const getWeekKey = (date) => {
-  const d = normalizeDate(date);
-  return d ? d.toISOString().substring(0, 10) : "";
-};
+const getCycleKey = (date) => getCalendarDateKey(date);
+const getWeekKey = (date) => getCalendarDateKey(date);
 
 const getMonthlyOccurrenceForMonth = (baseDate, dayOfMonth) => {
   const safeDay = Math.min(dayOfMonth, getDaysInMonth(baseDate));
@@ -277,7 +268,7 @@ export const getUpcomingPendingPayments = ({
 
   return upcomingPayments
     .filter((payment) => payment.occurrenceDate >= rangeStart)
-    .sort((a, b) => new Date(a.occurrenceDate) - new Date(b.occurrenceDate));
+    .sort((a, b) => (normalizeCalendarDate(a.occurrenceDate) ?? a.occurrenceDate) - (normalizeCalendarDate(b.occurrenceDate) ?? b.occurrenceDate));
 };
 
 export const calculateWaterfall = ({

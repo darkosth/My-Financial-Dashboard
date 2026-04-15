@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { formatCalendarDateForInput } from "@/lib/calendarDate";
 
 export default function TemplateForm({ initialData = null, onSubmit, onCancel }) {
   const [freq, setFreq] = useState(initialData?.frequency || "MONTHLY");
@@ -53,7 +54,7 @@ export default function TemplateForm({ initialData = null, onSubmit, onCancel })
       ) : (
         <div className="space-y-2">
           <Label htmlFor="lastPaidAt">Última fecha de pago</Label>
-          <Input id="lastPaidAt" name="lastPaidAt" defaultValue={initialData?.lastPaidAt ? new Date(initialData.lastPaidAt).toISOString().split('T')[0] : ""} type="date" required />
+          <Input id="lastPaidAt" name="lastPaidAt" defaultValue={formatCalendarDateForInput(initialData?.lastPaidAt)} type="date" required />
         </div>
       )}
 

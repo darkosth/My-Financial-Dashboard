@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -10,19 +10,16 @@ import { Search, MoreHorizontal, Plus, Repeat, CalendarDays, Settings2, ArrowUpD
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AppDialogContent, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-
-// Importamos tu motor de Negocios con la db
+import { formatCalendarDateForInput } from "@/lib/calendarDate";
 import { createTemplate, deleteTemplate, updateTemplate } from "@/lib/actions/templateActions";
 
 export default function TemplatesClient({ initialTemplates }) {
-
-  // Estados locales para controlar la búsqueda, el filtro de frecuencia, edición y el modal
   const [searchTerm, setSearchTerm] = useState("");
-  const [freq, setFreq] = useState("MONTHLY"); // Para saber qué campo de fecha mostrar
-  const [isOpen, setIsOpen] = useState(false); // Controla si el modal está abierto
+  const [freq, setFreq] = useState("MONTHLY");
+  const [isOpen, setIsOpen] = useState(false);
   const formRef = useRef(null);
-  const [editingTemplate, setEditingTemplate] = useState(null); // Para controlar qué template se está editando
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" }); // Para controlar la ordenación de la tabla
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
   const requestSort = (key) => {
     let direction = "asc";
@@ -32,14 +29,14 @@ export default function TemplatesClient({ initialTemplates }) {
     setSortConfig({ key, direction });
   };
 
-    // Filtramos los datos REALES
-  const filteredTemplates = initialTemplates.filter((template) => 
-    template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTemplates = initialTemplates.filter(
+    (template) =>
+      template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      template.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const sortedTemplates = [...filteredTemplates].sort((a, b) => {
-    if (!sortConfig.key) return 0; // Sin ordenación
+    if (!sortConfig.key) return 0;
 
     let aValue = a[sortConfig.key];
     let bValue = b[sortConfig.key];
@@ -57,70 +54,58 @@ export default function TemplatesClient({ initialTemplates }) {
       return acc + template.amount;
     }
     if (template.frequency === "WEEKLY") {
-      return acc + (template.amount * 52 / 12); // Convertimos semanal a mensual
+      return acc + (template.amount * 52) / 12;
     }
     if (template.frequency === "BIWEEKLY") {
-      return acc + (template.amount * 26 / 12); // Convertimos bisemanal a mensual
+      return acc + (template.amount * 26) / 12;
     }
-    return acc; 
+    return acc;
   }, 0);
 
-  // La función que atrapa el formulario y lo envía al servidor
-  // La función que atrapa el formulario y decide si CREAR o ACTUALIZAR
   const handleSubmit = async (formData) => {
-    let result;
-    // ¿Nuestra memoria tiene algo guardado?
-    if (editingTemplate) {
-      // SÍ: Entonces le mandamos el ID viejo y los datos nuevos para que SOBREESCRIBA
-      result = await updateTemplate(editingTemplate.id, formData);
-    } else {
-      // NO: La memoria está vacía, entonces es un registro completamente NUEVO
-      result = await createTemplate(formData);
-    }
+    const result = editingTemplate
+      ? await updateTemplate(editingTemplate.id, formData)
+      : await createTemplate(formData);
 
     if (result.success) {
-      setIsOpen(false); // Cerramos el modal
-      setEditingTemplate(null); // ¡VITAL! Borramos la memoria para que el siguiente clic sea limpio
-      formRef.current?.reset(); // Limpiamos el formulario
+      setIsOpen(false);
+      setEditingTemplate(null);
+      formRef.current?.reset();
     } else {
       alert("Hubo un error al guardar. Revisa la consola.");
     }
   };
 
   const handleDelete = async (id) => {
-  // Un popup nativo de confirmación para evitar borrados por accidente
-  if (window.confirm("Are you sure you want to delete this fixed expense?")) {
-    const result = await deleteTemplate(id);
-    if (!result.success) {
-      alert("Error deleting the item.");
+    if (window.confirm("Are you sure you want to delete this fixed expense?")) {
+      const result = await deleteTemplate(id);
+      if (!result.success) {
+        alert("Error deleting the item.");
+      }
     }
-  }
-};
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
-      
-      {/* ENCABEZADO Y MODAL DE NUEVO GASTO */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <Settings2 className="h-8 w-8 text-foreground" />
             Gastos Fijos
           </h1>
-          <p className="text-muted-foreground">Administra tus suscripciones, biles y presupuestos recurrentes.</p>
+          <p className="text-muted-foreground">Administra tus suscripciones, bills y presupuestos recurrentes.</p>
         </div>
-        
-        {/* EL MODAL DE CREACIÓN */}
+
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button
               className="shadow-sm"
               onClick={() => {
-                setEditingTemplate(null); // Nos aseguramos de que no haya ningún template en edición cuando abrimos el modal para crear uno nuevo
-                setFreq("MONTHLY"); // Reseteamos la frecuencia al valor por defecto
+                setEditingTemplate(null);
+                setFreq("MONTHLY");
                 setIsOpen(true);
               }}
-              >
+            >
               <Plus className="mr-2 h-4 w-4" /> Nuevo Gasto Fijo
             </Button>
           </DialogTrigger>
@@ -129,10 +114,8 @@ export default function TemplatesClient({ initialTemplates }) {
               <DialogTitle>Crear Regla de Pago</DialogTitle>
               <DialogDescription>Añade un nuevo gasto fijo a tu radar financiero.</DialogDescription>
             </DialogHeader>
-            
-            {/* EL FORMULARIO REAL QUE HABLA CON NEON */}
+
             <form action={handleSubmit} ref={formRef} className="grid gap-4 py-4">
-              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nombre</Label>
@@ -168,16 +151,15 @@ export default function TemplatesClient({ initialTemplates }) {
                 </div>
               </div>
 
-              {/* INTELIGENCIA CONDICIONAL: Mostramos el campo correcto según la frecuencia */}
               {freq === "MONTHLY" ? (
                 <div className="space-y-2">
                   <Label htmlFor="dayOfMonth">Día de cobro (1-31)</Label>
-                  <Input id="dayOfMonth" name="dayOfMonth" defaultValue={editingTemplate?.dayOfMonth} type="number" min="1" max="31"  placeholder="Ej: 15" required />
+                  <Input id="dayOfMonth" name="dayOfMonth" defaultValue={editingTemplate?.dayOfMonth} type="number" min="1" max="31" placeholder="Ej: 15" required />
                 </div>
               ) : (
                 <div className="space-y-2">
                   <Label htmlFor="lastPaidAt">Última fecha de pago</Label>
-                  <Input id="lastPaidAt" name="lastPaidAt" defaultValue={editingTemplate?.lastPaidAt ? new Date(editingTemplate.lastPaidAt).toISOString().split('T')[0] : ""} type="date" required />
+                  <Input id="lastPaidAt" name="lastPaidAt" defaultValue={formatCalendarDateForInput(editingTemplate?.lastPaidAt)} type="date" required />
                 </div>
               )}
 
@@ -190,12 +172,10 @@ export default function TemplatesClient({ initialTemplates }) {
                 <Button type="submit" className="w-full">Guardar Gasto Fijo</Button>
               </DialogFooter>
             </form>
-
           </AppDialogContent>
         </Dialog>
       </div>
 
-      {/* TARJETAS DE RESUMEN */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="shadow-sm border-border">
           <CardContent className="p-6">
@@ -213,13 +193,12 @@ export default function TemplatesClient({ initialTemplates }) {
           <CardContent className="p-6">
             <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-1">En Auto-Pay</p>
             <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
-              {initialTemplates.filter(t => t.isAutoPay).length}
+              {initialTemplates.filter((template) => template.isAutoPay).length}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* LA TABLA DE DATOS */}
       <Card className="shadow-sm border-border">
         <CardHeader className="border-b border-border bg-card pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -228,46 +207,38 @@ export default function TemplatesClient({ initialTemplates }) {
           </div>
           <div className="relative w-full md:w-72">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              type="text" placeholder="Buscar bil o categoría..." 
+            <Input
+              type="text"
+              placeholder="Buscar bill o categoría..."
               className="pl-9 bg-muted/40 border-border focus-visible:ring-emerald-500"
-              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </CardHeader>
-        
+
         <CardContent className="p-0 bg-card">
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow>
-                {/* Nombre */}
-                <TableHead 
-                  className="pl-6 cursor-pointer hover:bg-muted/60 transition-colors" 
-                  onClick={() => requestSort('name')}
-                >
+                <TableHead className="pl-6 cursor-pointer hover:bg-muted/60 transition-colors" onClick={() => requestSort("name")}>
                   <div className="flex items-center gap-2">
                     Nombre del Gasto
                     <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </TableHead>
 
-
-                {/* Monto (Alineado a la derecha) */}
-                <TableHead 
-                  className="text-right cursor-pointer hover:bg-muted/60 transition-colors"
-                  onClick={() => requestSort('amount')}
-                >
+                <TableHead className="text-right cursor-pointer hover:bg-muted/60 transition-colors" onClick={() => requestSort("amount")}>
                   <div className="flex items-center justify-end gap-2">
                     Monto
                     <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </TableHead>
-                
-                <TableHead className="w-[50px] pr-6"></TableHead> 
+
+                <TableHead className="w-[50px] pr-6"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              
               {filteredTemplates.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={3} className="h-32 text-center text-muted-foreground">
@@ -290,7 +261,7 @@ export default function TemplatesClient({ initialTemplates }) {
                         {template.frequency === "MONTHLY" ? (
                           <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
                             <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>Día {template.dayOfMonth} </span>
+                            <span>Día {template.dayOfMonth}</span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
@@ -314,14 +285,18 @@ export default function TemplatesClient({ initialTemplates }) {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onClick={() => {
-                            setEditingTemplate(template); // Cargamos el template en edición
-                            setFreq(template.frequency); // Ajustamos la frecuencia para mostrar el campo correcto en el modal
-                            setIsOpen(true); // Abrimos el modal
-                          }} 
-                          className="text-blue-600 focus:text-blue-600 focus:bg-blue-50 dark:focus:bg-blue-950/40 cursor-pointer">
+                            setEditingTemplate(template);
+                            setFreq(template.frequency);
+                            setIsOpen(true);
+                          }}
+                          className="text-blue-600 focus:text-blue-600 focus:bg-blue-50 dark:focus:bg-blue-950/40 cursor-pointer"
+                        >
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(template.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/40 cursor-pointer">
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(template.id)}
+                          className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/40 cursor-pointer"
+                        >
                           Eliminar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
