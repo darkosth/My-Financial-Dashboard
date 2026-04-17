@@ -33,6 +33,8 @@ import { getSettlementDate } from "@/lib/paymentResolution";
 
 const CALENDAR_WEEK_STARTS_ON = 0;
 const weekDaysHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const formatCurrency = (value) =>
+  `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function CalendarClient({
   scheduledPayments,
@@ -220,7 +222,7 @@ export default function CalendarClient({
                           ${event.isPast || !event.templateId ? "cursor-default" : "hover:bg-red-100 dark:hover:bg-red-950/60"}
                         `}
                       >
-                        {event.name} <span className="opacity-75 font-normal">${event.amount}</span>
+                        {event.name} <span className="opacity-75 font-normal">{formatCurrency(event.amount)}</span>
                       </button>
                     ))}
 
@@ -247,7 +249,7 @@ export default function CalendarClient({
                           isToday ? "text-blue-700 dark:text-blue-400" : "text-foreground"
                         }`}
                       >
-                        Total: ${dailyTotal.toLocaleString("en-US", { minimumFractionDigits: 0 })}
+                        Total: {formatCurrency(dailyTotal)}
                       </p>
                     </div>
                   )}
@@ -287,7 +289,7 @@ export default function CalendarClient({
               <p>
                 Monto:{" "}
                 <span className="font-medium text-foreground">
-                  ${selectedExpense.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  {formatCurrency(selectedExpense.amount)}
                 </span>
               </p>
             </div>
@@ -342,7 +344,7 @@ export default function CalendarClient({
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-medium">{event.name}</span>
-                  <span className="text-sm font-semibold">${event.amount}</span>
+                  <span className="text-sm font-semibold">{formatCurrency(event.amount)}</span>
                 </div>
               </button>
             ))}

@@ -20,6 +20,9 @@ import {
 import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
 import { getSettlementDate } from "@/lib/paymentResolution";
 
+const formatCurrency = (value) =>
+  `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 export default function WaterfallCard({ waterfallData, finalRemainingS4, standardWeeklyIncome }) {
   const router = useRouter();
   const [selectedDetail, setSelectedDetail] = useState(null);
@@ -209,7 +212,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                                       {detail.isPaid && <span className="text-[10px] ml-1 no-underline">(Pagado)</span>}
                                       {detail.isDeferred && <span className="text-[10px] ml-1 no-underline">(Movido)</span>}
                                     </span>
-                                    <span>${detail.amount}</span>
+                                    <span>{formatCurrency(detail.amount)}</span>
                                   </button>
                                 </li>
                               ))}

@@ -17,13 +17,15 @@ export const getCreditCardMonthlyInterestEstimate = (card) => {
   return card.balance * (card.apr / 100) / 12;
 };
 
+const roundCurrency = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
+
 export const getCreditCardEffectiveMinimumPayment = (card) => {
   const minimumPayment = card.minimumPayment || 0;
   const minimumPaymentPercentage = card.minimumPaymentPercentage || 0;
 
   if (minimumPaymentPercentage <= 0) {
-    return minimumPayment;
+    return roundCurrency(minimumPayment);
   }
 
-  return Math.max(minimumPayment, card.balance * (minimumPaymentPercentage / 100));
+  return roundCurrency(Math.max(minimumPayment, card.balance * (minimumPaymentPercentage / 100)));
 };
