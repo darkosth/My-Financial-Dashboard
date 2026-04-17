@@ -97,16 +97,17 @@ model Account {
 }
 
 model CreditCard {
-  id             String    @id @default(cuid())
-  name           String
-  balance        Float     @default(0)
-  creditLimit    Float     @default(0)
-  minimumPayment Float     @default(0)
-  apr            Float?
-  dueDate        Int
-  workspaceId    String?
-  createdAt      DateTime  @default(now())
-  lastReviewedAt DateTime?
+  id                       String    @id @default(cuid())
+  name                     String
+  balance                  Float     @default(0)
+  creditLimit              Float     @default(0)
+  minimumPayment           Float     @default(0)
+  minimumPaymentPercentage Float?
+  apr                      Float?
+  dueDate                  Int
+  workspaceId              String?
+  createdAt                DateTime  @default(now())
+  lastReviewedAt           DateTime?
 
   @@map("credit_cards")
 }

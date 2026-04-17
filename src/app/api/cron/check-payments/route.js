@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma"; 
 import { sendTelegramMessage } from "@/lib/telegram";
+import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
 
 export async function GET(request) {
   // 1. Capa de Seguridad (Protección contra intrusos)
@@ -38,11 +39,12 @@ export async function GET(request) {
     let message = "🔔 <b>FINANCIAL ALERT</b> 🔔\n\n";
 
     dueCards.forEach(card => {
+      const minimumPayment = getCreditCardEffectiveMinimumPayment(card);
       const dueText = card.dueDate === currentDay ? "🚨 TODAY" : "⚠️ TOMORROW";
       message += `💳 <b>${card.name}</b>\n`;
       message += `📅 Due: ${dueText}\n`;
       message += `💰 Debt: $${card.balance.toFixed(2)}\n`;
-      message += `💵 Min Payment: $${(card.minimumPayment || 0).toFixed(2)}\n\n`;
+      message += `💵 Min Payment: $${minimumPayment.toFixed(2)}\n\n`;
     });
 
     message += "<i>Don't forget to mark it as paid in your dashboard!</i>";

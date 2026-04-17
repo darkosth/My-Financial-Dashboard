@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { createCreditCard, deleteCreditCard, updateCreditCard } from "@/lib/actions/creditCardActions";
 import {
   CREDIT_CARD_STALE_REVIEW_DAYS,
+  getCreditCardEffectiveMinimumPayment,
   getCreditCardLastReviewedAt,
   getCreditCardMonthlyInterestEstimate,
   isCreditCardStale,
@@ -31,6 +32,8 @@ const formatCurrency = (value) =>
   `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const formatApr = (value) => `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+
+const formatPercent = (value) => `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
 const staleRowClassName =
   "border-l-4 border-l-red-500 bg-red-50/80 hover:bg-red-100/80 dark:border-l-red-400 dark:bg-red-950/30 dark:hover:bg-red-950/45";
@@ -76,7 +79,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
     }
   };
 
-  const totalMinimumPayment = creditCards.reduce((sum, card) => sum + (card.minimumPayment || 0), 0);
+  const totalMinimumPayment = creditCards.reduce((sum, card) => sum + getCreditCardEffectiveMinimumPayment(card), 0);
   const totalMonthlyInterest = creditCards.reduce((sum, card) => sum + (getCreditCardMonthlyInterestEstimate(card) || 0), 0);
   const sortedCreditCards = [...creditCards].sort((a, b) => b.balance - a.balance);
 
@@ -119,6 +122,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                     {sortedCreditCards.map((card) => {
                       const availableCredit = card.creditLimit - card.balance;
                       const stale = isCreditCardStale(card);
+                      const minimumPayment = getCreditCardEffectiveMinimumPayment(card);
                       const monthlyInterestEstimate = getCreditCardMonthlyInterestEstimate(card);
 
                       return (
@@ -152,7 +156,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                           </TableCell>
 
                           <TableCell className="px-2 text-right text-sm font-semibold text-amber-600 sm:px-4 sm:text-base">
-                            {formatCurrency(card.minimumPayment || 0)}
+                            {formatCurrency(minimumPayment)}
                           </TableCell>
 
                           <TableCell className="px-2 text-right text-sm font-semibold text-foreground sm:px-4 sm:text-base">
@@ -275,7 +279,15 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Pago Min.</p>
-                  <p className="text-lg font-bold text-amber-600">{formatCurrency(viewingCard.minimumPayment || 0)}</p>
+                  <p className="text-lg font-bold text-amber-600">
+                    {formatCurrency(getCreditCardEffectiveMinimumPayment(viewingCard))}
+                  </p>
+                  {viewingCard.minimumPaymentPercentage > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Minimo fijo: {formatCurrency(viewingCard.minimumPayment || 0)} - Porcentaje:{" "}
+                      {formatPercent(viewingCard.minimumPaymentPercentage)}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">APR</p>
@@ -367,7 +379,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="minimumPayment">Pago Min. ($)</Label>
+                    <Label htmlFor="minimumPayment">Pago Min. Fijo ($)</Label>
                     <Input
                       id="minimumPayment"
                       name="minimumPayment"
@@ -380,6 +392,23 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       className="bg-background text-right font-medium text-amber-600 focus-visible:ring-amber-500 dark:text-amber-400"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="minimumPaymentPercentage">Pago Min. (%)</Label>
+                    <Input
+                      id="minimumPaymentPercentage"
+                      name="minimumPaymentPercentage"
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      defaultValue={editingCard?.minimumPaymentPercentage ?? ""}
+                      placeholder="Ej: 2.00"
+                      onFocus={(event) => event.target.select()}
+                      className="bg-background text-right font-medium text-foreground"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="dueDate">Dia de Corte</Label>
                     <Input
@@ -396,21 +425,20 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       className="bg-background text-center text-foreground"
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="apr">APR (%)</Label>
-                  <Input
-                    id="apr"
-                    name="apr"
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    defaultValue={editingCard?.apr ?? ""}
-                    placeholder="Ej: 24.99"
-                    onFocus={(event) => event.target.select()}
-                    className="bg-background text-right font-medium text-foreground"
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="apr">APR (%)</Label>
+                    <Input
+                      id="apr"
+                      name="apr"
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      defaultValue={editingCard?.apr ?? ""}
+                      placeholder="Ej: 24.99"
+                      onFocus={(event) => event.target.select()}
+                      className="bg-background text-right font-medium text-foreground"
+                    />
+                  </div>
                 </div>
 
                 <DialogFooter className="mt-4">

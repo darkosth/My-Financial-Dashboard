@@ -16,3 +16,14 @@ export const getCreditCardMonthlyInterestEstimate = (card) => {
 
   return card.balance * (card.apr / 100) / 12;
 };
+
+export const getCreditCardEffectiveMinimumPayment = (card) => {
+  const minimumPayment = card.minimumPayment || 0;
+  const minimumPaymentPercentage = card.minimumPaymentPercentage || 0;
+
+  if (minimumPaymentPercentage <= 0) {
+    return minimumPayment;
+  }
+
+  return Math.max(minimumPayment, card.balance * (minimumPaymentPercentage / 100));
+};

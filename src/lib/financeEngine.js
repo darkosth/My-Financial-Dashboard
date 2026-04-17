@@ -7,6 +7,7 @@ import {
   isTemplatePaidForOccurrence,
 } from "@/lib/waterfallCalculations";
 import { getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
+import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
 
 export const DEFAULT_WEEKLY_INCOME = 1000;
 
@@ -17,11 +18,15 @@ const getDayKey = (value) => {
 
 export const buildScheduledCreditCardPayments = (creditCards = []) =>
   creditCards
-    .filter((card) => card.minimumPayment > 0 && card.dueDate && card.balance > 0)
     .map((card) => ({
+      card,
+      minimumPayment: getCreditCardEffectiveMinimumPayment(card),
+    }))
+    .filter(({ card, minimumPayment }) => minimumPayment > 0 && card.dueDate && card.balance > 0)
+    .map(({ card, minimumPayment }) => ({
       id: `credit-card:${card.id}`,
       name: `${card.name} Minimum Payment`,
-      amount: card.minimumPayment,
+      amount: minimumPayment,
       frequency: "MONTHLY",
       dayOfMonth: card.dueDate,
       category: "DEBT",

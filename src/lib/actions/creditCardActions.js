@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getNextTemplateOccurrence, getTemplateCycleReference } from "@/lib/waterfallCalculations";
 import { normalizeCalendarDate } from "@/lib/calendarDate";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
+import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
 
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
@@ -20,11 +21,21 @@ const parseOptionalApr = (value) => {
   return Number.isNaN(parsedValue) ? null : parsedValue;
 };
 
+const parseOptionalPercentage = (value) => {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  const parsedValue = parseFloat(value);
+  return Number.isNaN(parsedValue) ? null : parsedValue;
+};
+
 export async function createCreditCard(formData) {
   const name = formData.get("name");
   const balance = parseFloat(formData.get("balance"));
   const creditLimit = parseFloat(formData.get("creditLimit"));
   const minimumPayment = formData.get("minimumPayment") ? parseFloat(formData.get("minimumPayment")) : balance * 0.07;
+  const minimumPaymentPercentage = parseOptionalPercentage(formData.get("minimumPaymentPercentage"));
   const apr = parseOptionalApr(formData.get("apr"));
   const dueDate = parseInt(formData.get("dueDate"));
 
@@ -36,6 +47,7 @@ export async function createCreditCard(formData) {
         balance,
         creditLimit,
         minimumPayment,
+        minimumPaymentPercentage,
         apr,
         dueDate,
         workspaceId: activeWorkspace.id,
@@ -55,6 +67,7 @@ export async function updateCreditCard(id, formData) {
   const balance = parseFloat(formData.get("balance"));
   const creditLimit = parseFloat(formData.get("creditLimit"));
   const minimumPayment = formData.get("minimumPayment") ? parseFloat(formData.get("minimumPayment")) : balance * 0.02;
+  const minimumPaymentPercentage = parseOptionalPercentage(formData.get("minimumPaymentPercentage"));
   const apr = parseOptionalApr(formData.get("apr"));
   const dueDate = parseInt(formData.get("dueDate"));
 
@@ -75,6 +88,7 @@ export async function updateCreditCard(id, formData) {
         balance,
         creditLimit,
         minimumPayment,
+        minimumPaymentPercentage,
         apr,
         dueDate,
         lastReviewedAt: new Date(),
@@ -121,12 +135,13 @@ export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = n
       throw new Error("Credit card not found");
     }
 
+    const minimumPayment = getCreditCardEffectiveMinimumPayment(creditCard);
     const scheduledItem = {
       id: `credit-card:${creditCard.id}`,
       kind: "credit-card",
       frequency: "MONTHLY",
       dayOfMonth: creditCard.dueDate,
-      amount: creditCard.minimumPayment,
+      amount: minimumPayment,
     };
     const occurrenceDate =
       occurrenceDateInput
@@ -146,7 +161,7 @@ export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = n
       },
     });
     const alreadyPaid = previousPayments.reduce((acc, item) => acc + item.amountPaid, 0);
-    const pendingAmount = Math.max(creditCard.minimumPayment - alreadyPaid, 0);
+    const pendingAmount = Math.max(minimumPayment - alreadyPaid, 0);
 
     if (pendingAmount <= 0) {
       revalidateFinanceViews();
