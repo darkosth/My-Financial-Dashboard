@@ -9,50 +9,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CalendarClock, MoreHorizontal } from "lucide-react";
 import TemplateForm from "@/components/forms/TemplateForm";
-import {
-  markCarryoverAsPaid,
-  markWaterfallItemAsPaid,
-  moveCarryoverToNextWeek,
-  moveWaterfallItemToNextWeek,
-  updateTemplate,
-} from "@/lib/actions/templateActions";
-import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
+import PaymentActionDialog from "@/components/payments/PaymentActionDialog";
+import { updateTemplate } from "@/lib/actions/templateActions";
 import { formatCalendarDateLabel, getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
-import { getSettlementDate } from "@/lib/paymentResolution";
+import { usePaymentActionDialog } from "@/lib/usePaymentActionDialog";
 
 export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
-
-  const handleMarkAsPaid = async (payment) => {
-    const settlementDate = getSettlementDate(payment);
-    const result =
-      payment.kind === "credit-card"
-        ? await markCreditCardAsPaid(payment.id.replace("credit-card:", ""), settlementDate)
-        : payment.carryoverId
-          ? await markCarryoverAsPaid(payment.carryoverId)
-          : await markWaterfallItemAsPaid(payment.id, settlementDate);
-
-    if (result.success) {
-      router.refresh();
-    } else {
-      alert("Hubo un error al registrar el pago.");
-    }
-  };
-
-  const handleMoveToNextWeek = async (payment) => {
-    const settlementDate = getSettlementDate(payment);
-    const result = payment.carryoverId
-      ? await moveCarryoverToNextWeek(payment.carryoverId)
-      : await moveWaterfallItemToNextWeek(payment.id, settlementDate);
-
-    if (result.success) {
-      router.refresh();
-    } else {
-      alert("Hubo un error al mover el gasto.");
-    }
-  };
+  const { isPaymentDialogOpen, isSubmittingPaymentAction, selectedPaymentItem, openPaymentDialog, closePaymentDialog, submitPaymentAction } =
+    usePaymentActionDialog();
 
   const handleEditSubmit = async (formData) => {
     if (!editingTemplate) return;
@@ -153,20 +120,14 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
 
                         <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-border">
                           <DropdownMenuItem
-                            onClick={() => handleMarkAsPaid(payment)}
+                            onClick={() => openPaymentDialog({
+                              ...payment,
+                              templateId: payment.id,
+                            })}
                             className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/40 transition-colors mb-1"
                           >
-                            Marcar como pagado
+                            Gestionar pago
                           </DropdownMenuItem>
-
-                          {payment.kind !== "credit-card" && (
-                            <DropdownMenuItem
-                              onClick={() => handleMoveToNextWeek(payment)}
-                              className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-amber-600 focus:text-amber-700 focus:bg-amber-50 dark:focus:bg-amber-950/40 transition-colors"
-                            >
-                              Mover a la siguiente semana
-                            </DropdownMenuItem>
-                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -191,6 +152,19 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
           />
         </AppDialogContent>
       </Dialog>
+
+      <PaymentActionDialog
+        key={selectedPaymentItem ? `${selectedPaymentItem.templateId}-${selectedPaymentItem.carryoverId ?? "base"}-${selectedPaymentItem.occurrenceDate}` : "upcoming-payment-dialog"}
+        item={selectedPaymentItem}
+        open={isPaymentDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePaymentDialog();
+          }
+        }}
+        onSubmitAction={submitPaymentAction}
+        isSubmitting={isSubmittingPaymentAction}
+      />
     </section>
   );
 }

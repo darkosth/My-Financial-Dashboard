@@ -1,90 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { AppDialogContent, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Target, AlertTriangle, CheckCircle2, CircleHelp } from "lucide-react";
-import {
-  deferWaterfallItem,
-  markCarryoverAsPaid,
-  markWaterfallItemAsPaid,
-  moveCarryoverToNextWeek,
-  moveWaterfallItemToNextWeek,
-} from "@/lib/actions/templateActions";
-import { markCreditCardAsPaid } from "@/lib/actions/creditCardActions";
-import { getSettlementDate } from "@/lib/paymentResolution";
+import { Target, AlertTriangle, CheckCircle2 } from "lucide-react";
+import PaymentActionDialog from "@/components/payments/PaymentActionDialog";
+import { usePaymentActionDialog } from "@/lib/usePaymentActionDialog";
 
 const formatCurrency = (value) =>
   `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function WaterfallCard({ waterfallData, finalRemainingS4, standardWeeklyIncome }) {
-  const router = useRouter();
-  const [selectedDetail, setSelectedDetail] = useState(null);
-  const [partialAmount, setPartialAmount] = useState("");
-  const [showHelp, setShowHelp] = useState(false);
+  const {
+    isPaymentDialogOpen,
+    isSubmittingPaymentAction,
+    selectedPaymentItem,
+    openPaymentDialog,
+    closePaymentDialog,
+    submitPaymentAction,
+  } = usePaymentActionDialog();
   const isDanger = finalRemainingS4 <= 0;
   const isHealthy = finalRemainingS4 >= 1000;
-
-  const resetDialog = () => {
-    setSelectedDetail(null);
-    setPartialAmount("");
-    setShowHelp(false);
-  };
-
-  const handleMarkAsPaid = async () => {
-    if (!selectedDetail) return;
-    const settlementDate = getSettlementDate(selectedDetail);
-
-    const result =
-      selectedDetail.kind === "credit-card"
-        ? await markCreditCardAsPaid(selectedDetail.templateId.replace("credit-card:", ""), settlementDate)
-        : selectedDetail.carryoverId
-          ? await markCarryoverAsPaid(selectedDetail.carryoverId)
-          : await markWaterfallItemAsPaid(selectedDetail.templateId, settlementDate);
-
-    if (result.success) {
-      resetDialog();
-      router.refresh();
-    } else {
-      alert("No se pudo registrar el pago.");
-    }
-  };
-
-  const handleMoveToNextWeek = async () => {
-    if (!selectedDetail) return;
-    const settlementDate = getSettlementDate(selectedDetail);
-
-    const result = selectedDetail.carryoverId
-      ? await moveCarryoverToNextWeek(selectedDetail.carryoverId, partialAmount)
-      : await deferWaterfallItem(selectedDetail.templateId, settlementDate, partialAmount);
-    if (result.success) {
-      resetDialog();
-      router.refresh();
-    } else {
-      alert("No se pudo mover el restante a la proxima semana.");
-    }
-  };
-
-  const handleMoveWithoutPaying = async () => {
-    if (!selectedDetail) return;
-    const settlementDate = getSettlementDate(selectedDetail);
-
-    const result = selectedDetail.carryoverId
-      ? await moveCarryoverToNextWeek(selectedDetail.carryoverId)
-      : await moveWaterfallItemToNextWeek(selectedDetail.templateId, settlementDate);
-    if (result.success) {
-      resetDialog();
-      router.refresh();
-    } else {
-      alert("No se pudo mover el gasto a la proxima semana.");
-    }
-  };
 
   return (
     <section>
@@ -195,9 +131,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                                     disabled={detail.isPaid}
                                     onClick={() => {
                                       if (detail.isPaid) return;
-                                      setSelectedDetail(detail);
-                                      setPartialAmount(detail.amount.toString());
-                                      setShowHelp(false);
+                                      openPaymentDialog(detail);
                                     }}
                                     className={`w-full text-xs flex justify-between text-left ${
                                       detail.isPaid
@@ -234,86 +168,18 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
         </Accordion>
       </Card>
 
-      <Dialog
-        open={!!selectedDetail}
+      <PaymentActionDialog
+        key={selectedPaymentItem ? `${selectedPaymentItem.templateId}-${selectedPaymentItem.carryoverId ?? "base"}-${selectedPaymentItem.occurrenceDate}` : "waterfall-payment-dialog"}
+        item={selectedPaymentItem}
+        open={isPaymentDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
-            resetDialog();
+            closePaymentDialog();
           }
         }}
-      >
-        <AppDialogContent>
-          <DialogHeader>
-            <div className="space-y-2">
-              <div className="space-y-1">
-                <DialogTitle>{selectedDetail?.name}</DialogTitle>
-                <DialogDescription>Elige la accion que quieres registrar para este gasto.</DialogDescription>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-8 w-fit self-start px-2 text-xs font-medium text-muted-foreground hover:text-foreground ring-2 ring-emerald-500/20"
-                onClick={() => setShowHelp((current) => !current)}
-                aria-label={showHelp ? "Ocultar ayuda" : "Mostrar ayuda"}
-                aria-expanded={showHelp}
-              >
-                <CircleHelp className="mr-1 h-4 w-4" />
-                {showHelp ? "Ocultar ayuda" : "Como funciona"}
-              </Button>
-            </div>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-2">
-            {showHelp && (
-              <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-xs text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100">
-                <p>
-                  <strong>Pago completo:</strong> marca este gasto como cubierto y lo quita de pendientes.
-                </p>
-                {selectedDetail?.kind !== "credit-card" && (
-                  <>
-                    <p className="mt-2">
-                      <strong>Pagar parcial y mover resto:</strong> registra lo que pagaste ahora y manda el restante a la semana siguiente.
-                    </p>
-                    <p className="mt-2">
-                      <strong>Mover a la siguiente semana:</strong> mueve el monto completo sin marcarlo como pagado.
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2 items-center space-y-2">
-              <Label htmlFor="partialAmount">MONTO A PAGAR</Label>
-              <Input
-                id="partialAmount"
-                type="number"
-                step="0.01"
-                min="0"
-                max={selectedDetail?.amount ?? undefined}
-                value={partialAmount}
-                onChange={(event) => setPartialAmount(event.target.value)}
-                className="w-[55%] text-center text-4xl h-15 font-bold focus-visible:ring-emerald-500 focus-visible:border-transparent"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex flex-col items-center gap-4 sm:flex-col">
-            {selectedDetail?.kind !== "credit-card" && (
-              <div className="flex w-full gap-2">
-                <Button variant="outline" className="flex-1 h-auto py-2 text-xs sm:text-sm whitespace-normal text-center" onClick={handleMoveToNextWeek}>
-                  Pagar parcial y mover resto
-                </Button>
-                <Button variant="outline" className="flex-1 h-auto py-2 text-xs sm:text-sm whitespace-normal text-center" onClick={handleMoveWithoutPaying}>
-                  Mover a la siguiente semana
-                </Button>
-              </div>
-            )}
-            <Button className="w-[68%] sm:w-auto px-8 py-6 text-base sm:text-lg font-bold shadow-md hover:scale-105 transition-transform" onClick={handleMarkAsPaid}>
-              PAGO COMPLETO
-            </Button>
-          </DialogFooter>
-        </AppDialogContent>
-      </Dialog>
+        onSubmitAction={submitPaymentAction}
+        isSubmitting={isSubmittingPaymentAction}
+      />
     </section>
   );
 }

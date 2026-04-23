@@ -94,7 +94,7 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
     });
   }
 
-  if (!moveRemainingToNextWeek || remainingAfterPayment <= 0) {
+  if (remainingAfterPayment <= 0) {
     await prisma.template.update({
       where: { id: template.id },
       data: {
@@ -374,6 +374,23 @@ export async function deferWaterfallItem(templateId, occurrenceDate, amountPaidI
   } catch (error) {
     console.error("Error deferring waterfall item:", error);
     return { success: false, error: "Failed to defer waterfall item" };
+  }
+}
+
+export async function partiallyPayWaterfallItem(templateId, occurrenceDate, amountPaidInput) {
+  try {
+    const occurrence = normalizeCalendarDate(occurrenceDate);
+    const amountPaid = normalizeAmount(amountPaidInput);
+
+    return await settleTemplateOccurrence({
+      templateId,
+      occurrenceDate: occurrence,
+      amountPaid,
+      moveRemainingToNextWeek: false,
+    });
+  } catch (error) {
+    console.error("Error partially paying waterfall item:", error);
+    return { success: false, error: "Failed to partially pay waterfall item" };
   }
 }
 
