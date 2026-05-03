@@ -15,10 +15,10 @@ export default async function Navbar() {
   if (!isAuthenticated) {
     return (
       <nav className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6 md:px-10">
+        <div className="mx-auto flex h-20 max-w-5xl items-center justify-between px-6 md:px-10">
           <Link href="/" className="flex items-center gap-2 font-bold tracking-tight text-foreground">
             <Wallet className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-lg">MyFinance</span>
+            <span className="text-2xl">MyFinance</span>
           </Link>
 
           <div className="hidden items-center gap-2 sm:flex">
