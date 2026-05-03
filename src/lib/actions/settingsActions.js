@@ -8,8 +8,18 @@ import { getCurrentUserContext } from "@/lib/workspaceContext";
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
   revalidatePath("/calendar");
-  revalidatePath("/settings"); // Agregamos la nueva ruta para que se refresque al guardar
+  revalidatePath("/settings");
 };
+
+const getWorkspaceMembership = async (userId, workspaceId) =>
+  prisma.workspaceMember.findUnique({
+    where: {
+      userId_workspaceId: {
+        userId,
+        workspaceId,
+      },
+    },
+  });
 
 // ==========================================
 // FUNCIONES ORIGINALES (INTACTAS)
@@ -77,8 +87,15 @@ export async function updateWeeklyIncome(workspaceId, newIncome) {
   }
 
   try {
+    const { user } = await getCurrentUserContext();
+    const membership = await getWorkspaceMembership(user.id, workspaceId);
+
+    if (!membership) {
+      return { success: false, error: "You do not have access to this workspace." };
+    }
+
     const existingSettings = await prisma.appSettings.findFirst({
-      where: { workspaceId: workspaceId },
+      where: { workspaceId },
     });
 
     if (existingSettings) {
@@ -100,5 +117,138 @@ export async function updateWeeklyIncome(workspaceId, newIncome) {
   } catch (error) {
     console.error("Error updating weekly income:", error);
     return { success: false, error: "Failed to update income" };
+  }
+}
+
+export async function switchActiveWorkspace(workspaceId) {
+  try {
+    const { user } = await getCurrentUserContext();
+    const membership = await getWorkspaceMembership(user.id, workspaceId);
+
+    if (!membership) {
+      return { success: false, error: "You do not belong to that workspace." };
+    }
+
+    await prisma.userPreference.upsert({
+      where: { userId: user.id },
+      update: { activeWorkspaceId: workspaceId },
+      create: {
+        userId: user.id,
+        activeWorkspaceId: workspaceId,
+      },
+    });
+
+    revalidateFinanceViews();
+    return { success: true };
+  } catch (error) {
+    console.error("Error switching workspace:", error);
+    return { success: false, error: "Failed to switch workspace." };
+  }
+}
+
+export async function removeWorkspaceMember(memberId) {
+  try {
+    const { user, activeWorkspace } = await getCurrentUserContext();
+    const currentMembership = await getWorkspaceMembership(user.id, activeWorkspace.id);
+
+    if (!currentMembership || currentMembership.role !== "OWNER") {
+      return { success: false, error: "Only the workspace owner can remove members." };
+    }
+
+    const targetMembership = await prisma.workspaceMember.findUnique({
+      where: { id: memberId },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!targetMembership || targetMembership.workspaceId !== activeWorkspace.id) {
+      return { success: false, error: "Member not found in this workspace." };
+    }
+
+    if (targetMembership.role === "OWNER" || targetMembership.userId === user.id) {
+      return { success: false, error: "The workspace owner cannot be removed." };
+    }
+
+    const fallbackMembership = await prisma.workspaceMember.findFirst({
+      where: {
+        userId: targetMembership.userId,
+        workspaceId: {
+          not: activeWorkspace.id,
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    await prisma.workspaceMember.delete({
+      where: { id: memberId },
+    });
+
+    await prisma.userPreference.upsert({
+      where: { userId: targetMembership.userId },
+      update: {
+        activeWorkspaceId: fallbackMembership?.workspaceId ?? null,
+      },
+      create: {
+        userId: targetMembership.userId,
+        activeWorkspaceId: fallbackMembership?.workspaceId ?? null,
+      },
+    });
+
+    revalidateFinanceViews();
+    return { success: true };
+  } catch (error) {
+    console.error("Error removing workspace member:", error);
+    return { success: false, error: "Failed to remove workspace member." };
+  }
+}
+
+export async function leaveWorkspace(workspaceId) {
+  try {
+    const { user, activeWorkspace } = await getCurrentUserContext();
+    const membership = await getWorkspaceMembership(user.id, workspaceId);
+
+    if (!membership) {
+      return { success: false, error: "You do not belong to that workspace." };
+    }
+
+    if (membership.role === "OWNER") {
+      return { success: false, error: "Owners cannot leave their own workspace." };
+    }
+
+    const fallbackMembership = await prisma.workspaceMember.findFirst({
+      where: {
+        userId: user.id,
+        workspaceId: {
+          not: workspaceId,
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (!fallbackMembership) {
+      return { success: false, error: "You need at least one workspace to continue." };
+    }
+
+    await prisma.workspaceMember.delete({
+      where: { id: membership.id },
+    });
+
+    if (activeWorkspace.id === workspaceId) {
+      await prisma.userPreference.upsert({
+        where: { userId: user.id },
+        update: { activeWorkspaceId: fallbackMembership.workspaceId },
+        create: {
+          userId: user.id,
+          activeWorkspaceId: fallbackMembership.workspaceId,
+        },
+      });
+    }
+
+    revalidateFinanceViews();
+    return { success: true };
+  } catch (error) {
+    console.error("Error leaving workspace:", error);
+    return { success: false, error: "Failed to leave workspace." };
   }
 }

@@ -1,17 +1,57 @@
-import { auth } from "@/auth";
 import { loadFinanceSnapshot } from "@/lib/financeData";
+import prisma from "@/lib/prisma";
+import { getCurrentUserContext } from "@/lib/workspaceContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Settings, Wallet, Users, Repeat, ReceiptText, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import InviteButton from "@/components/Workspace/InviteButton";
 import WeeklyIncomeForm from "./WeeklyIncomeForm";
+import WorkspaceAccessCard from "./WorkspaceAccessCard";
+import ActiveWorkspaceMembersCard from "./ActiveWorkspaceMembersCard";
 
 export default async function SettingsPage() {
-  const [session, snapshot] = await Promise.all([auth(), loadFinanceSnapshot()]);
-  const activeWorkspaceId = snapshot.context?.activeWorkspace?.id;
-  
-  // Extraemos el ingreso actual para pasarlo al formulario
+  const [snapshot, context] = await Promise.all([loadFinanceSnapshot(), getCurrentUserContext()]);
+  const activeWorkspaceId = context.activeWorkspace?.id;
   const currentWeeklyIncome = snapshot.appSettings?.weeklyIncome || 0;
+  const currentMembership = context.memberships.find((membership) => membership.workspaceId === activeWorkspaceId) ?? null;
+  const canManageMembers = currentMembership?.role === "OWNER";
+
+  const [workspaceMembers, workspaceMemberships] = await Promise.all([
+    activeWorkspaceId
+      ? prisma.workspaceMember.findMany({
+          where: { workspaceId: activeWorkspaceId },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: [
+            { role: "desc" },
+            { createdAt: "asc" },
+          ],
+        })
+      : [],
+    prisma.workspaceMember.findMany({
+      where: { userId: context.user.id },
+      include: {
+        workspace: {
+          include: {
+            owner: {
+              select: {
+                email: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
 
   return (
     <main className="min-h-screen bg-background p-6 font-sans text-foreground md:p-10">
@@ -32,7 +72,7 @@ export default async function SettingsPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
+
           {/* CARD 1: WEEKLY INCOME */}
           <Card className="shadow-sm border-border">
             <CardHeader>
@@ -61,15 +101,25 @@ export default async function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {activeWorkspaceId ? (
+              {activeWorkspaceId && canManageMembers ? (
                 <div className="max-w-xs">
                   <InviteButton workspaceId={activeWorkspaceId} />
                 </div>
+              ) : activeWorkspaceId ? (
+                <p className="text-sm text-muted-foreground">Only the workspace owner can generate invite links.</p>
               ) : (
                 <p className="text-sm text-red-500">Workspace ID not found.</p>
               )}
             </CardContent>
           </Card>
+
+          <WorkspaceAccessCard activeWorkspaceId={activeWorkspaceId} memberships={workspaceMemberships} />
+
+          <ActiveWorkspaceMembersCard
+            members={workspaceMembers}
+            currentUserId={context.user.id}
+            canManageMembers={canManageMembers}
+          />
 
           {/* CARD 3: TEMPLATES ACCESS */}
           <Card className="shadow-sm border-border transition-colors group hover:bg-muted/20">
