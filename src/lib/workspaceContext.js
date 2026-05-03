@@ -36,127 +36,6 @@ const buildDefaultWorkspaceName = (identity) => {
   return `${baseName} Workspace`;
 };
 
-const getWorkspaceDataScore = async (workspaceId) => {
-  if (!workspaceId) {
-    return 0;
-  }
-
-  const [
-    accounts,
-    creditCards,
-    templates,
-    historyRecords,
-    creditCardHistoryRecords,
-    pendingExpenses,
-    carryovers,
-  ] = await Promise.all([
-    prisma.account.count({ where: { workspaceId } }),
-    prisma.creditCard.count({ where: { workspaceId } }),
-    prisma.template.count({ where: { workspaceId } }),
-    prisma.history.count({ where: { workspaceId } }),
-    prisma.creditCardPaymentHistory.count({ where: { workspaceId } }),
-    prisma.pendingExpense.count({ where: { workspaceId } }),
-    prisma.paymentCarryover.count({ where: { workspaceId } }),
-  ]);
-
-  return (
-    accounts +
-    creditCards +
-    templates +
-    historyRecords +
-    creditCardHistoryRecords +
-    pendingExpenses +
-    carryovers
-  );
-};
-
-const getPrimaryPopulatedWorkspace = async () => {
-  const workspaces = await prisma.workspace.findMany({
-    include: {
-      owner: true,
-    },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const scoredWorkspaces = await Promise.all(
-    workspaces.map(async (workspace) => ({
-      workspace,
-      score: await getWorkspaceDataScore(workspace.id),
-    })),
-  );
-
-  const populatedWorkspaces = scoredWorkspaces.filter(({ score }) => score > 0);
-
-  if (populatedWorkspaces.length !== 1) {
-    return null;
-  }
-
-  return populatedWorkspaces[0].workspace;
-};
-
-async function attachUserToLegacyWorkspaceIfNeeded(context, identity) {
-  if (!context.activeWorkspace?.id) {
-    return context;
-  }
-
-  const currentWorkspaceScore = await getWorkspaceDataScore(context.activeWorkspace.id);
-
-  if (currentWorkspaceScore > 0) {
-    return context;
-  }
-
-  const populatedWorkspace = await getPrimaryPopulatedWorkspace();
-
-  if (!populatedWorkspace || populatedWorkspace.id === context.activeWorkspace.id) {
-    return context;
-  }
-
-  const existingMembership = context.memberships.find(
-    (membership) => membership.workspaceId === populatedWorkspace.id,
-  );
-
-  if (!existingMembership) {
-    await prisma.workspaceMember.create({
-      data: {
-        userId: context.user.id,
-        workspaceId: populatedWorkspace.id,
-        role: "OWNER",
-      },
-    });
-  }
-
-  if (populatedWorkspace.owner?.email === E2E_USER.email) {
-    await prisma.workspace.update({
-      where: { id: populatedWorkspace.id },
-      data: {
-        ownerUserId: context.user.id,
-        name: buildDefaultWorkspaceName(identity),
-      },
-    });
-  }
-
-  const updatedPreference = await prisma.userPreference.update({
-    where: { userId: context.user.id },
-    data: { activeWorkspaceId: populatedWorkspace.id },
-  });
-
-  const memberships = await prisma.workspaceMember.findMany({
-    where: { userId: context.user.id },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const activeWorkspace = await prisma.workspace.findUnique({
-    where: { id: populatedWorkspace.id },
-  });
-
-  return {
-    ...context,
-    memberships,
-    preference: updatedPreference,
-    activeWorkspace: activeWorkspace ?? populatedWorkspace,
-  };
-}
-
 async function ensureUserWorkspaceAccess(identity) {
   const user = await prisma.user.upsert({
     where: { email: identity.email },
@@ -176,6 +55,7 @@ async function ensureUserWorkspaceAccess(identity) {
     orderBy: { createdAt: "asc" },
   });
 
+  // Si el usuario es nuevo, le creamos su propio espacio privado por defecto
   if (!ownedWorkspace) {
     ownedWorkspace = await prisma.workspace.create({
       data: {
@@ -251,40 +131,13 @@ async function ensureUserWorkspaceAccess(identity) {
 }
 
 async function migrateLegacyDataToWorkspace(workspaceId) {
-  await prisma.account.updateMany({
-    where: { workspaceId: null },
-    data: { workspaceId },
-  });
-
-  await prisma.creditCard.updateMany({
-    where: { workspaceId: null },
-    data: { workspaceId },
-  });
-
-  await prisma.template.updateMany({
-    where: { workspaceId: null },
-    data: { workspaceId },
-  });
-
-  await prisma.history.updateMany({
-    where: { workspaceId: null },
-    data: { workspaceId },
-  });
-
-  await prisma.creditCardPaymentHistory.updateMany({
-    where: { workspaceId: null },
-    data: { workspaceId },
-  });
-
-  await prisma.pendingExpense.updateMany({
-    where: { workspaceId: null },
-    data: { workspaceId },
-  });
-
-  await prisma.paymentCarryover.updateMany({
-    where: { workspaceId: null },
-    data: { workspaceId },
-  });
+  await prisma.account.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+  await prisma.creditCard.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+  await prisma.template.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+  await prisma.history.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+  await prisma.creditCardPaymentHistory.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+  await prisma.pendingExpense.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+  await prisma.paymentCarryover.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
 
   const existingLegacySettings = prisma.appSettings?.findFirst
     ? await prisma.appSettings.findFirst({
@@ -338,8 +191,10 @@ export async function getCurrentUserContext() {
     throw new Error("Unauthorized");
   }
 
-  let context = await ensureUserWorkspaceAccess(identity);
-  context = await attachUserToLegacyWorkspaceIfNeeded(context, identity);
+  // 1. Aseguramos que el usuario exista y tenga su propio espacio privado
+  const context = await ensureUserWorkspaceAccess(identity);
+  
+  // 2. Revisamos si hay datos huérfanos viejos (solo por seguridad)
   await migrateLegacyDataToWorkspace(context.activeWorkspace.id);
 
   return context;

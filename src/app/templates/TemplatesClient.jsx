@@ -278,7 +278,7 @@ export default function TemplatesClient({ initialTemplates }) {
                   <TableCell className="text-right pr-6">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button variant="ghost" className="h-10 w-10 rounded-full p-0 transition-colors hover:bg-muted">
                           <MoreHorizontal className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
