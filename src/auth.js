@@ -88,11 +88,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return true;
       }
 
-      const allowedEmails = ["darkosthgx@gmail.com", "raquel19nunez@gmail.com", "sheiya503@gmail.com", "darkosth@gmail.com", "antifonal@gmail.com"];
-      if (!allowedEmails.includes(user.email)) {
-        return false;
-      }
-
       await ensureUserAccess(user);
       return true;
     },

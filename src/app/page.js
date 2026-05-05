@@ -9,7 +9,7 @@ const getErrorMessage = (error) => {
   }
 
   if (error === "AccessDenied" || error === "access_denied") {
-    return "Tu cuenta no tiene acceso permitido todavia. Si deberias poder entrar, revisa la lista de emails autorizados.";
+    return "No se pudo completar el acceso con Google. Intenta de nuevo o revisa los permisos de tu cuenta.";
   }
 
   return "No se pudo completar el acceso. Intenta de nuevo en un momento.";
@@ -28,7 +28,7 @@ const highlights = [
   },
   {
     title: "Acceso privado",
-    description: "Solo usuarios autorizados entran al workspace.",
+    description: "Entra con Google y comparte workspaces por invitacion.",
     icon: ShieldCheck,
   },
 ];

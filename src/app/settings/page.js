@@ -1,6 +1,8 @@
+import { auth } from "@/auth";
 import { loadFinanceSnapshot } from "@/lib/financeData";
 import prisma from "@/lib/prisma";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
+import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Settings, Wallet, Users, Repeat, ReceiptText, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -10,6 +12,12 @@ import WorkspaceAccessCard from "./WorkspaceAccessCard";
 import ActiveWorkspaceMembersCard from "./ActiveWorkspaceMembersCard";
 
 export default async function SettingsPage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/");
+  }
+
   const [snapshot, context] = await Promise.all([loadFinanceSnapshot(), getCurrentUserContext()]);
   const activeWorkspaceId = context.activeWorkspace?.id;
   const currentWeeklyIncome = snapshot.appSettings?.weeklyIncome || 0;

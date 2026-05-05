@@ -1,7 +1,15 @@
 import { loadFinanceSnapshot } from "@/lib/financeData";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import CalendarClient from "./CalendarClient";
 
 export default async function CalendarPage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/");
+  }
+
   const snapshot = await loadFinanceSnapshot();
 
   return (

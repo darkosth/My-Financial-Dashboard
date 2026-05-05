@@ -1,7 +1,15 @@
+import { auth } from "@/auth";
 import { loadFinanceData } from "@/lib/financeData";
+import { redirect } from "next/navigation";
 import UniqueExpensesClient from "./UniqueExpensesClient";
 
 export default async function UniqueExpensesPage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/");
+  }
+
   const financeData = await loadFinanceData();
 
   return (

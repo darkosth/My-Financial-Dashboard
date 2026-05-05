@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { loadFinanceSnapshot } from "@/lib/financeData";
+import { redirect } from "next/navigation";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import AccountsCard from "@/components/dashboard/AccountsCard";
 import CreditCardsCard from "@/components/dashboard/CreditCardsCard";
@@ -8,7 +9,13 @@ import WaterfallCard from "@/components/dashboard/WaterfallCard";
 import QuickExpenseButton from "@/app/dashboard/QuickExpenseButton";
 
 export default async function DashboardPage() {
-  const [session, snapshot] = await Promise.all([auth(), loadFinanceSnapshot()]);
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/");
+  }
+
+  const snapshot = await loadFinanceSnapshot();
   
   const userDisplayName =
     session?.user?.name?.trim() ||
