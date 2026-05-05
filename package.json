@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint .",
+    "verify": "npm run lint && npm run build",
+    "verify:e2e": "npm run verify && npm run test:e2e",
     "test:e2e": "playwright test",
     "postinstall": "prisma generate"
   },
