@@ -52,7 +52,7 @@ const mobileMenuItemClassName =
 
 const mobileMenuIconClassName = "h-4 w-4 max-sm:h-6 max-sm:w-6";
 
-export default function AuthenticatedNavbar({ userName, workspaceName }) {
+export default function AuthenticatedNavbar({ userName, workspaceName, migrationPhase }) {
   const pathname = usePathname();
 
   const handleLogout = async () => {
@@ -66,7 +66,14 @@ export default function AuthenticatedNavbar({ userName, workspaceName }) {
           <Link href="/dashboard" className="flex items-center gap-2 font-bold tracking-tight text-foreground">
             <Wallet className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
             <div className="flex flex-col leading-none">
-              <span className="text-lg">MyFinance</span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">MyFinance</span>
+                {migrationPhase ? (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                    {migrationPhase}
+                  </span>
+                ) : null}
+              </div>
               <span className="hidden text-[11px] font-medium text-muted-foreground sm:block">{workspaceName}</span>
             </div>
           </Link>
