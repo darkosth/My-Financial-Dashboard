@@ -45,7 +45,8 @@ export async function loadFinanceData() {
   };
 }
 
-export async function loadFinanceSnapshot(today = new Date()) {
+export async function loadFinanceSnapshot(today: Date = new Date()) {
   const data = await loadFinanceData();
   return buildFinanceSnapshot(data, today);
 }
+

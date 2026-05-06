@@ -1,9 +1,23 @@
 import "server-only";
 
+import type { User, UserPreference, Workspace, WorkspaceMember } from "@prisma/client";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
-const getSessionIdentity = async () => {
+export type SessionIdentity = {
+  email: string;
+  name: string | null;
+  image: string | null;
+};
+
+export type CurrentUserContext = {
+  user: User;
+  memberships: WorkspaceMember[];
+  preference: UserPreference;
+  activeWorkspace: Workspace;
+};
+
+const getSessionIdentity = async (): Promise<SessionIdentity | null> => {
   const session = await auth();
 
   if (session?.user?.email) {
@@ -17,12 +31,12 @@ const getSessionIdentity = async () => {
   return null;
 };
 
-const buildDefaultWorkspaceName = (identity) => {
+const buildDefaultWorkspaceName = (identity: SessionIdentity) => {
   const baseName = identity.name?.trim() || identity.email?.split("@")[0] || "Personal";
   return `${baseName} Workspace`;
 };
 
-async function ensureUserWorkspaceAccess(identity) {
+async function ensureUserWorkspaceAccess(identity: SessionIdentity): Promise<CurrentUserContext> {
   const user = await prisma.user.upsert({
     where: { email: identity.email },
     update: {
@@ -116,7 +130,7 @@ async function ensureUserWorkspaceAccess(identity) {
   };
 }
 
-export async function getCurrentUserContext() {
+export async function getCurrentUserContext(): Promise<CurrentUserContext> {
   const identity = await getSessionIdentity();
 
   if (!identity?.email) {
@@ -125,3 +139,4 @@ export async function getCurrentUserContext() {
 
   return ensureUserWorkspaceAccess(identity);
 }
+

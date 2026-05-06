@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
-const globalForPrisma = globalThis;
+const globalForPrisma = globalThis as typeof globalThis & { prisma?: PrismaClient };
 
 const createPrismaClient = () => {
   const pool = new Pool({
@@ -32,3 +32,4 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export default prisma;
+

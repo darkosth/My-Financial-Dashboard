@@ -9,44 +9,122 @@ import {
 import { getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
 import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
 
+export type TemplateFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY";
+
+export type ScheduledPaymentKind = "template" | "credit-card";
+
+export type ScheduledPayment = {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: TemplateFrequency | string;
+  dayOfMonth?: number | null;
+  lastPaidAt?: Date | string | null;
+  category?: string | null;
+  isAutoPay?: boolean;
+  kind?: ScheduledPaymentKind | string;
+  dueDate?: number | null;
+};
+
+export type AccountLike = {
+  id: string;
+  balance: number;
+};
+
+export type CreditCardLike = {
+  id: string;
+  name: string;
+  dueDate?: number | null;
+  balance: number;
+  creditLimit: number;
+  minimumPayment?: number | null;
+};
+
+export type HistoryRecordLike = {
+  id: string;
+  templateId: string;
+  datePaid: Date | string;
+  amountPaid: number;
+  cycleReference?: Date | string | null;
+};
+
+export type CreditCardHistoryRecordLike = {
+  id: string;
+  creditCardId: string;
+  datePaid: Date | string;
+  amountPaid: number;
+  cycleReference?: Date | string | null;
+};
+
+export type PendingExpenseLike = {
+  id: string;
+  description?: string | null;
+  amount: number;
+  createdAt: Date | string;
+};
+
+export type PaymentCarryoverLike = {
+  id: string;
+  templateId: string;
+  remainingAmount?: number | null;
+  targetWeekStart: Date | string;
+  originCycleReference: Date | string;
+};
+
+export type AppSettingsLike = {
+  weeklyIncome?: number | null;
+};
+
+export type FinanceSnapshotInput = {
+  context?: unknown;
+  accounts?: AccountLike[];
+  creditCards?: CreditCardLike[];
+  templates?: ScheduledPayment[];
+  historyRecords?: HistoryRecordLike[];
+  creditCardHistoryRecords?: CreditCardHistoryRecordLike[];
+  carryovers?: PaymentCarryoverLike[];
+  pendingExpenses?: PendingExpenseLike[];
+  appSettings?: AppSettingsLike & Record<string, unknown>;
+};
+
 export const DEFAULT_WEEKLY_INCOME = 1000;
 
-const getDayKey = (value) => {
+const getDayKey = (value: Date | string | null | undefined) => {
   if (!value) return "";
   return getCalendarDateKey(value);
 };
 
-export const buildScheduledCreditCardPayments = (creditCards = []) =>
+export const buildScheduledCreditCardPayments = (creditCards: CreditCardLike[] = []): ScheduledPayment[] =>
   creditCards
     .map((card) => ({
       card,
       minimumPayment: getCreditCardEffectiveMinimumPayment(card),
     }))
-    .filter(({ card, minimumPayment }) => minimumPayment > 0 && card.dueDate && card.balance > 0)
+    .filter(({ card, minimumPayment }) => minimumPayment > 0 && !!card.dueDate && card.balance > 0)
     .map(({ card, minimumPayment }) => ({
       id: `credit-card:${card.id}`,
       name: `${card.name} Minimum Payment`,
       amount: minimumPayment,
       frequency: "MONTHLY",
-      dayOfMonth: card.dueDate,
+      dayOfMonth: card.dueDate ?? null,
       category: "DEBT",
       isAutoPay: false,
       kind: "credit-card",
     }));
 
-export const getValidTemplates = (templates = []) =>
+export const getValidTemplates = (templates: ScheduledPayment[] = []) =>
   templates.filter(
     (template) =>
-      (template.frequency === "MONTHLY" && template.dayOfMonth) ||
-      ((template.frequency === "WEEKLY" || template.frequency === "BIWEEKLY") && template.lastPaidAt)
+      (template.frequency === "MONTHLY" && !!template.dayOfMonth) ||
+      ((template.frequency === "WEEKLY" || template.frequency === "BIWEEKLY") && !!template.lastPaidAt),
   );
 
-export const getScheduledPayments = ({ templates = [], creditCards = [] }) => [
+export const getScheduledPayments = ({ templates = [], creditCards = [] }: { templates?: ScheduledPayment[]; creditCards?: CreditCardLike[] }) => [
   ...getValidTemplates(templates),
   ...buildScheduledCreditCardPayments(creditCards),
 ];
 
-export const buildFinanceSnapshot = (data, todayInput = new Date()) => {
+export const buildFinanceSnapshot = (data: FinanceSnapshotInput, todayInput: Date = new Date()) => {
   const today = startOfDay(normalizeCalendarDate(todayInput) ?? todayInput);
   const context = data.context ?? null;
   const accounts = data.accounts ?? [];
@@ -88,8 +166,8 @@ export const buildFinanceSnapshot = (data, todayInput = new Date()) => {
     weeksAhead: 2,
   });
 
-  const totalUpcomingExpenses = upcomingPayments.reduce((acc, payment) => acc + payment.amount, 0);
-  const finalRemainingS4 = waterfallData[3]?.restante ?? totalLiquidity;
+  const totalUpcomingExpenses = upcomingPayments.reduce((acc: number, payment: { amount: number }) => acc + payment.amount, 0);
+  const finalRemainingS4 = (waterfallData as Array<{ restante?: number }>)[3]?.restante ?? totalLiquidity;
 
   return {
     context,
@@ -116,6 +194,38 @@ export const buildFinanceSnapshot = (data, todayInput = new Date()) => {
   };
 };
 
+export type CalendarEvent =
+  | {
+      id: string;
+      name: string;
+      amount: number;
+      isPast: boolean;
+      type: "history" | "credit-card-history" | "pending-expense";
+    }
+  | {
+      id: string;
+      carryoverId: string;
+      templateId: string;
+      kind: "template";
+      name: string;
+      amount: number;
+      occurrenceDate: Date;
+      sourceCycleReference: Date | string | null | undefined;
+      isPast: false;
+      type: "carryover";
+    }
+  | {
+      id: string;
+      templateId: string;
+      kind: string;
+      name: string;
+      amount: number;
+      occurrenceDate: Date;
+      cycleReference: Date;
+      isPast: boolean;
+      type: "scheduled";
+    };
+
 export const getCalendarEventsForDay = ({
   scheduledPayments = [],
   historyRecords = [],
@@ -124,11 +234,19 @@ export const getCalendarEventsForDay = ({
   pendingExpenses = [],
   today = new Date(),
   targetDate,
-}) => {
+}: {
+  scheduledPayments?: ScheduledPayment[];
+  historyRecords?: HistoryRecordLike[];
+  creditCardHistoryRecords?: CreditCardHistoryRecordLike[];
+  carryovers?: PaymentCarryoverLike[];
+  pendingExpenses?: PendingExpenseLike[];
+  today?: Date;
+  targetDate: Date;
+}): CalendarEvent[] => {
   const normalizedToday = startOfDay(normalizeCalendarDate(today) ?? today);
   const day = startOfDay(normalizeCalendarDate(targetDate) ?? targetDate);
-  const events = [];
-  const carryoverCycleKeys = new Set();
+  const events: CalendarEvent[] = [];
+  const carryoverCycleKeys = new Set<string>();
 
   historyRecords.forEach((record) => {
     const recordDate = new Date(record.datePaid);
@@ -184,12 +302,12 @@ export const getCalendarEventsForDay = ({
       .filter(
         (record) =>
           record.templateId === carryover.templateId &&
-          getDayKey(record.cycleReference) === getDayKey(carryover.originCycleReference)
+          getDayKey(record.cycleReference) === getDayKey(carryover.originCycleReference),
       )
       .reduce((acc, record) => acc + (record.amountPaid ?? 0), 0);
     const effectiveRemaining = Math.min(
       Math.max(carryover.remainingAmount ?? 0, 0),
-      Math.max(template.amount - paidAmount, 0)
+      Math.max(template.amount - paidAmount, 0),
     );
     if (effectiveRemaining <= 0) return;
     const carryoverLabel = paidAmount > 0 ? "restante" : "pendiente";
