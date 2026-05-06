@@ -3,12 +3,16 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import GoogleSignInButton from "@/components/Layout/GoogleSignInButton";
 
-const getErrorMessage = (error) => {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+const getErrorMessage = (error: string | string[] | undefined) => {
   if (!error) {
     return null;
   }
 
-  if (error === "AccessDenied" || error === "access_denied") {
+  const resolvedError = Array.isArray(error) ? error[0] : error;
+
+  if (resolvedError === "AccessDenied" || resolvedError === "access_denied") {
     return "No se pudo completar el acceso con Google. Intenta de nuevo o revisa los permisos de tu cuenta.";
   }
 
@@ -33,7 +37,11 @@ const highlights = [
   },
 ];
 
-export default async function Home({ searchParams }) {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: SearchParams | Promise<SearchParams>;
+}) {
   const session = await auth();
   const params = await searchParams;
 
@@ -67,7 +75,7 @@ export default async function Home({ searchParams }) {
                 {errorMessage}
               </div>
             ) : null}
-            
+
             <GoogleSignInButton className="h-12 w-full rounded-xl bg-emerald-700 px-6 text-base text-white shadow-none hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500" label="Entrar con Google" />
 
             <div id="benefits" className="grid grid-cols-3 gap-3 border-t border-border pt-5">

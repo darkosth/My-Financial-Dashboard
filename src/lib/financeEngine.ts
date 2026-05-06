@@ -8,6 +8,7 @@ import {
 } from "@/lib/waterfallCalculations";
 import { getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
 import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
+import type { CurrentUserContext } from "@/lib/workspaceContext";
 
 export type TemplateFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY";
 
@@ -76,7 +77,7 @@ export type AppSettingsLike = {
 };
 
 export type FinanceSnapshotInput = {
-  context?: unknown;
+  context?: CurrentUserContext | null;
   accounts?: AccountLike[];
   creditCards?: CreditCardLike[];
   templates?: ScheduledPayment[];

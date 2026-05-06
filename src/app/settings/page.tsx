@@ -64,7 +64,7 @@ export default async function SettingsPage() {
   return (
     <main className="min-h-screen bg-background p-6 font-sans text-foreground md:p-10">
       <div className="mx-auto max-w-4xl space-y-8">
-        
+
         {/* HEADER */}
         <div className="flex items-center gap-3 border-b border-border pb-6">
           <div className="p-3 bg-muted rounded-xl text-foreground">

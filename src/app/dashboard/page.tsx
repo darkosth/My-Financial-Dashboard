@@ -16,7 +16,7 @@ export default async function DashboardPage() {
   }
 
   const snapshot = await loadFinanceSnapshot();
-  
+
   const userDisplayName =
     session?.user?.name?.trim() ||
     session?.user?.email?.trim() ||
@@ -32,11 +32,10 @@ export default async function DashboardPage() {
         <div className="flex justify-start">
           <QuickExpenseButton hasAccounts={snapshot.accounts.length > 0} />
         </div>
-        
+
         <AccountsCard
           accounts={snapshot.accounts}
           totalLiquidity={snapshot.totalLiquidity}
-          totalAccountBalances={snapshot.totalAccountBalances}
           pendingExpensesTotal={snapshot.pendingExpensesTotal}
         />
 

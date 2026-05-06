@@ -5,7 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import prisma from "@/lib/prisma";
 import AcceptInviteClient from "./AcceptInviteClient";
 
-export default async function InvitePage({ params }) {
+export default async function InvitePage({
+  params,
+}: {
+  params: { token: string } | Promise<{ token: string }>;
+}) {
   const { token } = await params;
   const session = await auth();
 

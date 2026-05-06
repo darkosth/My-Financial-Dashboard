@@ -12,7 +12,7 @@ export default async function TemplatesPage() {
 
   const financeData = await loadFinanceData();
   const realTemplates = [...financeData.templates].sort(
-    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   return (

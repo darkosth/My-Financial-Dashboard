@@ -1,1 +1,1 @@
-export const MIGRATION_PHASE = process.env.NEXT_PUBLIC_MIGRATION_PHASE ?? "Phase 3";
+export const MIGRATION_PHASE = process.env.NEXT_PUBLIC_MIGRATION_PHASE ?? "Phase 4";
