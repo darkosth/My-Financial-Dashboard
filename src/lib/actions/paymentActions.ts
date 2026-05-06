@@ -9,15 +9,32 @@ import {
   moveWaterfallItemToNextWeek,
   partiallyPayWaterfallItem,
 } from "@/lib/actions/templateActions";
+import type { ActionResult } from "@/lib/actions/validation";
 
-const parseAmount = (value) => {
+type PaymentActionKind = "credit-card" | "template";
+type PaymentAction =
+  | "full"
+  | "partial_stay"
+  | "partial_move"
+  | "move";
+
+export type ApplyPaymentActionInput = {
+  kind: PaymentActionKind | string;
+  templateId: string;
+  carryoverId?: string | null;
+  settlementDate?: unknown;
+  action: PaymentAction | string;
+  amountPaid?: unknown;
+};
+
+const parseAmount = (value: unknown) => {
   if (value == null || value === "") return undefined;
 
-  const parsed = Number.parseFloat(value);
+  const parsed = Number.parseFloat(String(value));
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
-export async function applyPaymentAction({ kind, templateId, carryoverId, settlementDate, action, amountPaid }) {
+export async function applyPaymentAction({ kind, templateId, carryoverId, settlementDate, action, amountPaid }: ApplyPaymentActionInput): Promise<ActionResult> {
   const normalizedAmount = parseAmount(amountPaid);
 
   if (kind === "credit-card") {
@@ -66,3 +83,4 @@ export async function applyPaymentAction({ kind, templateId, carryoverId, settle
 
   return { success: false, error: "Unknown payment action" };
 }
+

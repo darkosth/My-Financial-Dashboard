@@ -3,11 +3,7 @@
 import { addDays, startOfDay } from "date-fns";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import {
-  getNextTemplateOccurrence,
-  getProjectionWeekStart,
-  getTemplateCycleReference,
-} from "@/lib/waterfallCalculations";
+import { getNextTemplateOccurrence, getProjectionWeekStart, getTemplateCycleReference } from "@/lib/waterfallCalculations";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 import {
   getCategory,
@@ -20,13 +16,9 @@ import {
   parseMoneyAmount,
   parseRequiredText,
   validationFailure,
+  type ActionResult,
 } from "@/lib/actions/validation";
-import {
-  getMoneyUpdateData,
-  serializeHistoryRecord,
-  serializePaymentCarryover,
-  serializeTemplate,
-} from "@/lib/money";
+import { getMoneyUpdateData, serializeHistoryRecord, serializePaymentCarryover, serializeTemplate } from "@/lib/money";
 
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
@@ -34,9 +26,21 @@ const revalidateFinanceViews = () => {
   revalidatePath("/calendar");
 };
 
-const normalizeAmount = (value) => parseMoneyAmount(value ?? 0, "Paid amount");
+const normalizeAmount = (value: unknown) => parseMoneyAmount((value ?? 0) as unknown, "Paid amount");
 
-async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid, moveRemainingToNextWeek = false }) {
+type SettleTemplateOccurrenceInput = {
+  templateId: string;
+  occurrenceDate: unknown;
+  amountPaid: number;
+  moveRemainingToNextWeek?: boolean;
+};
+
+async function settleTemplateOccurrence({
+  templateId,
+  occurrenceDate,
+  amountPaid,
+  moveRemainingToNextWeek = false,
+}: SettleTemplateOccurrenceInput): Promise<ActionResult> {
   const { activeWorkspace } = await getCurrentUserContext();
   const validatedTemplateId = parseRequiredText(templateId, "Template id");
   const templateRecord = await prisma.template.findFirst({
@@ -121,7 +125,13 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
   return { success: true };
 }
 
-async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWeek = false }) {
+type SettleCarryoverInput = {
+  carryoverId: string;
+  amountPaid: number;
+  moveRemainingToNextWeek?: boolean;
+};
+
+async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWeek = false }: SettleCarryoverInput): Promise<ActionResult> {
   const { activeWorkspace } = await getCurrentUserContext();
   const validatedCarryoverId = parseRequiredText(carryoverId, "Carryover id");
   const carryoverRecord = await prisma.paymentCarryover.findFirst({
@@ -152,11 +162,7 @@ async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWee
   const alreadyPaid = alreadyPaidRecords.map(serializeHistoryRecord);
 
   const paidAmountSoFar = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
-  const effectiveRemaining = Math.min(
-    Math.max(carryover.remainingAmount ?? 0, 0),
-    Math.max(template.amount - paidAmountSoFar, 0)
-  );
-  const remainingBeforeAction = effectiveRemaining;
+  const remainingBeforeAction = Math.max(template.amount - paidAmountSoFar, 0);
   const safeAmountPaid = Math.min(Math.max(amountPaid, 0), remainingBeforeAction);
   const remainingAfterPayment = Math.max(remainingBeforeAction - safeAmountPaid, 0);
 
@@ -209,7 +215,7 @@ async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWee
   return { success: true };
 }
 
-export async function createTemplate(formData) {
+export async function createTemplate(formData: FormData): Promise<ActionResult> {
   try {
     const name = getRequiredText(formData, "name", "Template name");
     const amount = getMoneyAmount(formData, "amount", "Amount", { allowZero: false });
@@ -241,7 +247,7 @@ export async function createTemplate(formData) {
   }
 }
 
-export async function deleteTemplate(id) {
+export async function deleteTemplate(id: string): Promise<ActionResult> {
   try {
     const templateId = parseRequiredText(id, "Template id");
     const { activeWorkspace } = await getCurrentUserContext();
@@ -266,7 +272,7 @@ export async function deleteTemplate(id) {
   }
 }
 
-export async function updateTemplate(id, formData) {
+export async function updateTemplate(id: string, formData: FormData): Promise<ActionResult> {
   try {
     const name = getRequiredText(formData, "name", "Template name");
     const amount = getMoneyAmount(formData, "amount", "Amount", { allowZero: false });
@@ -308,7 +314,7 @@ export async function updateTemplate(id, formData) {
   }
 }
 
-export async function markAsPaid(id) {
+export async function markAsPaid(id: string): Promise<ActionResult> {
   try {
     const { activeWorkspace } = await getCurrentUserContext();
     const templateId = parseRequiredText(id, "Template id");
@@ -346,7 +352,7 @@ export async function markAsPaid(id) {
   }
 }
 
-export async function markWaterfallItemAsPaid(templateId, occurrenceDate) {
+export async function markWaterfallItemAsPaid(templateId: string, occurrenceDate: unknown): Promise<ActionResult> {
   try {
     const { activeWorkspace } = await getCurrentUserContext();
     const validatedTemplateId = parseRequiredText(templateId, "Template id");
@@ -379,7 +385,7 @@ export async function markWaterfallItemAsPaid(templateId, occurrenceDate) {
   }
 }
 
-export async function deferWaterfallItem(templateId, occurrenceDate, amountPaidInput) {
+export async function deferWaterfallItem(templateId: string, occurrenceDate: unknown, amountPaidInput: unknown): Promise<ActionResult> {
   try {
     const validatedTemplateId = parseRequiredText(templateId, "Template id");
     const occurrence = parseCalendarDate(occurrenceDate, "Occurrence date");
@@ -397,7 +403,7 @@ export async function deferWaterfallItem(templateId, occurrenceDate, amountPaidI
   }
 }
 
-export async function partiallyPayWaterfallItem(templateId, occurrenceDate, amountPaidInput) {
+export async function partiallyPayWaterfallItem(templateId: string, occurrenceDate: unknown, amountPaidInput: unknown): Promise<ActionResult> {
   try {
     const validatedTemplateId = parseRequiredText(templateId, "Template id");
     const occurrence = parseCalendarDate(occurrenceDate, "Occurrence date");
@@ -415,7 +421,7 @@ export async function partiallyPayWaterfallItem(templateId, occurrenceDate, amou
   }
 }
 
-export async function moveWaterfallItemToNextWeek(templateId, occurrenceDate) {
+export async function moveWaterfallItemToNextWeek(templateId: string, occurrenceDate: unknown): Promise<ActionResult> {
   try {
     const validatedTemplateId = parseRequiredText(templateId, "Template id");
     return await settleTemplateOccurrence({
@@ -430,7 +436,7 @@ export async function moveWaterfallItemToNextWeek(templateId, occurrenceDate) {
   }
 }
 
-export async function markCarryoverAsPaid(carryoverId, amountPaidInput = null) {
+export async function markCarryoverAsPaid(carryoverId: string, amountPaidInput: unknown = null): Promise<ActionResult> {
   try {
     const validatedCarryoverId = parseRequiredText(carryoverId, "Carryover id");
     const { activeWorkspace } = await getCurrentUserContext();
@@ -443,8 +449,7 @@ export async function markCarryoverAsPaid(carryoverId, amountPaidInput = null) {
       throw new Error("Gasto movido no encontrado");
     }
 
-    const amountToPay =
-      amountPaidInput == null ? carryover.remainingAmount : normalizeAmount(amountPaidInput);
+    const amountToPay = amountPaidInput == null ? carryover.remainingAmount : normalizeAmount(amountPaidInput);
 
     return await settleCarryover({
       carryoverId: validatedCarryoverId,
@@ -457,7 +462,7 @@ export async function markCarryoverAsPaid(carryoverId, amountPaidInput = null) {
   }
 }
 
-export async function moveCarryoverToNextWeek(carryoverId, amountPaidInput = 0) {
+export async function moveCarryoverToNextWeek(carryoverId: string, amountPaidInput: unknown = 0): Promise<ActionResult> {
   try {
     return await settleCarryover({
       carryoverId: parseRequiredText(carryoverId, "Carryover id"),
@@ -469,3 +474,4 @@ export async function moveCarryoverToNextWeek(carryoverId, amountPaidInput = 0) 
     return { success: false, error: "Failed to move carryover to next week" };
   }
 }
+

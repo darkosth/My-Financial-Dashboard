@@ -4,8 +4,9 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_WEEKLY_INCOME } from "@/lib/financeEngine";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
-import { parseMoneyAmount, parseRequiredText, validationFailure } from "@/lib/actions/validation";
+import { parseMoneyAmount, parseRequiredText, validationFailure, type ActionResult } from "@/lib/actions/validation";
 import { getMoneyUpdateData, serializeAppSettings } from "@/lib/money";
+import type { WorkspaceMember } from "@prisma/client";
 
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
@@ -13,7 +14,7 @@ const revalidateFinanceViews = () => {
   revalidatePath("/settings");
 };
 
-const getWorkspaceMembership = async (userId, workspaceId) =>
+const getWorkspaceMembership = async (userId: string, workspaceId: string) =>
   prisma.workspaceMember.findUnique({
     where: {
       userId_workspaceId: {
@@ -23,13 +24,13 @@ const getWorkspaceMembership = async (userId, workspaceId) =>
     },
   });
 
-const parseWeeklyIncome = (value) => parseMoneyAmount(value, "Weekly income");
+const parseWeeklyIncome = (value: unknown) => parseMoneyAmount(value, "Weekly income");
 
 // ==========================================
 // FUNCIONES ORIGINALES (INTACTAS)
 // ==========================================
 
-export async function updateAppSettings(formData) {
+export async function updateAppSettings(formData: FormData): Promise<ActionResult> {
   try {
     const weeklyIncome = parseWeeklyIncome(formData.get("weeklyIncome"));
     const { activeWorkspace } = await getCurrentUserContext();
@@ -67,18 +68,20 @@ export async function getAppSettings() {
       })
     : null;
 
-  return appSettings ? serializeAppSettings(appSettings) : {
-    id: 1,
-    workspaceId: activeWorkspace.id,
-    weeklyIncome: DEFAULT_WEEKLY_INCOME,
-  };
+  return appSettings
+    ? serializeAppSettings(appSettings)
+    : {
+        id: 1,
+        workspaceId: activeWorkspace.id,
+        weeklyIncome: DEFAULT_WEEKLY_INCOME,
+      };
 }
 
 // ==========================================
 // NUEVA FUNCIÓN PARA LA PÁGINA SETTINGS
 // ==========================================
 
-export async function updateWeeklyIncome(workspaceId, newIncome) {
+export async function updateWeeklyIncome(workspaceId: string, newIncome: unknown): Promise<ActionResult> {
   try {
     const validatedWorkspaceId = parseRequiredText(workspaceId, "Workspace id");
     const weeklyIncome = parseWeeklyIncome(newIncome);
@@ -115,7 +118,7 @@ export async function updateWeeklyIncome(workspaceId, newIncome) {
   }
 }
 
-export async function switchActiveWorkspace(workspaceId) {
+export async function switchActiveWorkspace(workspaceId: string): Promise<ActionResult> {
   try {
     const validatedWorkspaceId = parseRequiredText(workspaceId, "Workspace id");
     const { user } = await getCurrentUserContext();
@@ -142,7 +145,7 @@ export async function switchActiveWorkspace(workspaceId) {
   }
 }
 
-export async function removeWorkspaceMember(memberId) {
+export async function removeWorkspaceMember(memberId: string): Promise<ActionResult> {
   try {
     const validatedMemberId = parseRequiredText(memberId, "Member id");
     const { user, activeWorkspace } = await getCurrentUserContext();
@@ -200,7 +203,7 @@ export async function removeWorkspaceMember(memberId) {
   }
 }
 
-export async function leaveWorkspace(workspaceId) {
+export async function leaveWorkspace(workspaceId: string): Promise<ActionResult> {
   try {
     const validatedWorkspaceId = parseRequiredText(workspaceId, "Workspace id");
     const { user, activeWorkspace } = await getCurrentUserContext();
@@ -214,7 +217,7 @@ export async function leaveWorkspace(workspaceId) {
       return { success: false, error: "Owners cannot leave their own workspace." };
     }
 
-    const fallbackMembership = await prisma.workspaceMember.findFirst({
+    const fallbackMembership: WorkspaceMember | null = await prisma.workspaceMember.findFirst({
       where: {
         userId: user.id,
         workspaceId: {
@@ -250,3 +253,4 @@ export async function leaveWorkspace(workspaceId) {
     return { success: false, error: "Failed to leave workspace." };
   }
 }
+

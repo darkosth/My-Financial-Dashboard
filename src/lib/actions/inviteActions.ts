@@ -4,8 +4,11 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 import { revalidatePath } from "next/cache";
+import type { ActionResult } from "@/lib/actions/validation";
 
-export async function generateInviteToken(workspaceId) {
+export type GenerateInviteTokenResult = ActionResult<{ token: string }> | ActionResult;
+
+export async function generateInviteToken(workspaceId: string): Promise<{ success: true; token: string } | { success: false; error: string }> {
   try {
     const { user } = await getCurrentUserContext();
     const membership = await prisma.workspaceMember.findUnique({
@@ -37,7 +40,7 @@ export async function generateInviteToken(workspaceId) {
   }
 }
 
-export async function acceptWorkspaceInvite(token) {
+export async function acceptWorkspaceInvite(token: string): Promise<ActionResult> {
   try {
     const session = await auth();
 
@@ -100,3 +103,4 @@ export async function acceptWorkspaceInvite(token) {
     return { success: false, error: "Failed to process invite." };
   }
 }
+

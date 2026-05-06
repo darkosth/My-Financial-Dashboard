@@ -3,11 +3,11 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
-import { getMoneyAmount, getRequiredText, parseRequiredText, validationFailure } from "@/lib/actions/validation";
+import { getMoneyAmount, getRequiredText, parseRequiredText, validationFailure, type ActionResult } from "@/lib/actions/validation";
 import { getMoneyUpdateData } from "@/lib/money";
 
 // 1. CREAR
-export async function createAccount(formData) {
+export async function createAccount(formData: FormData): Promise<ActionResult> {
   try {
     const name = getRequiredText(formData, "name", "Account name");
     const balance = getMoneyAmount(formData, "balance", "Balance");
@@ -24,7 +24,7 @@ export async function createAccount(formData) {
 }
 
 // 2. ACTUALIZAR
-export async function updateAccount(id, formData) {
+export async function updateAccount(id: string, formData: FormData): Promise<ActionResult> {
   try {
     const accountId = parseRequiredText(id, "Account id");
     const name = getRequiredText(formData, "name", "Account name");
@@ -51,7 +51,7 @@ export async function updateAccount(id, formData) {
 }
 
 // 3. ELIMINAR
-export async function deleteAccount(id) {
+export async function deleteAccount(id: string): Promise<ActionResult> {
   try {
     const accountId = parseRequiredText(id, "Account id");
     const { activeWorkspace } = await getCurrentUserContext();
@@ -73,3 +73,4 @@ export async function deleteAccount(id) {
     return { success: false, error: "Failed to delete account" };
   }
 }
+

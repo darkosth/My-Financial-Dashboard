@@ -3,13 +3,13 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
-import { getMoneyAmount, validationFailure } from "@/lib/actions/validation";
+import { getMoneyAmount, validationFailure, type ActionResult } from "@/lib/actions/validation";
 import { getMoneyUpdateData } from "@/lib/money";
 
-export async function createPendingExpense(formData) {
+export async function createPendingExpense(formData: FormData): Promise<ActionResult> {
   try {
     const amount = getMoneyAmount(formData, "amount", "Amount", { allowZero: false });
-    const description = formData.get("description")?.trim().slice(0, 160) || null;
+    const description = formData.get("description")?.toString().trim().slice(0, 160) || null;
     const { activeWorkspace } = await getCurrentUserContext();
     await prisma.pendingExpense.create({
       data: {
@@ -29,7 +29,7 @@ export async function createPendingExpense(formData) {
   }
 }
 
-export async function deletePendingExpense(id) {
+export async function deletePendingExpense(id: string): Promise<ActionResult> {
   try {
     const { activeWorkspace } = await getCurrentUserContext();
     const expense = await prisma.pendingExpense.findFirst({
@@ -54,7 +54,7 @@ export async function deletePendingExpense(id) {
   }
 }
 
-export async function clearPendingExpenses() {
+export async function clearPendingExpenses(): Promise<ActionResult> {
   try {
     const { activeWorkspace } = await getCurrentUserContext();
     await prisma.pendingExpense.deleteMany({
@@ -70,3 +70,4 @@ export async function clearPendingExpenses() {
     return { success: false, error: "Failed to clear pending expenses" };
   }
 }
+

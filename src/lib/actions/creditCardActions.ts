@@ -15,6 +15,7 @@ import {
   parseCalendarDate,
   parseRequiredText,
   validationFailure,
+  type ActionResult,
 } from "@/lib/actions/validation";
 
 const revalidateFinanceViews = () => {
@@ -22,7 +23,7 @@ const revalidateFinanceViews = () => {
   revalidatePath("/calendar");
 };
 
-export async function createCreditCard(formData) {
+export async function createCreditCard(formData: FormData): Promise<ActionResult> {
   try {
     const name = getRequiredText(formData, "name", "Credit card name");
     const balance = getMoneyAmount(formData, "balance", "Balance");
@@ -53,7 +54,7 @@ export async function createCreditCard(formData) {
   }
 }
 
-export async function updateCreditCard(id, formData) {
+export async function updateCreditCard(id: string, formData: FormData): Promise<ActionResult> {
   try {
     const creditCardId = parseRequiredText(id, "Credit card id");
     const name = getRequiredText(formData, "name", "Credit card name");
@@ -94,7 +95,7 @@ export async function updateCreditCard(id, formData) {
   }
 }
 
-export async function deleteCreditCard(id) {
+export async function deleteCreditCard(id: string): Promise<ActionResult> {
   try {
     const creditCardId = parseRequiredText(id, "Credit card id");
     const { activeWorkspace } = await getCurrentUserContext();
@@ -117,7 +118,7 @@ export async function deleteCreditCard(id) {
   }
 }
 
-export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = null) {
+export async function markCreditCardAsPaid(creditCardId: string, occurrenceDateInput: unknown = null): Promise<ActionResult> {
   try {
     const validatedCreditCardId = parseRequiredText(creditCardId, "Credit card id");
     const { activeWorkspace } = await getCurrentUserContext();
@@ -137,11 +138,10 @@ export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = n
       frequency: "MONTHLY",
       dayOfMonth: creditCard.dueDate,
       amount: minimumPayment,
+      name: creditCard.name,
     };
     const occurrenceDate =
-      occurrenceDateInput
-        ? parseCalendarDate(occurrenceDateInput, "Settlement date")
-        : getNextTemplateOccurrence(scheduledItem, new Date());
+      occurrenceDateInput ? parseCalendarDate(occurrenceDateInput, "Settlement date") : getNextTemplateOccurrence(scheduledItem, new Date());
 
     if (!occurrenceDate) {
       throw new Error("Could not calculate credit card payment occurrence");
@@ -180,3 +180,4 @@ export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = n
     return { success: false, error: "Failed to mark credit card payment as paid" };
   }
 }
+
