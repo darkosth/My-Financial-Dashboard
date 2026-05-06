@@ -1,3 +1,5 @@
+import { normalizeCalendarDate, parseDateOnlyString } from "@/lib/calendarDate";
+
 const MAX_MONEY_AMOUNT = 100_000_000;
 const FREQUENCIES = new Set(["WEEKLY", "BIWEEKLY", "MONTHLY", "YEARLY"]);
 const CATEGORIES = new Set([
@@ -17,24 +19,52 @@ const CATEGORIES = new Set([
 
 export class ValidationError extends Error {}
 
-export const getRequiredText = (formData, field, label = field) => {
-  const value = formData.get(field)?.toString().trim();
+const readFieldValue = (formData, field) => formData.get(field)?.toString();
 
-  if (!value) {
+export const parseRequiredText = (value, label = "Value", { maxLength = 120 } = {}) => {
+  const normalizedValue = value?.toString().trim();
+
+  if (!normalizedValue) {
     throw new ValidationError(`${label} is required`);
   }
 
-  if (value.length > 120) {
+  if (normalizedValue.length > maxLength) {
     throw new ValidationError(`${label} is too long`);
   }
 
-  return value;
+  return normalizedValue;
 };
 
-export const getMoneyAmount = (formData, field, label = field, { min = 0, allowZero = true } = {}) => {
-  const rawValue = formData.get(field);
-  const amount = Number.parseFloat(rawValue);
-  const lowerBound = allowZero ? min : Math.max(min, Number.MIN_VALUE);
+export const parseOptionalText = (value, label = "Value", { maxLength = 160, fallback = null } = {}) => {
+  if (value == null) {
+    return fallback;
+  }
+
+  const normalizedValue = value.toString().trim();
+
+  if (!normalizedValue) {
+    return fallback;
+  }
+
+  if (normalizedValue.length > maxLength) {
+    throw new ValidationError(`${label} is too long`);
+  }
+
+  return normalizedValue;
+};
+
+export const getRequiredText = (formData, field, label = field, options) => {
+  const value = readFieldValue(formData, field);
+  return parseRequiredText(value, label, options);
+};
+
+export const parseMoneyAmount = (value, label = "Amount", { min = 0, allowZero = true } = {}) => {
+  if (value == null || value === "") {
+    throw new ValidationError(`${label} is required`);
+  }
+
+  const amount = Number.parseFloat(value);
+  const lowerBound = allowZero ? min : Math.max(min, Number.EPSILON);
 
   if (!Number.isFinite(amount) || amount < lowerBound || amount > MAX_MONEY_AMOUNT) {
     throw new ValidationError(`${label} must be a valid amount`);
@@ -43,34 +73,49 @@ export const getMoneyAmount = (formData, field, label = field, { min = 0, allowZ
   return Math.round(amount * 100) / 100;
 };
 
-export const getOptionalMoneyAmount = (formData, field, label = field, fallback = null) => {
-  const rawValue = formData.get(field);
-
-  if (rawValue == null || rawValue === "") {
+export const parseOptionalMoneyAmount = (value, label = "Amount", { fallback = null, ...options } = {}) => {
+  if (value == null || value === "") {
     return fallback;
   }
 
-  return getMoneyAmount(formData, field, label);
+  return parseMoneyAmount(value, label, options);
 };
 
-export const getOptionalPercentage = (formData, field, label = field) => {
-  const rawValue = formData.get(field);
+export const getMoneyAmount = (formData, field, label = field, options) => {
+  const rawValue = readFieldValue(formData, field);
+  return parseMoneyAmount(rawValue, label, options);
+};
 
-  if (rawValue == null || rawValue === "") {
-    return null;
-  }
+export const getOptionalMoneyAmount = (formData, field, label = field, fallback = null) => {
+  const rawValue = readFieldValue(formData, field);
+  return parseOptionalMoneyAmount(rawValue, label, { fallback });
+};
 
-  const percentage = Number.parseFloat(rawValue);
+export const parsePercentage = (value, label = "Percentage", { min = 0, max = 100 } = {}) => {
+  const percentage = Number.parseFloat(value);
 
-  if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
-    throw new ValidationError(`${label} must be between 0 and 100`);
+  if (!Number.isFinite(percentage) || percentage < min || percentage > max) {
+    throw new ValidationError(`${label} must be between ${min} and ${max}`);
   }
 
   return percentage;
 };
 
+export const parseOptionalPercentage = (value, label = "Percentage", options) => {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  return parsePercentage(value, label, options);
+};
+
+export const getOptionalPercentage = (formData, field, label = field, options) => {
+  const rawValue = readFieldValue(formData, field);
+  return parseOptionalPercentage(rawValue, label, options);
+};
+
 export const getDayOfMonth = (formData, field, label = field, { optional = false } = {}) => {
-  const rawValue = formData.get(field);
+  const rawValue = readFieldValue(formData, field);
 
   if (optional && (rawValue == null || rawValue === "")) {
     return null;
@@ -85,24 +130,55 @@ export const getDayOfMonth = (formData, field, label = field, { optional = false
   return day;
 };
 
-export const getFrequency = (formData, field = "frequency") => {
-  const frequency = formData.get(field)?.toString();
-
-  if (!FREQUENCIES.has(frequency)) {
-    throw new ValidationError("Frequency is invalid");
+export const parseEnumValue = (value, validValues, label = "Value") => {
+  if (!validValues.has(value)) {
+    throw new ValidationError(`${label} is invalid`);
   }
 
-  return frequency;
+  return value;
+};
+
+export const getFrequency = (formData, field = "frequency") => {
+  const frequency = readFieldValue(formData, field);
+  return parseEnumValue(frequency, FREQUENCIES, "Frequency");
 };
 
 export const getCategory = (formData, field = "category") => {
-  const category = formData.get(field)?.toString();
+  const category = readFieldValue(formData, field);
+  return parseEnumValue(category, CATEGORIES, "Category");
+};
 
-  if (!CATEGORIES.has(category)) {
-    throw new ValidationError("Category is invalid");
+export const parseDateOnly = (value, label = "Date", { optional = false } = {}) => {
+  if (optional && (value == null || value === "")) {
+    return null;
   }
 
-  return category;
+  const parsedValue = parseDateOnlyString(value);
+
+  if (!parsedValue) {
+    throw new ValidationError(`${label} must be a valid date`);
+  }
+
+  return parsedValue;
+};
+
+export const getOptionalDateOnly = (formData, field, label = field) => {
+  const rawValue = readFieldValue(formData, field);
+  return parseDateOnly(rawValue, label, { optional: true });
+};
+
+export const parseCalendarDate = (value, label = "Date", { optional = false } = {}) => {
+  if (optional && (value == null || value === "")) {
+    return null;
+  }
+
+  const parsedValue = normalizeCalendarDate(value);
+
+  if (!parsedValue) {
+    throw new ValidationError(`${label} must be a valid date`);
+  }
+
+  return parsedValue;
 };
 
 export const validationFailure = (error, fallbackMessage) => {

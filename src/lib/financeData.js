@@ -3,6 +3,15 @@ import "server-only";
 import prisma from "@/lib/prisma";
 import { buildFinanceSnapshot } from "@/lib/financeEngine";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
+import {
+  serializeAccount,
+  serializeAppSettings,
+  serializeCreditCard,
+  serializeHistoryRecord,
+  serializePaymentCarryover,
+  serializePendingExpense,
+  serializeTemplate,
+} from "@/lib/money";
 
 export async function loadFinanceData() {
   const context = await getCurrentUserContext();
@@ -25,14 +34,14 @@ export async function loadFinanceData() {
 
   return {
     context,
-    accounts,
-    creditCards,
-    templates,
-    historyRecords,
-    creditCardHistoryRecords,
-    carryovers,
-    pendingExpenses,
-    appSettings,
+    accounts: accounts.map(serializeAccount),
+    creditCards: creditCards.map(serializeCreditCard),
+    templates: templates.map(serializeTemplate),
+    historyRecords: historyRecords.map(serializeHistoryRecord),
+    creditCardHistoryRecords: creditCardHistoryRecords.map(serializeHistoryRecord),
+    carryovers: carryovers.map(serializePaymentCarryover),
+    pendingExpenses: pendingExpenses.map(serializePendingExpense),
+    appSettings: appSettings ? serializeAppSettings(appSettings) : null,
   };
 }
 

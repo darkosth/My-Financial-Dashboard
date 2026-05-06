@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 import { getMoneyAmount, validationFailure } from "@/lib/actions/validation";
+import { getMoneyUpdateData } from "@/lib/money";
 
 export async function createPendingExpense(formData) {
   try {
@@ -12,7 +13,7 @@ export async function createPendingExpense(formData) {
     const { activeWorkspace } = await getCurrentUserContext();
     await prisma.pendingExpense.create({
       data: {
-        amount,
+        ...getMoneyUpdateData(amount, "amountCents"),
         description,
         workspaceId: activeWorkspace.id,
       },

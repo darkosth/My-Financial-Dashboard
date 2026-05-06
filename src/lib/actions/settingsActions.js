@@ -4,7 +4,8 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_WEEKLY_INCOME } from "@/lib/financeEngine";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
-import { ValidationError, validationFailure } from "@/lib/actions/validation";
+import { parseMoneyAmount, parseRequiredText, validationFailure } from "@/lib/actions/validation";
+import { getMoneyUpdateData, serializeAppSettings } from "@/lib/money";
 
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
@@ -22,15 +23,7 @@ const getWorkspaceMembership = async (userId, workspaceId) =>
     },
   });
 
-const parseWeeklyIncome = (value) => {
-  const weeklyIncome = Number.parseFloat(value);
-
-  if (!Number.isFinite(weeklyIncome) || weeklyIncome < 0 || weeklyIncome > 100_000_000) {
-    throw new ValidationError("Invalid weekly income");
-  }
-
-  return Math.round(weeklyIncome * 100) / 100;
-};
+const parseWeeklyIncome = (value) => parseMoneyAmount(value, "Weekly income");
 
 // ==========================================
 // FUNCIONES ORIGINALES (INTACTAS)
@@ -47,13 +40,13 @@ export async function updateAppSettings(formData) {
     if (existingSettings) {
       await prisma.appSettings.update({
         where: { id: existingSettings.id },
-        data: { weeklyIncome },
+        data: getMoneyUpdateData(weeklyIncome, "weeklyIncomeCents"),
       });
     } else {
       await prisma.appSettings.create({
         data: {
           workspaceId: activeWorkspace.id,
-          weeklyIncome,
+          ...getMoneyUpdateData(weeklyIncome, "weeklyIncomeCents"),
         },
       });
     }
@@ -74,7 +67,7 @@ export async function getAppSettings() {
       })
     : null;
 
-  return appSettings ?? {
+  return appSettings ? serializeAppSettings(appSettings) : {
     id: 1,
     workspaceId: activeWorkspace.id,
     weeklyIncome: DEFAULT_WEEKLY_INCOME,
@@ -87,28 +80,29 @@ export async function getAppSettings() {
 
 export async function updateWeeklyIncome(workspaceId, newIncome) {
   try {
+    const validatedWorkspaceId = parseRequiredText(workspaceId, "Workspace id");
     const weeklyIncome = parseWeeklyIncome(newIncome);
     const { user } = await getCurrentUserContext();
-    const membership = await getWorkspaceMembership(user.id, workspaceId);
+    const membership = await getWorkspaceMembership(user.id, validatedWorkspaceId);
 
     if (!membership) {
       return { success: false, error: "You do not have access to this workspace." };
     }
 
     const existingSettings = await prisma.appSettings.findFirst({
-      where: { workspaceId },
+      where: { workspaceId: validatedWorkspaceId },
     });
 
     if (existingSettings) {
       await prisma.appSettings.update({
         where: { id: existingSettings.id },
-        data: { weeklyIncome },
+        data: getMoneyUpdateData(weeklyIncome, "weeklyIncomeCents"),
       });
     } else {
       await prisma.appSettings.create({
         data: {
-          workspaceId: workspaceId,
-          weeklyIncome,
+          workspaceId: validatedWorkspaceId,
+          ...getMoneyUpdateData(weeklyIncome, "weeklyIncomeCents"),
         },
       });
     }
@@ -123,8 +117,9 @@ export async function updateWeeklyIncome(workspaceId, newIncome) {
 
 export async function switchActiveWorkspace(workspaceId) {
   try {
+    const validatedWorkspaceId = parseRequiredText(workspaceId, "Workspace id");
     const { user } = await getCurrentUserContext();
-    const membership = await getWorkspaceMembership(user.id, workspaceId);
+    const membership = await getWorkspaceMembership(user.id, validatedWorkspaceId);
 
     if (!membership) {
       return { success: false, error: "You do not belong to that workspace." };
@@ -132,10 +127,10 @@ export async function switchActiveWorkspace(workspaceId) {
 
     await prisma.userPreference.upsert({
       where: { userId: user.id },
-      update: { activeWorkspaceId: workspaceId },
+      update: { activeWorkspaceId: validatedWorkspaceId },
       create: {
         userId: user.id,
-        activeWorkspaceId: workspaceId,
+        activeWorkspaceId: validatedWorkspaceId,
       },
     });
 
@@ -149,6 +144,7 @@ export async function switchActiveWorkspace(workspaceId) {
 
 export async function removeWorkspaceMember(memberId) {
   try {
+    const validatedMemberId = parseRequiredText(memberId, "Member id");
     const { user, activeWorkspace } = await getCurrentUserContext();
     const currentMembership = await getWorkspaceMembership(user.id, activeWorkspace.id);
 
@@ -157,7 +153,7 @@ export async function removeWorkspaceMember(memberId) {
     }
 
     const targetMembership = await prisma.workspaceMember.findUnique({
-      where: { id: memberId },
+      where: { id: validatedMemberId },
       include: {
         user: true,
       },
@@ -182,7 +178,7 @@ export async function removeWorkspaceMember(memberId) {
     });
 
     await prisma.workspaceMember.delete({
-      where: { id: memberId },
+      where: { id: validatedMemberId },
     });
 
     await prisma.userPreference.upsert({
@@ -206,8 +202,9 @@ export async function removeWorkspaceMember(memberId) {
 
 export async function leaveWorkspace(workspaceId) {
   try {
+    const validatedWorkspaceId = parseRequiredText(workspaceId, "Workspace id");
     const { user, activeWorkspace } = await getCurrentUserContext();
-    const membership = await getWorkspaceMembership(user.id, workspaceId);
+    const membership = await getWorkspaceMembership(user.id, validatedWorkspaceId);
 
     if (!membership) {
       return { success: false, error: "You do not belong to that workspace." };
@@ -221,7 +218,7 @@ export async function leaveWorkspace(workspaceId) {
       where: {
         userId: user.id,
         workspaceId: {
-          not: workspaceId,
+          not: validatedWorkspaceId,
         },
       },
       orderBy: { createdAt: "asc" },
@@ -235,7 +232,7 @@ export async function leaveWorkspace(workspaceId) {
       where: { id: membership.id },
     });
 
-    if (activeWorkspace.id === workspaceId) {
+    if (activeWorkspace.id === validatedWorkspaceId) {
       await prisma.userPreference.upsert({
         where: { userId: user.id },
         update: { activeWorkspaceId: fallbackMembership.workspaceId },

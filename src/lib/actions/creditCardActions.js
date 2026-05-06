@@ -3,15 +3,17 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getNextTemplateOccurrence, getTemplateCycleReference } from "@/lib/waterfallCalculations";
-import { normalizeCalendarDate } from "@/lib/calendarDate";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
+import { getMoneyUpdateData, serializeCreditCard, serializeHistoryRecord } from "@/lib/money";
 import {
   getDayOfMonth,
   getMoneyAmount,
   getOptionalMoneyAmount,
   getOptionalPercentage,
   getRequiredText,
+  parseCalendarDate,
+  parseRequiredText,
   validationFailure,
 } from "@/lib/actions/validation";
 
@@ -33,9 +35,9 @@ export async function createCreditCard(formData) {
     await prisma.creditCard.create({
       data: {
         name,
-        balance,
-        creditLimit,
-        minimumPayment,
+        ...getMoneyUpdateData(balance, "balanceCents"),
+        ...getMoneyUpdateData(creditLimit, "creditLimitCents"),
+        ...getMoneyUpdateData(minimumPayment, "minimumPaymentCents"),
         minimumPaymentPercentage,
         apr,
         dueDate,
@@ -53,6 +55,7 @@ export async function createCreditCard(formData) {
 
 export async function updateCreditCard(id, formData) {
   try {
+    const creditCardId = parseRequiredText(id, "Credit card id");
     const name = getRequiredText(formData, "name", "Credit card name");
     const balance = getMoneyAmount(formData, "balance", "Balance");
     const creditLimit = getMoneyAmount(formData, "creditLimit", "Credit limit");
@@ -61,9 +64,10 @@ export async function updateCreditCard(id, formData) {
     const apr = getOptionalPercentage(formData, "apr", "APR");
     const dueDate = getDayOfMonth(formData, "dueDate", "Due date");
     const { activeWorkspace } = await getCurrentUserContext();
-    const creditCard = await prisma.creditCard.findFirst({
-      where: { id, workspaceId: activeWorkspace.id },
+    const creditCardRecord = await prisma.creditCard.findFirst({
+      where: { id: creditCardId, workspaceId: activeWorkspace.id },
     });
+    const creditCard = creditCardRecord ? serializeCreditCard(creditCardRecord) : null;
 
     if (!creditCard) {
       throw new Error("Credit card not found");
@@ -73,9 +77,9 @@ export async function updateCreditCard(id, formData) {
       where: { id: creditCard.id },
       data: {
         name,
-        balance,
-        creditLimit,
-        minimumPayment,
+        ...getMoneyUpdateData(balance, "balanceCents"),
+        ...getMoneyUpdateData(creditLimit, "creditLimitCents"),
+        ...getMoneyUpdateData(minimumPayment, "minimumPaymentCents"),
         minimumPaymentPercentage,
         apr,
         dueDate,
@@ -92,9 +96,10 @@ export async function updateCreditCard(id, formData) {
 
 export async function deleteCreditCard(id) {
   try {
+    const creditCardId = parseRequiredText(id, "Credit card id");
     const { activeWorkspace } = await getCurrentUserContext();
     const creditCard = await prisma.creditCard.findFirst({
-      where: { id, workspaceId: activeWorkspace.id },
+      where: { id: creditCardId, workspaceId: activeWorkspace.id },
     });
 
     if (!creditCard) {
@@ -114,10 +119,12 @@ export async function deleteCreditCard(id) {
 
 export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = null) {
   try {
+    const validatedCreditCardId = parseRequiredText(creditCardId, "Credit card id");
     const { activeWorkspace } = await getCurrentUserContext();
-    const creditCard = await prisma.creditCard.findFirst({
-      where: { id: creditCardId, workspaceId: activeWorkspace.id },
+    const creditCardRecord = await prisma.creditCard.findFirst({
+      where: { id: validatedCreditCardId, workspaceId: activeWorkspace.id },
     });
+    const creditCard = creditCardRecord ? serializeCreditCard(creditCardRecord) : null;
 
     if (!creditCard) {
       throw new Error("Credit card not found");
@@ -133,7 +140,7 @@ export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = n
     };
     const occurrenceDate =
       occurrenceDateInput
-        ? normalizeCalendarDate(occurrenceDateInput)
+        ? parseCalendarDate(occurrenceDateInput, "Settlement date")
         : getNextTemplateOccurrence(scheduledItem, new Date());
 
     if (!occurrenceDate) {
@@ -143,12 +150,12 @@ export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = n
     const cycleReference = getTemplateCycleReference(scheduledItem, occurrenceDate);
     const previousPayments = await prisma.creditCardPaymentHistory.findMany({
       where: {
-        creditCardId,
+        creditCardId: validatedCreditCardId,
         workspaceId: activeWorkspace.id,
         cycleReference,
       },
     });
-    const alreadyPaid = previousPayments.reduce((acc, item) => acc + item.amountPaid, 0);
+    const alreadyPaid = previousPayments.map(serializeHistoryRecord).reduce((acc, item) => acc + item.amountPaid, 0);
     const pendingAmount = Math.max(minimumPayment - alreadyPaid, 0);
 
     if (pendingAmount <= 0) {
@@ -158,8 +165,8 @@ export async function markCreditCardAsPaid(creditCardId, occurrenceDateInput = n
 
     await prisma.creditCardPaymentHistory.create({
       data: {
-        creditCardId,
-        amountPaid: pendingAmount,
+        creditCardId: validatedCreditCardId,
+        ...getMoneyUpdateData(pendingAmount, "amountPaidCents"),
         workspaceId: activeWorkspace.id,
         cycleReference,
         datePaid: new Date(),

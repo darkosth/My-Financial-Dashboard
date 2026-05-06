@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
+    "db:snapshot": "node scripts/create-db-snapshot.mjs",
     "verify": "npm run lint && npm run build",
     "postinstall": "prisma generate"
   },

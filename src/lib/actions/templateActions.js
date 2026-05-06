@@ -8,16 +8,25 @@ import {
   getProjectionWeekStart,
   getTemplateCycleReference,
 } from "@/lib/waterfallCalculations";
-import { normalizeCalendarDate, parseDateOnlyString } from "@/lib/calendarDate";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 import {
   getCategory,
   getDayOfMonth,
   getFrequency,
   getMoneyAmount,
+  getOptionalDateOnly,
   getRequiredText,
+  parseCalendarDate,
+  parseMoneyAmount,
+  parseRequiredText,
   validationFailure,
 } from "@/lib/actions/validation";
+import {
+  getMoneyUpdateData,
+  serializeHistoryRecord,
+  serializePaymentCarryover,
+  serializeTemplate,
+} from "@/lib/money";
 
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
@@ -25,34 +34,31 @@ const revalidateFinanceViews = () => {
   revalidatePath("/calendar");
 };
 
-const normalizeAmount = (value) => {
-  const amount = Number.parseFloat(value);
-  return Number.isFinite(amount) ? amount : 0;
-};
+const normalizeAmount = (value) => parseMoneyAmount(value ?? 0, "Paid amount");
 
 async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid, moveRemainingToNextWeek = false }) {
   const { activeWorkspace } = await getCurrentUserContext();
-  const template = await prisma.template.findFirst({
-    where: { id: templateId, workspaceId: activeWorkspace.id },
+  const validatedTemplateId = parseRequiredText(templateId, "Template id");
+  const templateRecord = await prisma.template.findFirst({
+    where: { id: validatedTemplateId, workspaceId: activeWorkspace.id },
   });
+  const template = templateRecord ? serializeTemplate(templateRecord) : null;
 
   if (!template) {
     throw new Error("Gasto no encontrado");
   }
 
-  const normalizedOccurrenceDate = normalizeCalendarDate(occurrenceDate);
-  if (!normalizedOccurrenceDate) {
-    throw new Error("Fecha de ocurrencia invalida");
-  }
+  const normalizedOccurrenceDate = parseCalendarDate(occurrenceDate, "Occurrence date");
 
   const cycleReference = getTemplateCycleReference(template, normalizedOccurrenceDate);
-  const alreadyPaid = await prisma.history.findMany({
+  const alreadyPaidRecords = await prisma.history.findMany({
     where: {
-      templateId,
+      templateId: validatedTemplateId,
       workspaceId: activeWorkspace.id,
       cycleReference,
     },
   });
+  const alreadyPaid = alreadyPaidRecords.map(serializeHistoryRecord);
 
   const paidAmountSoFar = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
   const remainingBeforeAction = Math.max(template.amount - paidAmountSoFar, 0);
@@ -63,7 +69,7 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
     await prisma.history.create({
       data: {
         templateId: template.id,
-        amountPaid: safeAmountPaid,
+        ...getMoneyUpdateData(safeAmountPaid, "amountPaidCents"),
         workspaceId: activeWorkspace.id,
         cycleReference,
         datePaid: new Date(),
@@ -80,7 +86,7 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
         },
       },
       update: {
-        remainingAmount: remainingAfterPayment,
+        ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
         workspaceId: activeWorkspace.id,
         targetWeekStart: addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7),
       },
@@ -89,7 +95,7 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
         workspaceId: activeWorkspace.id,
         originCycleReference: cycleReference,
         targetWeekStart: addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7),
-        remainingAmount: remainingAfterPayment,
+        ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
       },
     });
   } else {
@@ -117,29 +123,33 @@ async function settleTemplateOccurrence({ templateId, occurrenceDate, amountPaid
 
 async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWeek = false }) {
   const { activeWorkspace } = await getCurrentUserContext();
-  const carryover = await prisma.paymentCarryover.findFirst({
-    where: { id: carryoverId, workspaceId: activeWorkspace.id },
+  const validatedCarryoverId = parseRequiredText(carryoverId, "Carryover id");
+  const carryoverRecord = await prisma.paymentCarryover.findFirst({
+    where: { id: validatedCarryoverId, workspaceId: activeWorkspace.id },
   });
+  const carryover = carryoverRecord ? serializePaymentCarryover(carryoverRecord) : null;
 
   if (!carryover) {
     throw new Error("Gasto movido no encontrado");
   }
 
-  const template = await prisma.template.findFirst({
+  const templateRecord = await prisma.template.findFirst({
     where: { id: carryover.templateId, workspaceId: activeWorkspace.id },
   });
+  const template = templateRecord ? serializeTemplate(templateRecord) : null;
 
   if (!template) {
     throw new Error("Gasto no encontrado");
   }
 
-  const alreadyPaid = await prisma.history.findMany({
+  const alreadyPaidRecords = await prisma.history.findMany({
     where: {
       templateId: template.id,
       workspaceId: activeWorkspace.id,
       cycleReference: carryover.originCycleReference,
     },
   });
+  const alreadyPaid = alreadyPaidRecords.map(serializeHistoryRecord);
 
   const paidAmountSoFar = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
   const effectiveRemaining = Math.min(
@@ -162,7 +172,7 @@ async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWee
     await prisma.history.create({
       data: {
         templateId: template.id,
-        amountPaid: safeAmountPaid,
+        ...getMoneyUpdateData(safeAmountPaid, "amountPaidCents"),
         workspaceId: activeWorkspace.id,
         cycleReference: carryover.originCycleReference,
         datePaid: new Date(),
@@ -182,7 +192,7 @@ async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWee
     await prisma.paymentCarryover.update({
       where: { id: carryover.id },
       data: {
-        remainingAmount: remainingAfterPayment,
+        ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
         targetWeekStart: addDays(startOfDay(new Date(carryover.targetWeekStart)), 7),
       },
     });
@@ -190,7 +200,7 @@ async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWee
     await prisma.paymentCarryover.update({
       where: { id: carryover.id },
       data: {
-        remainingAmount: remainingAfterPayment,
+        ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
       },
     });
   }
@@ -207,13 +217,13 @@ export async function createTemplate(formData) {
     const category = getCategory(formData);
     const isAutoPay = formData.get("isAutoPay") === "on";
     const dayOfMonth = getDayOfMonth(formData, "dayOfMonth", "Day of month", { optional: true });
-    const lastPaidAt = formData.get("lastPaidAt") ? parseDateOnlyString(formData.get("lastPaidAt")) : null;
+    const lastPaidAt = getOptionalDateOnly(formData, "lastPaidAt", "Last paid at");
 
     const { activeWorkspace } = await getCurrentUserContext();
     await prisma.template.create({
       data: {
         name,
-        amount,
+        ...getMoneyUpdateData(amount, "amountCents"),
         frequency,
         category,
         isAutoPay,
@@ -233,9 +243,10 @@ export async function createTemplate(formData) {
 
 export async function deleteTemplate(id) {
   try {
+    const templateId = parseRequiredText(id, "Template id");
     const { activeWorkspace } = await getCurrentUserContext();
     const template = await prisma.template.findFirst({
-      where: { id, workspaceId: activeWorkspace.id },
+      where: { id: templateId, workspaceId: activeWorkspace.id },
     });
 
     if (!template) {
@@ -263,12 +274,14 @@ export async function updateTemplate(id, formData) {
     const category = getCategory(formData);
     const isAutoPay = formData.get("isAutoPay") === "on";
     const dayOfMonth = getDayOfMonth(formData, "dayOfMonth", "Day of month", { optional: true });
-    const lastPaidAt = formData.get("lastPaidAt") ? parseDateOnlyString(formData.get("lastPaidAt")) : null;
+    const lastPaidAt = getOptionalDateOnly(formData, "lastPaidAt", "Last paid at");
 
     const { activeWorkspace } = await getCurrentUserContext();
-    const template = await prisma.template.findFirst({
-      where: { id, workspaceId: activeWorkspace.id },
+    const templateId = parseRequiredText(id, "Template id");
+    const templateRecord = await prisma.template.findFirst({
+      where: { id: templateId, workspaceId: activeWorkspace.id },
     });
+    const template = templateRecord ? serializeTemplate(templateRecord) : null;
 
     if (!template) {
       throw new Error("Template not found");
@@ -278,7 +291,7 @@ export async function updateTemplate(id, formData) {
       where: { id: template.id },
       data: {
         name,
-        amount,
+        ...getMoneyUpdateData(amount, "amountCents"),
         frequency,
         category,
         isAutoPay,
@@ -298,7 +311,9 @@ export async function updateTemplate(id, formData) {
 export async function markAsPaid(id) {
   try {
     const { activeWorkspace } = await getCurrentUserContext();
-    const template = await prisma.template.findFirst({ where: { id, workspaceId: activeWorkspace.id } });
+    const templateId = parseRequiredText(id, "Template id");
+    const templateRecord = await prisma.template.findFirst({ where: { id: templateId, workspaceId: activeWorkspace.id } });
+    const template = templateRecord ? serializeTemplate(templateRecord) : null;
     if (!template) {
       throw new Error("Gasto no encontrado");
     }
@@ -308,18 +323,19 @@ export async function markAsPaid(id) {
       throw new Error("No se pudo calcular la proxima ocurrencia del gasto");
     }
 
-    const alreadyPaid = await prisma.history.findMany({
+    const alreadyPaidRecords = await prisma.history.findMany({
       where: {
-        templateId: id,
+        templateId,
         workspaceId: activeWorkspace.id,
         cycleReference: getTemplateCycleReference(template, occurrenceDate),
       },
     });
+    const alreadyPaid = alreadyPaidRecords.map(serializeHistoryRecord);
     const paidAmount = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
     const outstandingAmount = Math.max(template.amount - paidAmount, 0);
 
     return await settleTemplateOccurrence({
-      templateId: id,
+      templateId,
       occurrenceDate,
       amountPaid: outstandingAmount,
       moveRemainingToNextWeek: false,
@@ -333,23 +349,26 @@ export async function markAsPaid(id) {
 export async function markWaterfallItemAsPaid(templateId, occurrenceDate) {
   try {
     const { activeWorkspace } = await getCurrentUserContext();
-    const template = await prisma.template.findFirst({ where: { id: templateId, workspaceId: activeWorkspace.id } });
+    const validatedTemplateId = parseRequiredText(templateId, "Template id");
+    const templateRecord = await prisma.template.findFirst({ where: { id: validatedTemplateId, workspaceId: activeWorkspace.id } });
+    const template = templateRecord ? serializeTemplate(templateRecord) : null;
     if (!template) {
       throw new Error("Gasto no encontrado");
     }
 
-    const normalizedOccurrenceDate = normalizeCalendarDate(occurrenceDate);
-    const alreadyPaid = await prisma.history.findMany({
+    const normalizedOccurrenceDate = parseCalendarDate(occurrenceDate, "Occurrence date");
+    const alreadyPaidRecords = await prisma.history.findMany({
       where: {
-        templateId,
+        templateId: validatedTemplateId,
         workspaceId: activeWorkspace.id,
         cycleReference: getTemplateCycleReference(template, normalizedOccurrenceDate),
       },
     });
+    const alreadyPaid = alreadyPaidRecords.map(serializeHistoryRecord);
     const paidAmount = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
 
     return await settleTemplateOccurrence({
-      templateId,
+      templateId: validatedTemplateId,
       occurrenceDate: normalizedOccurrenceDate,
       amountPaid: Math.max(template.amount - paidAmount, 0),
       moveRemainingToNextWeek: false,
@@ -362,11 +381,12 @@ export async function markWaterfallItemAsPaid(templateId, occurrenceDate) {
 
 export async function deferWaterfallItem(templateId, occurrenceDate, amountPaidInput) {
   try {
-    const occurrence = normalizeCalendarDate(occurrenceDate);
+    const validatedTemplateId = parseRequiredText(templateId, "Template id");
+    const occurrence = parseCalendarDate(occurrenceDate, "Occurrence date");
     const amountPaid = normalizeAmount(amountPaidInput);
 
     return await settleTemplateOccurrence({
-      templateId,
+      templateId: validatedTemplateId,
       occurrenceDate: occurrence,
       amountPaid,
       moveRemainingToNextWeek: true,
@@ -379,11 +399,12 @@ export async function deferWaterfallItem(templateId, occurrenceDate, amountPaidI
 
 export async function partiallyPayWaterfallItem(templateId, occurrenceDate, amountPaidInput) {
   try {
-    const occurrence = normalizeCalendarDate(occurrenceDate);
+    const validatedTemplateId = parseRequiredText(templateId, "Template id");
+    const occurrence = parseCalendarDate(occurrenceDate, "Occurrence date");
     const amountPaid = normalizeAmount(amountPaidInput);
 
     return await settleTemplateOccurrence({
-      templateId,
+      templateId: validatedTemplateId,
       occurrenceDate: occurrence,
       amountPaid,
       moveRemainingToNextWeek: false,
@@ -396,9 +417,10 @@ export async function partiallyPayWaterfallItem(templateId, occurrenceDate, amou
 
 export async function moveWaterfallItemToNextWeek(templateId, occurrenceDate) {
   try {
+    const validatedTemplateId = parseRequiredText(templateId, "Template id");
     return await settleTemplateOccurrence({
-      templateId,
-      occurrenceDate: normalizeCalendarDate(occurrenceDate),
+      templateId: validatedTemplateId,
+      occurrenceDate: parseCalendarDate(occurrenceDate, "Occurrence date"),
       amountPaid: 0,
       moveRemainingToNextWeek: true,
     });
@@ -410,10 +432,12 @@ export async function moveWaterfallItemToNextWeek(templateId, occurrenceDate) {
 
 export async function markCarryoverAsPaid(carryoverId, amountPaidInput = null) {
   try {
+    const validatedCarryoverId = parseRequiredText(carryoverId, "Carryover id");
     const { activeWorkspace } = await getCurrentUserContext();
-    const carryover = await prisma.paymentCarryover.findFirst({
-      where: { id: carryoverId, workspaceId: activeWorkspace.id },
+    const carryoverRecord = await prisma.paymentCarryover.findFirst({
+      where: { id: validatedCarryoverId, workspaceId: activeWorkspace.id },
     });
+    const carryover = carryoverRecord ? serializePaymentCarryover(carryoverRecord) : null;
 
     if (!carryover) {
       throw new Error("Gasto movido no encontrado");
@@ -423,7 +447,7 @@ export async function markCarryoverAsPaid(carryoverId, amountPaidInput = null) {
       amountPaidInput == null ? carryover.remainingAmount : normalizeAmount(amountPaidInput);
 
     return await settleCarryover({
-      carryoverId,
+      carryoverId: validatedCarryoverId,
       amountPaid: amountToPay,
       moveRemainingToNextWeek: false,
     });
@@ -436,7 +460,7 @@ export async function markCarryoverAsPaid(carryoverId, amountPaidInput = null) {
 export async function moveCarryoverToNextWeek(carryoverId, amountPaidInput = 0) {
   try {
     return await settleCarryover({
-      carryoverId,
+      carryoverId: parseRequiredText(carryoverId, "Carryover id"),
       amountPaid: normalizeAmount(amountPaidInput),
       moveRemainingToNextWeek: true,
     });

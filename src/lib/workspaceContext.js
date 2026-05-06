@@ -2,7 +2,6 @@ import "server-only";
 
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { DEFAULT_WEEKLY_INCOME } from "@/lib/financeEngine";
 
 const getSessionIdentity = async () => {
   const session = await auth();
@@ -117,41 +116,35 @@ async function ensureUserWorkspaceAccess(identity) {
   };
 }
 
-async function migrateLegacyDataToWorkspace(workspaceId) {
-  await prisma.account.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
-  await prisma.creditCard.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
-  await prisma.template.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
-  await prisma.history.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
-  await prisma.creditCardPaymentHistory.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
-  await prisma.pendingExpense.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
-  await prisma.paymentCarryover.updateMany({ where: { workspaceId: null }, data: { workspaceId } });
+async function detectLegacyWorkspaceData() {
+  const legacyFinds = await Promise.all([
+    prisma.account.findFirst({ where: { workspaceId: null }, select: { id: true } }),
+    prisma.creditCard.findFirst({ where: { workspaceId: null }, select: { id: true } }),
+    prisma.template.findFirst({ where: { workspaceId: null }, select: { id: true } }),
+    prisma.history.findFirst({ where: { workspaceId: null }, select: { id: true } }),
+    prisma.creditCardPaymentHistory.findFirst({ where: { workspaceId: null }, select: { id: true } }),
+    prisma.pendingExpense.findFirst({ where: { workspaceId: null }, select: { id: true } }),
+    prisma.paymentCarryover.findFirst({ where: { workspaceId: null }, select: { id: true } }),
+    prisma.appSettings?.findFirst
+      ? prisma.appSettings.findFirst({ where: { workspaceId: null }, select: { id: true } })
+      : Promise.resolve(null),
+  ]);
 
-  const existingLegacySettings = prisma.appSettings?.findFirst
-    ? await prisma.appSettings.findFirst({
-        where: { workspaceId: null },
-        orderBy: { createdAt: "asc" },
-      })
-    : null;
+  const tables = [
+    "accounts",
+    "credit_cards",
+    "templates",
+    "history_records",
+    "credit_card_payment_history",
+    "pending_expenses",
+    "payment_carryovers",
+    "app_settings",
+  ].filter((_, index) => legacyFinds[index]);
 
-  if (existingLegacySettings) {
-    await prisma.appSettings.update({
-      where: { id: existingLegacySettings.id },
-      data: { workspaceId },
-    });
-  } else if (prisma.appSettings?.findFirst) {
-    const workspaceSettings = await prisma.appSettings.findFirst({
-      where: { workspaceId },
-    });
-
-    if (!workspaceSettings) {
-      await prisma.appSettings.create({
-        data: {
-          workspaceId,
-          weeklyIncome: DEFAULT_WEEKLY_INCOME,
-        },
-      });
-    }
-  }
+  return {
+    hasLegacyRows: tables.length > 0,
+    tables,
+  };
 }
 
 export async function getCurrentUserContext() {
@@ -161,11 +154,15 @@ export async function getCurrentUserContext() {
     throw new Error("Unauthorized");
   }
 
-  // 1. Aseguramos que el usuario exista y tenga su propio espacio privado
   const context = await ensureUserWorkspaceAccess(identity);
-  
-  // 2. Revisamos si hay datos huérfanos viejos (solo por seguridad)
-  await migrateLegacyDataToWorkspace(context.activeWorkspace.id);
+  const legacyWorkspaceData = await detectLegacyWorkspaceData();
 
-  return context;
+  if (legacyWorkspaceData.hasLegacyRows) {
+    console.warn("Legacy rows without workspaceId detected. Run an explicit backfill before enforcing workspaceId.", legacyWorkspaceData.tables);
+  }
+
+  return {
+    ...context,
+    legacyWorkspaceData,
+  };
 }

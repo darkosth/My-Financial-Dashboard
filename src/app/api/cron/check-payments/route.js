@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma"; 
 import { sendTelegramMessage } from "@/lib/telegram";
 import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
+import { serializeCreditCard } from "@/lib/money";
 
 export async function GET(request) {
   // 1. Capa de Seguridad (Protección contra intrusos)
@@ -39,7 +40,7 @@ export async function GET(request) {
       where: {
         ...(telegramWorkspaceId ? { workspaceId: telegramWorkspaceId } : {}),
         dueDate: { in: targetDays },
-        balance: { gt: 0 } // Solo avisar si la tarjeta realmente tiene deuda
+        balanceCents: { gt: 0 } // Solo avisar si la tarjeta realmente tiene deuda
       }
     });
 
@@ -50,7 +51,7 @@ export async function GET(request) {
     // 4. Armar el Mensaje
     let message = "🔔 <b>FINANCIAL ALERT</b> 🔔\n\n";
 
-    dueCards.forEach(card => {
+    dueCards.map(serializeCreditCard).forEach(card => {
       const minimumPayment = getCreditCardEffectiveMinimumPayment(card);
       const dueText = card.dueDate === currentDay ? "🚨 TODAY" : "⚠️ TOMORROW";
       message += `💳 <b>${card.name}</b>\n`;

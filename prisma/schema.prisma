@@ -57,6 +57,14 @@ model Workspace {
   members     WorkspaceMember[]
   preferences UserPreference[]
   invites     WorkspaceInvite[]
+  accounts    Account[]
+  creditCards CreditCard[]
+  templates   Template[]
+  history     History[]
+  creditCardPaymentHistory CreditCardPaymentHistory[]
+  pendingExpenses PendingExpense[]
+  paymentCarryovers PaymentCarryover[]
+  appSettings AppSettings?
 
   @@map("workspaces")
 }
@@ -87,11 +95,14 @@ model UserPreference {
 }
 
 model Account {
-  id          String   @id @default(cuid())
-  name        String
-  balance     Float    @default(0)
-  workspaceId String?
-  createdAt   DateTime @default(now())
+  id           String    @id @default(cuid())
+  name         String
+  balanceCents Int       @default(0) @map("balance_cents")
+  workspaceId  String
+  createdAt    DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
 
   @@map("accounts")
 }
@@ -99,87 +110,103 @@ model Account {
 model CreditCard {
   id                       String    @id @default(cuid())
   name                     String
-  balance                  Float     @default(0)
-  creditLimit              Float     @default(0)
-  minimumPayment           Float     @default(0)
+  balanceCents             Int       @default(0) @map("balance_cents")
+  creditLimitCents         Int       @default(0) @map("credit_limit_cents")
+  minimumPaymentCents      Int       @default(0) @map("minimum_payment_cents")
   minimumPaymentPercentage Float?
   apr                      Float?
   dueDate                  Int
-  workspaceId              String?
+  workspaceId              String
   createdAt                DateTime  @default(now())
   lastReviewedAt           DateTime?
+  workspace                Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@index([workspaceId, createdAt])
   @@map("credit_cards")
 }
 
 model Template {
-  id          String    @id @default(cuid())
-  name        String
-  amount      Float
-  frequency   Frequency @default(MONTHLY)
-  isAutoPay   Boolean   @default(false)
-  category    Category
-  workspaceId String?
-  createdAt   DateTime  @default(now())
-  dayOfMonth  Int?
-  lastPaidAt  DateTime?
+  id           String    @id @default(cuid())
+  name         String
+  amountCents  Int       @default(0) @map("amount_cents")
+  frequency    Frequency @default(MONTHLY)
+  isAutoPay    Boolean   @default(false)
+  category     Category
+  workspaceId  String
+  createdAt    DateTime  @default(now())
+  dayOfMonth   Int?
+  lastPaidAt   DateTime?
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
 
   @@map("templates")
 }
 
 model History {
-  id             String   @id @default(cuid())
-  templateId     String
-  amountPaid     Float
-  workspaceId    String?
-  datePaid       DateTime @default(now())
-  cycleReference DateTime
-  createdAt      DateTime @default(now())
+  id              String    @id @default(cuid())
+  templateId      String
+  amountPaidCents Int       @default(0) @map("amount_paid_cents")
+  workspaceId     String
+  datePaid        DateTime  @default(now())
+  cycleReference  DateTime
+  createdAt       DateTime  @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@index([workspaceId, cycleReference])
+  @@index([templateId, cycleReference])
   @@map("history_records")
 }
 
 model CreditCardPaymentHistory {
-  id             String   @id @default(cuid())
-  creditCardId   String
-  amountPaid     Float
-  workspaceId    String?
-  datePaid       DateTime @default(now())
-  cycleReference DateTime
-  createdAt      DateTime @default(now())
+  id              String    @id @default(cuid())
+  creditCardId    String
+  amountPaidCents Int       @default(0) @map("amount_paid_cents")
+  workspaceId     String
+  datePaid        DateTime  @default(now())
+  cycleReference  DateTime
+  createdAt       DateTime  @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@index([workspaceId, cycleReference])
+  @@index([creditCardId, cycleReference])
   @@map("credit_card_payment_history")
 }
 
 model PendingExpense {
-  id          String   @id @default(cuid())
-  description String?
-  amount      Float
-  workspaceId String?
-  createdAt   DateTime @default(now())
+  id           String    @id @default(cuid())
+  description  String?
+  amountCents  Int       @default(0) @map("amount_cents")
+  workspaceId  String
+  createdAt    DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@index([workspaceId, createdAt])
   @@map("pending_expenses")
 }
 
 model PaymentCarryover {
-  id                   String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   templateId           String
   originCycleReference DateTime
   targetWeekStart      DateTime
-  remainingAmount      Float
-  workspaceId          String?
-  createdAt            DateTime @default(now())
+  remainingAmountCents Int       @default(0) @map("remaining_amount_cents")
+  workspaceId          String
+  createdAt            DateTime  @default(now())
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([templateId, originCycleReference])
+  @@index([workspaceId, targetWeekStart])
   @@map("payment_carryovers")
 }
 
 model AppSettings {
-  id           Int      @id @default(autoincrement())
-  workspaceId  String?  @unique
-  weeklyIncome Float    @default(1000)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                Int       @id @default(autoincrement())
+  workspaceId       String    @unique
+  weeklyIncomeCents Int       @default(100000) @map("weekly_income_cents")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("app_settings")
 }
