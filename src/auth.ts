@@ -2,7 +2,17 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import prisma from "@/lib/prisma";
 
-const ensureUserAccess = async (user) => {
+type SignInUserLike = {
+  email?: string | null;
+  name?: string | null;
+  image?: string | null;
+};
+
+const ensureUserAccess = async (user: SignInUserLike) => {
+  if (!user.email) {
+    throw new Error("Missing user email");
+  }
+
   const dbUser = await prisma.user.upsert({
     where: { email: user.email },
     update: {
@@ -71,14 +81,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/",
     error: "/",
   },
-  providers: [Google],
+  providers: [Google as any],
   callbacks: {
-    authorized({ auth }) {
+    authorized({ auth }: any) {
       return !!auth?.user;
     },
-    async signIn({ user }) {
+    async signIn({ user }: any) {
       await ensureUserAccess(user);
       return true;
     },
   },
 });
+
