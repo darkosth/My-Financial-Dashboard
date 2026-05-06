@@ -6,40 +6,29 @@ import { getNextTemplateOccurrence, getTemplateCycleReference } from "@/lib/wate
 import { normalizeCalendarDate } from "@/lib/calendarDate";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
+import {
+  getDayOfMonth,
+  getMoneyAmount,
+  getOptionalMoneyAmount,
+  getOptionalPercentage,
+  getRequiredText,
+  validationFailure,
+} from "@/lib/actions/validation";
 
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
   revalidatePath("/calendar");
 };
 
-const parseOptionalApr = (value) => {
-  if (value == null || value === "") {
-    return null;
-  }
-
-  const parsedValue = parseFloat(value);
-  return Number.isNaN(parsedValue) ? null : parsedValue;
-};
-
-const parseOptionalPercentage = (value) => {
-  if (value == null || value === "") {
-    return null;
-  }
-
-  const parsedValue = parseFloat(value);
-  return Number.isNaN(parsedValue) ? null : parsedValue;
-};
-
 export async function createCreditCard(formData) {
-  const name = formData.get("name");
-  const balance = parseFloat(formData.get("balance"));
-  const creditLimit = parseFloat(formData.get("creditLimit"));
-  const minimumPayment = formData.get("minimumPayment") ? parseFloat(formData.get("minimumPayment")) : balance * 0.07;
-  const minimumPaymentPercentage = parseOptionalPercentage(formData.get("minimumPaymentPercentage"));
-  const apr = parseOptionalApr(formData.get("apr"));
-  const dueDate = parseInt(formData.get("dueDate"));
-
   try {
+    const name = getRequiredText(formData, "name", "Credit card name");
+    const balance = getMoneyAmount(formData, "balance", "Balance");
+    const creditLimit = getMoneyAmount(formData, "creditLimit", "Credit limit");
+    const minimumPayment = getOptionalMoneyAmount(formData, "minimumPayment", "Minimum payment", balance * 0.07);
+    const minimumPaymentPercentage = getOptionalPercentage(formData, "minimumPaymentPercentage", "Minimum payment percentage");
+    const apr = getOptionalPercentage(formData, "apr", "APR");
+    const dueDate = getDayOfMonth(formData, "dueDate", "Due date");
     const { activeWorkspace } = await getCurrentUserContext();
     await prisma.creditCard.create({
       data: {
@@ -58,20 +47,19 @@ export async function createCreditCard(formData) {
     return { success: true };
   } catch (error) {
     console.error("Error creating credit card:", error);
-    return { success: false, error: "Failed to create credit card" };
+    return validationFailure(error, "Failed to create credit card");
   }
 }
 
 export async function updateCreditCard(id, formData) {
-  const name = formData.get("name");
-  const balance = parseFloat(formData.get("balance"));
-  const creditLimit = parseFloat(formData.get("creditLimit"));
-  const minimumPayment = formData.get("minimumPayment") ? parseFloat(formData.get("minimumPayment")) : balance * 0.02;
-  const minimumPaymentPercentage = parseOptionalPercentage(formData.get("minimumPaymentPercentage"));
-  const apr = parseOptionalApr(formData.get("apr"));
-  const dueDate = parseInt(formData.get("dueDate"));
-
   try {
+    const name = getRequiredText(formData, "name", "Credit card name");
+    const balance = getMoneyAmount(formData, "balance", "Balance");
+    const creditLimit = getMoneyAmount(formData, "creditLimit", "Credit limit");
+    const minimumPayment = getOptionalMoneyAmount(formData, "minimumPayment", "Minimum payment", balance * 0.02);
+    const minimumPaymentPercentage = getOptionalPercentage(formData, "minimumPaymentPercentage", "Minimum payment percentage");
+    const apr = getOptionalPercentage(formData, "apr", "APR");
+    const dueDate = getDayOfMonth(formData, "dueDate", "Due date");
     const { activeWorkspace } = await getCurrentUserContext();
     const creditCard = await prisma.creditCard.findFirst({
       where: { id, workspaceId: activeWorkspace.id },
@@ -98,7 +86,7 @@ export async function updateCreditCard(id, formData) {
     return { success: true };
   } catch (error) {
     console.error("Error updating credit card:", error);
-    return { success: false, error: "Failed to update credit card" };
+    return validationFailure(error, "Failed to update credit card");
   }
 }
 

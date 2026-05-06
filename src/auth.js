@@ -2,7 +2,6 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import prisma from "@/lib/prisma";
 
-const isE2ETestMode = process.env.E2E_TEST_MODE === "1";
 const ensureUserAccess = async (user) => {
   const dbUser = await prisma.user.upsert({
     where: { email: user.email },
@@ -74,20 +73,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   providers: [Google],
   callbacks: {
-    authorized({ auth, request }) {
-      const isE2ERequest = request?.nextUrl?.searchParams.get("e2e") === "1";
-
-      if (isE2ETestMode || isE2ERequest) {
-        return true;
-      }
-
+    authorized({ auth }) {
       return !!auth?.user;
     },
     async signIn({ user }) {
-      if (isE2ETestMode) {
-        return true;
-      }
-
       await ensureUserAccess(user);
       return true;
     },

@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_WEEKLY_INCOME } from "@/lib/financeEngine";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
+import { ValidationError, validationFailure } from "@/lib/actions/validation";
 
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
@@ -21,18 +22,23 @@ const getWorkspaceMembership = async (userId, workspaceId) =>
     },
   });
 
+const parseWeeklyIncome = (value) => {
+  const weeklyIncome = Number.parseFloat(value);
+
+  if (!Number.isFinite(weeklyIncome) || weeklyIncome < 0 || weeklyIncome > 100_000_000) {
+    throw new ValidationError("Invalid weekly income");
+  }
+
+  return Math.round(weeklyIncome * 100) / 100;
+};
+
 // ==========================================
 // FUNCIONES ORIGINALES (INTACTAS)
 // ==========================================
 
 export async function updateAppSettings(formData) {
-  const weeklyIncome = Number.parseFloat(formData.get("weeklyIncome"));
-
-  if (!Number.isFinite(weeklyIncome) || weeklyIncome < 0) {
-    return { success: false, error: "Invalid weekly income" };
-  }
-
   try {
+    const weeklyIncome = parseWeeklyIncome(formData.get("weeklyIncome"));
     const { activeWorkspace } = await getCurrentUserContext();
     const existingSettings = await prisma.appSettings.findFirst({
       where: { workspaceId: activeWorkspace.id },
@@ -56,7 +62,7 @@ export async function updateAppSettings(formData) {
     return { success: true };
   } catch (error) {
     console.error("Error updating app settings:", error);
-    return { success: false, error: "Failed to update app settings" };
+    return validationFailure(error, "Failed to update app settings");
   }
 }
 
@@ -80,13 +86,8 @@ export async function getAppSettings() {
 // ==========================================
 
 export async function updateWeeklyIncome(workspaceId, newIncome) {
-  const weeklyIncome = Number.parseFloat(newIncome);
-
-  if (!Number.isFinite(weeklyIncome) || weeklyIncome < 0) {
-    return { success: false, error: "Invalid weekly income" };
-  }
-
   try {
+    const weeklyIncome = parseWeeklyIncome(newIncome);
     const { user } = await getCurrentUserContext();
     const membership = await getWorkspaceMembership(user.id, workspaceId);
 
@@ -116,7 +117,7 @@ export async function updateWeeklyIncome(workspaceId, newIncome) {
     return { success: true };
   } catch (error) {
     console.error("Error updating weekly income:", error);
-    return { success: false, error: "Failed to update income" };
+    return validationFailure(error, "Failed to update income");
   }
 }
 

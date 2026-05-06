@@ -6,11 +6,9 @@ import AuthenticatedNavbar from "@/components/Layout/AuthenticatedNavbar";
 import GoogleSignInButton from "@/components/Layout/GoogleSignInButton";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const isE2ETestMode = process.env.E2E_TEST_MODE === "1";
-
 export default async function Navbar() {
   const session = await auth();
-  const isAuthenticated = !!session?.user || isE2ETestMode;
+  const isAuthenticated = !!session?.user;
 
   if (!isAuthenticated) {
     return (

@@ -17,12 +17,6 @@ npm ci
 npm run verify
 ```
 
-Use E2E only with a safe test database:
-
-```bash
-npm run verify:e2e
-```
-
 Do not copy `node_modules` from Windows into Linux. Native packages are platform-specific.
 
 ## Deployment flow

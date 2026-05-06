@@ -4,15 +4,6 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { DEFAULT_WEEKLY_INCOME } from "@/lib/financeEngine";
 
-const isE2ETestMode = process.env.E2E_TEST_MODE === "1";
-const E2E_WORKSPACE_ID = "__e2e_workspace__";
-const E2E_USER = {
-  id: "__e2e_user__",
-  email: "e2e@example.com",
-  name: "E2E User",
-  image: null,
-};
-
 const getSessionIdentity = async () => {
   const session = await auth();
 
@@ -22,10 +13,6 @@ const getSessionIdentity = async () => {
       name: session.user.name ?? null,
       image: session.user.image ?? null,
     };
-  }
-
-  if (isE2ETestMode) {
-    return E2E_USER;
   }
 
   return null;
@@ -168,23 +155,6 @@ async function migrateLegacyDataToWorkspace(workspaceId) {
 }
 
 export async function getCurrentUserContext() {
-  if (isE2ETestMode) {
-    return {
-      user: E2E_USER,
-      memberships: [],
-      preference: {
-        id: "__e2e_preference__",
-        userId: E2E_USER.id,
-        activeWorkspaceId: E2E_WORKSPACE_ID,
-      },
-      activeWorkspace: {
-        id: E2E_WORKSPACE_ID,
-        name: "E2E Workspace",
-        ownerUserId: E2E_USER.id,
-      },
-    };
-  }
-
   const identity = await getSessionIdentity();
 
   if (!identity?.email) {

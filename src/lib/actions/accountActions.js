@@ -3,13 +3,13 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
+import { getMoneyAmount, getRequiredText, validationFailure } from "@/lib/actions/validation";
 
 // 1. CREAR
 export async function createAccount(formData) {
-  const name = formData.get("name");
-  const balance = parseFloat(formData.get("balance"));
-
   try {
+    const name = getRequiredText(formData, "name", "Account name");
+    const balance = getMoneyAmount(formData, "balance", "Balance");
     const { activeWorkspace } = await getCurrentUserContext();
     await prisma.account.create({
       data: { name, balance, workspaceId: activeWorkspace.id },
@@ -18,16 +18,15 @@ export async function createAccount(formData) {
     return { success: true };
   } catch (error) {
     console.error("Error creating account:", error);
-    return { success: false, error: "Failed to create account" };
+    return validationFailure(error, "Failed to create account");
   }
 }
 
 // 2. ACTUALIZAR
 export async function updateAccount(id, formData) {
-  const name = formData.get("name");
-  const balance = parseFloat(formData.get("balance"));
-
   try {
+    const name = getRequiredText(formData, "name", "Account name");
+    const balance = getMoneyAmount(formData, "balance", "Balance");
     const { activeWorkspace } = await getCurrentUserContext();
     const account = await prisma.account.findFirst({
       where: { id, workspaceId: activeWorkspace.id },
@@ -45,7 +44,7 @@ export async function updateAccount(id, formData) {
     return { success: true };
   } catch (error) {
     console.error("Error updating account:", error);
-    return { success: false, error: "Failed to update account" };
+    return validationFailure(error, "Failed to update account");
   }
 }
 

@@ -10,6 +10,14 @@ import {
 } from "@/lib/waterfallCalculations";
 import { normalizeCalendarDate, parseDateOnlyString } from "@/lib/calendarDate";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
+import {
+  getCategory,
+  getDayOfMonth,
+  getFrequency,
+  getMoneyAmount,
+  getRequiredText,
+  validationFailure,
+} from "@/lib/actions/validation";
 
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
@@ -192,19 +200,15 @@ async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWee
 }
 
 export async function createTemplate(formData) {
-  const name = formData.get("name");
-  const amount = parseFloat(formData.get("amount"));
-  const frequency = formData.get("frequency");
-  const category = formData.get("category");
-  const isAutoPay = formData.get("isAutoPay") === "on";
-  const dayOfMonth = formData.get("dayOfMonth") ? parseInt(formData.get("dayOfMonth")) : null;
-
-  let lastPaidAt = null;
-  if (formData.get("lastPaidAt")) {
-    lastPaidAt = parseDateOnlyString(formData.get("lastPaidAt"));
-  }
-
   try {
+    const name = getRequiredText(formData, "name", "Template name");
+    const amount = getMoneyAmount(formData, "amount", "Amount", { allowZero: false });
+    const frequency = getFrequency(formData);
+    const category = getCategory(formData);
+    const isAutoPay = formData.get("isAutoPay") === "on";
+    const dayOfMonth = getDayOfMonth(formData, "dayOfMonth", "Day of month", { optional: true });
+    const lastPaidAt = formData.get("lastPaidAt") ? parseDateOnlyString(formData.get("lastPaidAt")) : null;
+
     const { activeWorkspace } = await getCurrentUserContext();
     await prisma.template.create({
       data: {
@@ -223,7 +227,7 @@ export async function createTemplate(formData) {
     return { success: true };
   } catch (error) {
     console.error("Error saving template to database:", error);
-    return { success: false, error: "Failed to create template" };
+    return validationFailure(error, "Failed to create template");
   }
 }
 
@@ -252,19 +256,15 @@ export async function deleteTemplate(id) {
 }
 
 export async function updateTemplate(id, formData) {
-  const name = formData.get("name");
-  const amount = parseFloat(formData.get("amount"));
-  const frequency = formData.get("frequency");
-  const category = formData.get("category");
-  const isAutoPay = formData.get("isAutoPay") === "on";
-  const dayOfMonth = formData.get("dayOfMonth") ? parseInt(formData.get("dayOfMonth")) : null;
-
-  let lastPaidAt = null;
-  if (formData.get("lastPaidAt")) {
-    lastPaidAt = parseDateOnlyString(formData.get("lastPaidAt"));
-  }
-
   try {
+    const name = getRequiredText(formData, "name", "Template name");
+    const amount = getMoneyAmount(formData, "amount", "Amount", { allowZero: false });
+    const frequency = getFrequency(formData);
+    const category = getCategory(formData);
+    const isAutoPay = formData.get("isAutoPay") === "on";
+    const dayOfMonth = getDayOfMonth(formData, "dayOfMonth", "Day of month", { optional: true });
+    const lastPaidAt = formData.get("lastPaidAt") ? parseDateOnlyString(formData.get("lastPaidAt")) : null;
+
     const { activeWorkspace } = await getCurrentUserContext();
     const template = await prisma.template.findFirst({
       where: { id, workspaceId: activeWorkspace.id },
@@ -291,7 +291,7 @@ export async function updateTemplate(id, formData) {
     return { success: true };
   } catch (error) {
     console.error("Error updating template:", error);
-    return { success: false, error: "Failed to update template" };
+    return validationFailure(error, "Failed to update template");
   }
 }
 

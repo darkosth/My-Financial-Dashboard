@@ -7,6 +7,17 @@ export async function GET(request) {
   // 1. Capa de Seguridad (Protección contra intrusos)
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
+  const telegramWorkspaceId = process.env.TELEGRAM_WORKSPACE_ID;
+
+  if (process.env.NODE_ENV === "production" && !cronSecret) {
+    console.error("CRON_SECRET is required in production.");
+    return new NextResponse("Cron is not configured", { status: 500 });
+  }
+
+  if (process.env.NODE_ENV === "production" && !telegramWorkspaceId) {
+    console.error("TELEGRAM_WORKSPACE_ID is required in production.");
+    return new NextResponse("Cron is not configured", { status: 500 });
+  }
   
   // En producción, exigimos un token de seguridad. En localhost, permitimos pruebas libres.
   if (process.env.NODE_ENV === "production" && authHeader !== `Bearer ${cronSecret}`) {
@@ -26,6 +37,7 @@ export async function GET(request) {
     // 3. Consulta a la Base de Datos
     const dueCards = await prisma.creditCard.findMany({
       where: {
+        ...(telegramWorkspaceId ? { workspaceId: telegramWorkspaceId } : {}),
         dueDate: { in: targetDays },
         balance: { gt: 0 } // Solo avisar si la tarjeta realmente tiene deuda
       }
