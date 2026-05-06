@@ -116,37 +116,6 @@ async function ensureUserWorkspaceAccess(identity) {
   };
 }
 
-async function detectLegacyWorkspaceData() {
-  const legacyFinds = await Promise.all([
-    prisma.account.findFirst({ where: { workspaceId: null }, select: { id: true } }),
-    prisma.creditCard.findFirst({ where: { workspaceId: null }, select: { id: true } }),
-    prisma.template.findFirst({ where: { workspaceId: null }, select: { id: true } }),
-    prisma.history.findFirst({ where: { workspaceId: null }, select: { id: true } }),
-    prisma.creditCardPaymentHistory.findFirst({ where: { workspaceId: null }, select: { id: true } }),
-    prisma.pendingExpense.findFirst({ where: { workspaceId: null }, select: { id: true } }),
-    prisma.paymentCarryover.findFirst({ where: { workspaceId: null }, select: { id: true } }),
-    prisma.appSettings?.findFirst
-      ? prisma.appSettings.findFirst({ where: { workspaceId: null }, select: { id: true } })
-      : Promise.resolve(null),
-  ]);
-
-  const tables = [
-    "accounts",
-    "credit_cards",
-    "templates",
-    "history_records",
-    "credit_card_payment_history",
-    "pending_expenses",
-    "payment_carryovers",
-    "app_settings",
-  ].filter((_, index) => legacyFinds[index]);
-
-  return {
-    hasLegacyRows: tables.length > 0,
-    tables,
-  };
-}
-
 export async function getCurrentUserContext() {
   const identity = await getSessionIdentity();
 
@@ -154,15 +123,5 @@ export async function getCurrentUserContext() {
     throw new Error("Unauthorized");
   }
 
-  const context = await ensureUserWorkspaceAccess(identity);
-  const legacyWorkspaceData = await detectLegacyWorkspaceData();
-
-  if (legacyWorkspaceData.hasLegacyRows) {
-    console.warn("Legacy rows without workspaceId detected. Run an explicit backfill before enforcing workspaceId.", legacyWorkspaceData.tables);
-  }
-
-  return {
-    ...context,
-    legacyWorkspaceData,
-  };
+  return ensureUserWorkspaceAccess(identity);
 }
