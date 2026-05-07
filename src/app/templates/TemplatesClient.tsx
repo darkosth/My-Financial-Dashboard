@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -13,20 +13,43 @@ import { Label } from "@/components/ui/label";
 import { formatCalendarDateForInput } from "@/lib/calendarDate";
 import { createTemplate, deleteTemplate, updateTemplate } from "@/lib/actions/templateActions";
 
-export default function TemplatesClient({ initialTemplates }) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [freq, setFreq] = useState("MONTHLY");
-  const [isOpen, setIsOpen] = useState(false);
-  const formRef = useRef(null);
-  const [editingTemplate, setEditingTemplate] = useState(null);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+type TemplateFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY" | (string & {});
 
-  const requestSort = (key) => {
+type TemplateRow = {
+  id: string;
+  name: string;
+  amount: number;
+  category: string;
+  frequency: TemplateFrequency;
+  dayOfMonth?: number | null;
+  lastPaidAt?: Date | string | null;
+  isAutoPay?: boolean | null;
+  createdAt?: Date | string;
+};
+
+type SortKey = "name" | "amount";
+
+type TemplatesClientProps = {
+  initialTemplates: TemplateRow[];
+};
+
+export default function TemplatesClient({ initialTemplates }: TemplatesClientProps) {
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [freq, setFreq] = React.useState<TemplateFrequency>("MONTHLY");
+  const [isOpen, setIsOpen] = React.useState(false);
+  const formRef = React.useRef<HTMLFormElement | null>(null);
+  const [editingTemplate, setEditingTemplate] = React.useState<TemplateRow | null>(null);
+  const [sortConfig, setSortConfig] = React.useState<{ key: SortKey | null; direction: "asc" | "desc" }>({
+    key: null,
+    direction: "asc",
+  });
+
+  const requestSort = (key: SortKey) => {
     let direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
-    setSortConfig({ key, direction });
+    setSortConfig({ key, direction: direction as "asc" | "desc" });
   };
 
   const filteredTemplates = initialTemplates.filter(
@@ -38,14 +61,22 @@ export default function TemplatesClient({ initialTemplates }) {
   const sortedTemplates = [...filteredTemplates].sort((a, b) => {
     if (!sortConfig.key) return 0;
 
-    let aValue = a[sortConfig.key];
-    let bValue = b[sortConfig.key];
+    const aValue = a[sortConfig.key];
+    const bValue = b[sortConfig.key];
 
-    if (typeof aValue === "string") aValue = aValue.toLowerCase();
-    if (typeof bValue === "string") bValue = bValue.toLowerCase();
+    if (typeof aValue === "string" && typeof bValue === "string") {
+      const aNormalized = aValue.toLowerCase();
+      const bNormalized = bValue.toLowerCase();
+      if (aNormalized < bNormalized) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aNormalized > bNormalized) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    }
 
-    if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-    if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+    if (typeof aValue === "number" && typeof bValue === "number") {
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    }
     return 0;
   });
 
@@ -62,7 +93,7 @@ export default function TemplatesClient({ initialTemplates }) {
     return acc;
   }, 0);
 
-  const handleSubmit = async (formData) => {
+  const handleSubmit = async (formData: FormData) => {
     const result = editingTemplate
       ? await updateTemplate(editingTemplate.id, formData)
       : await createTemplate(formData);
@@ -76,7 +107,7 @@ export default function TemplatesClient({ initialTemplates }) {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this fixed expense?")) {
       const result = await deleteTemplate(id);
       if (!result.success) {
@@ -143,7 +174,14 @@ export default function TemplatesClient({ initialTemplates }) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="frequency">Frecuencia</Label>
-                  <select id="frequency" name="frequency" value={freq} onChange={(e) => setFreq(e.target.value)} className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                  <select
+                    id="frequency"
+                    name="frequency"
+                    value={freq}
+                    onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setFreq(event.currentTarget.value)}
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    required
+                  >
                     <option value="MONTHLY">Mensual</option>
                     <option value="WEEKLY">Semanal (EW)</option>
                     <option value="BIWEEKLY">Bisemanal (E2W)</option>
@@ -212,7 +250,7 @@ export default function TemplatesClient({ initialTemplates }) {
               placeholder="Buscar bill o categoría..."
               className="pl-9 bg-muted/40 border-border focus-visible:ring-emerald-500"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(event.currentTarget.value)}
             />
           </div>
         </CardHeader>

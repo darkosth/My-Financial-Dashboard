@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import * as React from "react";
 import {
   addDays,
   addMonths,
@@ -21,13 +21,38 @@ import { AppDialogContent, Dialog, DialogDescription, DialogHeader, DialogTitle 
 import UpcomingCard from "@/components/dashboard/UpcomingCard";
 import PaymentActionDialog from "@/components/payments/PaymentActionDialog";
 import { formatCalendarDateLabel, getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
-import { getCalendarEventsForDay } from "@/lib/financeEngine";
+import {
+  getCalendarEventsForDay,
+  type CalendarEvent,
+  type CreditCardHistoryRecordLike,
+  type HistoryRecordLike,
+  type PaymentCarryoverLike,
+  type PendingExpenseLike,
+  type ScheduledPayment,
+} from "@/lib/financeEngine";
+import type { UpcomingPayment } from "@/lib/waterfallCalculations";
 import { usePaymentActionDialog } from "@/lib/usePaymentActionDialog";
 
 const CALENDAR_WEEK_STARTS_ON = 0;
 const weekDaysHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const formatCurrency = (value) =>
+const formatCurrency = (value: number) =>
   `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+type ExpandedDay = {
+  date: Date;
+  events: CalendarEvent[];
+};
+
+type CalendarClientProps = {
+  scheduledPayments: ScheduledPayment[];
+  historyRecords: HistoryRecordLike[];
+  creditCardHistoryRecords: CreditCardHistoryRecordLike[];
+  carryovers: PaymentCarryoverLike[];
+  pendingExpenses: PendingExpenseLike[];
+  upcomingPayments: UpcomingPayment[];
+  totalUpcomingExpenses: number;
+  today: Date | string;
+};
 
 export default function CalendarClient({
   scheduledPayments,
@@ -38,11 +63,11 @@ export default function CalendarClient({
   upcomingPayments,
   totalUpcomingExpenses,
   today,
-}) {
+}: CalendarClientProps) {
   const normalizedToday = startOfDay(normalizeCalendarDate(today) ?? new Date(today));
-  const [currentDate, setCurrentDate] = useState(normalizedToday);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [expandedDay, setExpandedDay] = useState(null);
+  const [currentDate, setCurrentDate] = React.useState(normalizedToday);
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const [expandedDay, setExpandedDay] = React.useState<ExpandedDay | null>(null);
   const {
     isPaymentDialogOpen,
     isSubmittingPaymentAction,
@@ -52,10 +77,12 @@ export default function CalendarClient({
     submitPaymentAction,
   } = usePaymentActionDialog();
 
-  const getCalendarGridStart = (date) => startOfWeek(startOfDay(date), { weekStartsOn: CALENDAR_WEEK_STARTS_ON });
-  const getCalendarGridEnd = (date) => endOfWeek(startOfDay(date), { weekStartsOn: CALENDAR_WEEK_STARTS_ON });
+  const getCalendarGridStart = (date: Date) =>
+    startOfWeek(startOfDay(date), { weekStartsOn: CALENDAR_WEEK_STARTS_ON });
+  const getCalendarGridEnd = (date: Date) =>
+    endOfWeek(startOfDay(date), { weekStartsOn: CALENDAR_WEEK_STARTS_ON });
 
-  const getDaysInGrid = () => {
+  const getDaysInGrid = (): Date[] => {
     const startDate = isExpanded
       ? getCalendarGridStart(startOfMonth(currentDate))
       : getCalendarGridStart(currentDate);
@@ -63,7 +90,7 @@ export default function CalendarClient({
       ? getCalendarGridEnd(endOfMonth(currentDate))
       : addDays(startDate, 20);
 
-    const days = [];
+    const days: Date[] = [];
     let day = startDate;
 
     while (day <= endDate) {
@@ -74,7 +101,7 @@ export default function CalendarClient({
     return days;
   };
 
-  const getEventsForDay = (day) =>
+  const getEventsForDay = (day: Date) =>
     getCalendarEventsForDay({
       scheduledPayments,
       historyRecords,
@@ -85,8 +112,9 @@ export default function CalendarClient({
       targetDate: day,
     });
 
-  const openExpenseDetails = (expense) => {
-    if (expense.isPast || !expense.templateId) return;
+  const openExpenseDetails = (expense: CalendarEvent) => {
+    if (expense.isPast) return;
+    if (expense.type !== "scheduled" && expense.type !== "carryover") return;
     openPaymentDialog(expense);
   };
 
@@ -173,7 +201,7 @@ export default function CalendarClient({
                       <button
                         key={event.id}
                         type="button"
-                        disabled={event.isPast || !event.templateId}
+                        disabled={event.isPast || (event.type !== "scheduled" && event.type !== "carryover")}
                         onClick={() => openExpenseDetails(event)}
                         className={`
                           w-full rounded border px-1.5 py-0.5 text-left text-[10px] font-medium truncate md:text-xs
@@ -182,7 +210,11 @@ export default function CalendarClient({
                               ? "border-slate-200 bg-slate-100 text-slate-600 dark:border-border dark:bg-muted dark:text-muted-foreground"
                               : "border-red-100 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
                           }
-                          ${event.isPast || !event.templateId ? "cursor-default" : "hover:bg-red-100 dark:hover:bg-red-950/60"}
+                          ${
+                            event.isPast || (event.type !== "scheduled" && event.type !== "carryover")
+                              ? "cursor-default"
+                              : "hover:bg-red-100 dark:hover:bg-red-950/60"
+                          }
                         `}
                       >
                         {event.name} <span className="font-normal opacity-75">{formatCurrency(event.amount)}</span>
@@ -261,13 +293,13 @@ export default function CalendarClient({
               <button
                 key={event.id}
                 type="button"
-                disabled={event.isPast || !event.templateId}
+                disabled={event.isPast || (event.type !== "scheduled" && event.type !== "carryover")}
                 onClick={() => {
                   setExpandedDay(null);
                   openExpenseDetails(event);
                 }}
                 className={`w-full rounded-lg border px-3 py-2 text-left ${
-                  event.isPast || !event.templateId
+                  event.isPast || (event.type !== "scheduled" && event.type !== "carryover")
                     ? "cursor-default border-border bg-muted text-muted-foreground"
                     : "border-red-100 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200 dark:hover:bg-red-950/60"
                 }`}

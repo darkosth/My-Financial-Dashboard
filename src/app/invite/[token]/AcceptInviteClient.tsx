@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { acceptWorkspaceInvite } from "@/lib/actions/inviteActions";
 
-export default function AcceptInviteClient({ token }) {
-  const [isLoading, setIsLoading] = useState(false);
+export default function AcceptInviteClient({ token }: { token: string }) {
+  const [isLoading, setIsLoading] = React.useState(false);
   const router = useRouter();
 
   const handleAccept = async () => {
@@ -17,7 +17,8 @@ export default function AcceptInviteClient({ token }) {
       // ¡Éxito! La mandamos al Dashboard
       router.push("/");
     } else {
-      alert(result.error || "Hubo un error al procesar la invitación.");
+      const message = "error" in result ? result.error : "Hubo un error al procesar la invitación.";
+      alert(message);
       setIsLoading(false);
     }
   };

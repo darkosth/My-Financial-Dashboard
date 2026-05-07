@@ -7,10 +7,37 @@ import { Target, AlertTriangle, CheckCircle2 } from "lucide-react";
 import PaymentActionDialog from "@/components/payments/PaymentActionDialog";
 import { usePaymentActionDialog } from "@/lib/usePaymentActionDialog";
 
-const formatCurrency = (value) =>
+type WaterfallPaymentItem = {
+  kind?: string;
+  templateId: string;
+  carryoverId?: string | null;
+  occurrenceDate?: Date | string | null;
+  sourceCycleReference?: Date | string | null;
+  name: string;
+  amount: number;
+  isPaid?: boolean;
+  isMovedWithoutPayment?: boolean;
+  isDeferred?: boolean;
+};
+
+type WaterfallWeekData = {
+  weekNumber: number;
+  title: string;
+  restante: number;
+  expensesInWeek: number;
+  details?: WaterfallPaymentItem[];
+};
+
+type WaterfallCardProps = {
+  waterfallData: WaterfallWeekData[];
+  finalRemainingS4: number;
+  standardWeeklyIncome: number;
+};
+
+const formatCurrency = (value: number) =>
   `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function WaterfallCard({ waterfallData, finalRemainingS4, standardWeeklyIncome }) {
+export default function WaterfallCard({ waterfallData, finalRemainingS4, standardWeeklyIncome }: WaterfallCardProps) {
   const {
     isPaymentDialogOpen,
     isSubmittingPaymentAction,

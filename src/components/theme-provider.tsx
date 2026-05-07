@@ -3,22 +3,37 @@
 import * as React from "react";
 import { THEME_STORAGE_KEY } from "@/lib/theme-constants";
 
-const ThemeContext = React.createContext(null);
+export type ThemePreference = "light" | "dark" | "system";
+export type ResolvedTheme = "light" | "dark";
 
-function getSystemTheme() {
+type ThemeContextValue = {
+  theme: ThemePreference;
+  resolvedTheme: ResolvedTheme;
+  setTheme: (next: ThemePreference) => void;
+};
+
+const ThemeContext = React.createContext<ThemeContextValue | null>(null);
+
+function getSystemTheme(): ResolvedTheme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export function resolveTheme(theme) {
+export function resolveTheme(theme: ThemePreference): ResolvedTheme {
   if (theme === "system") return getSystemTheme();
   return theme;
 }
 
-export function ThemeProvider({ children, defaultTheme = "system" }) {
-  const [theme, setThemeState] = React.useState(defaultTheme);
-  const [resolvedTheme, setResolvedTheme] = React.useState("light");
+export function ThemeProvider({
+  children,
+  defaultTheme = "system",
+}: {
+  children: React.ReactNode;
+  defaultTheme?: ThemePreference;
+}) {
+  const [theme, setThemeState] = React.useState<ThemePreference>(defaultTheme);
+  const [resolvedTheme, setResolvedTheme] = React.useState<ResolvedTheme>("light");
 
-  const apply = React.useCallback((t) => {
+  const apply = React.useCallback((t: ThemePreference) => {
     const resolved = resolveTheme(t);
     document.documentElement.classList.toggle("dark", resolved === "dark");
     setResolvedTheme(resolved);
@@ -27,7 +42,7 @@ export function ThemeProvider({ children, defaultTheme = "system" }) {
   React.useLayoutEffect(() => {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
     const next =
-      stored === "light" || stored === "dark" || stored === "system" ? stored : defaultTheme;
+      stored === "light" || stored === "dark" || stored === "system" ? (stored as ThemePreference) : defaultTheme;
     setThemeState(next);
     apply(next);
   }, [defaultTheme, apply]);
@@ -50,7 +65,7 @@ export function ThemeProvider({ children, defaultTheme = "system" }) {
     return () => mq.removeEventListener("change", onChange);
   }, [theme, apply]);
 
-  const setTheme = React.useCallback((t) => setThemeState(t), []);
+  const setTheme = React.useCallback((t: ThemePreference) => setThemeState(t), []);
 
   const value = React.useMemo(
     () => ({ theme, resolvedTheme, setTheme }),

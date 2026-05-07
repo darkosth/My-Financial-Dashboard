@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import * as React from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,12 +12,24 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { createAccount, updateAccount, deleteAccount } from "@/lib/actions/accountActions";
 
-export default function AccountsCard({ accounts, totalLiquidity, pendingExpensesTotal }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState(null);
-  const formRef = useRef(null);
+type AccountRow = {
+  id: string;
+  name: string;
+  balance: number;
+};
 
-  const handleSubmit = async (formData) => {
+type AccountsCardProps = {
+  accounts: AccountRow[];
+  totalLiquidity: number;
+  pendingExpensesTotal: number;
+};
+
+export default function AccountsCard({ accounts, totalLiquidity, pendingExpensesTotal }: AccountsCardProps) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [editingAccount, setEditingAccount] = React.useState<AccountRow | null>(null);
+  const formRef = React.useRef<HTMLFormElement | null>(null);
+
+  const handleSubmit = async (formData: FormData) => {
     const result = editingAccount
       ? await updateAccount(editingAccount.id, formData)
       : await createAccount(formData);
@@ -31,7 +43,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (!window.confirm("Seguro que quieres eliminar esta cuenta?")) return;
 
     const result = await deleteAccount(id);
@@ -91,7 +103,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
 
                         <TableCell
                           className="px-0 sm:px-4 text-right w-[40px] sm:w-[60px]"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(event: React.MouseEvent) => event.stopPropagation()}
                         >
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -129,14 +141,14 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
               <div className="px-6 pb-4 pt-2">
                 <Button
                   variant="ghost"
-                  onClick={() => {
-                    setEditingAccount(null);
-                    setIsOpen(true);
-                  }}
-                  className="w-full text-muted-foreground hover:text-foreground hover:bg-muted border border-dashed border-border mt-2"
-                >
-                  <Plus className="h-4 w-4 mr-2" /> Agregar cuenta
-                </Button>
+                onClick={() => {
+                  setEditingAccount(null);
+                  setIsOpen(true);
+                }}
+                className="w-full text-muted-foreground hover:text-foreground hover:bg-muted border border-dashed border-border mt-2"
+              >
+                <Plus className="h-4 w-4 mr-2" /> Agregar cuenta
+              </Button>
               </div>
             </AccordionContent>
           </AccordionItem>
@@ -203,7 +215,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                 placeholder="0.00"
                 required
                 autoFocus={!!editingAccount}
-                onFocus={(e) => e.target.select()}
+                onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
               />
             </div>
 

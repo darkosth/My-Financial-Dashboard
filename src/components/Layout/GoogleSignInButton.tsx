@@ -4,7 +4,27 @@ import { signIn } from "next-auth/react";
 import { Chrome, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function GoogleSignInButton({ variant = "default", className = "", showArrow = false, label }) {
+type ButtonVariant =
+  | "default"
+  | "outline"
+  | "secondary"
+  | "ghost"
+  | "destructive"
+  | "link";
+
+type GoogleSignInButtonProps = {
+  variant?: ButtonVariant;
+  className?: string;
+  showArrow?: boolean;
+  label?: string;
+};
+
+export default function GoogleSignInButton({
+  variant = "default",
+  className = "",
+  showArrow = false,
+  label,
+}: GoogleSignInButtonProps) {
   const handleClick = async () => {
     await signIn("google", { callbackUrl: "/dashboard" });
   };

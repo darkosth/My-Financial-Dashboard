@@ -1,21 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Link as LinkIcon, Check, Copy } from "lucide-react";
 import { generateInviteToken } from "@/lib/actions/inviteActions";
 
-export default function InviteButton({ workspaceId }) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [inviteLink, setInviteLink] = useState("");
+export default function InviteButton({ workspaceId }: { workspaceId: string }) {
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const [inviteLink, setInviteLink] = React.useState("");
 
   const handleGenerateLink = async () => {
     setIsLoading(true);
     // Llamamos al cerebro del servidor
     const result = await generateInviteToken(workspaceId);
     
-    if (result.success) {
+    if (result.success && "token" in result) {
       // Magia de UX: window.location.origin detecta automáticamente 
       // si estás en "http://localhost:3000" o en "https://tu-app.vercel.app"
       const link = `${window.location.origin}/invite/${result.token}`;

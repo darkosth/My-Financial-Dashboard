@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, ReceiptText } from "lucide-react";
@@ -16,13 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createPendingExpense } from "@/lib/actions/pendingExpenseActions";
 
-export default function QuickExpenseButton({ hasAccounts }) {
+export default function QuickExpenseButton({ hasAccounts }: { hasAccounts: boolean }) {
   const router = useRouter();
-  const expenseFormRef = useRef(null);
-  const [isExpenseOpen, setIsExpenseOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const expenseFormRef = React.useRef<HTMLFormElement | null>(null);
+  const [isExpenseOpen, setIsExpenseOpen] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
 
-  const handleExpenseSubmit = async (formData) => {
+  const handleExpenseSubmit = async (formData: FormData) => {
     setIsLoading(true);
     const result = await createPendingExpense(formData);
 

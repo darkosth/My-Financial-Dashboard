@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import * as React from "react";
 import { CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppDialogContent, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,8 +8,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatCalendarDateLabel } from "@/lib/calendarDate";
+import type { ActionResult } from "@/lib/actions/validation";
 
-const formatCurrency = (value) =>
+type PaymentAction = "full" | "partial_stay" | "partial_move" | "move";
+
+type PaymentItem = {
+  kind?: string | null;
+  name: string;
+  amount: number;
+  occurrenceDate: Date | string;
+};
+
+const formatCurrency = (value: number) =>
   `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const ACTION_LABELS = {
@@ -33,7 +43,7 @@ const CONFIRM_LABELS = {
   move: "Reprogramar gasto",
 };
 
-const getAvailableActions = (item) => {
+const getAvailableActions = (item: PaymentItem | null | undefined): PaymentAction[] => {
   if (!item) return [];
 
   if (item.kind === "credit-card") {
@@ -43,12 +53,20 @@ const getAvailableActions = (item) => {
   return ["full", "partial_stay", "partial_move", "move"];
 };
 
-const getDefaultAction = (item) => getAvailableActions(item)[0] ?? "full";
-const isAmountEditable = (action) => action === "partial_stay" || action === "partial_move";
-const getConfirmLabel = (action) => CONFIRM_LABELS[action] ?? "Confirmar";
-const getComputedAmountValue = (item, action, amount) => {
+const getDefaultAction = (item: PaymentItem | null | undefined): PaymentAction => getAvailableActions(item)[0] ?? "full";
+const isAmountEditable = (action: PaymentAction) => action === "partial_stay" || action === "partial_move";
+const getConfirmLabel = (action: PaymentAction) => CONFIRM_LABELS[action] ?? "Confirmar";
+const getComputedAmountValue = (item: PaymentItem | null | undefined, action: PaymentAction, amount: string) => {
   if (!item) return amount;
   return isAmountEditable(action) ? amount : item.amount?.toString() ?? "";
+};
+
+type PaymentActionDialogProps = {
+  item: PaymentItem | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmitAction: (payload: { action: PaymentAction; amountPaid?: string }) => Promise<ActionResult>;
+  isSubmitting?: boolean;
 };
 
 export default function PaymentActionDialog({
@@ -57,17 +75,17 @@ export default function PaymentActionDialog({
   onOpenChange,
   onSubmitAction,
   isSubmitting = false,
-}) {
-  const [action, setAction] = useState(getDefaultAction(item));
-  const [amount, setAmount] = useState(item?.amount?.toString() ?? "");
-  const [showHelp, setShowHelp] = useState(false);
-  const amountInputRef = useRef(null);
+}: PaymentActionDialogProps) {
+  const [action, setAction] = React.useState<PaymentAction>(getDefaultAction(item));
+  const [amount, setAmount] = React.useState(item?.amount?.toString() ?? "");
+  const [showHelp, setShowHelp] = React.useState(false);
+  const amountInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const availableActions = useMemo(() => getAvailableActions(item), [item]);
+  const availableActions = React.useMemo(() => getAvailableActions(item), [item]);
   const shouldEnableAmountInput = isAmountEditable(action);
   const amountValue = getComputedAmountValue(item, action, amount);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!open || !item) return;
     if (!shouldEnableAmountInput) return;
 
@@ -95,7 +113,7 @@ export default function PaymentActionDialog({
     }
   };
 
-  const confirmLabel = getConfirmLabel(action);
+    const confirmLabel = getConfirmLabel(action);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -174,7 +192,7 @@ export default function PaymentActionDialog({
                   readOnly={!shouldEnableAmountInput}
                   onChange={(event) => {
                     if (!shouldEnableAmountInput) return;
-                    setAmount(event.target.value);
+                    setAmount((event.target as HTMLInputElement).value);
                   }}
                   className={cn(
                     "h-16 w-full max-w-[240px] text-center text-4xl font-bold transition-opacity focus-visible:border-transparent focus-visible:ring-emerald-500",

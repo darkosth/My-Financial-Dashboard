@@ -1,13 +1,31 @@
 "use client";
-import { useState, useRef } from "react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { formatCalendarDateForInput } from "@/lib/calendarDate";
 
-export default function TemplateForm({ initialData = null, onSubmit, onCancel }) {
-  const [freq, setFreq] = useState(initialData?.frequency || "MONTHLY");
-  const formRef = useRef(null);
+export type TemplateFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY" | (string & {});
+
+export type TemplateFormData = {
+  frequency?: TemplateFrequency | null;
+  name?: string | null;
+  amount?: number | null;
+  category?: string | null;
+  dayOfMonth?: number | null;
+  lastPaidAt?: Date | string | null;
+  isAutoPay?: boolean | null;
+};
+
+type TemplateFormProps = {
+  initialData?: TemplateFormData | null;
+  onSubmit: (formData: FormData) => void | Promise<void>;
+  onCancel?: (() => void) | null;
+};
+
+export default function TemplateForm({ initialData = null, onSubmit, onCancel }: TemplateFormProps) {
+  const [freq, setFreq] = React.useState<TemplateFrequency>(initialData?.frequency || "MONTHLY");
+  const formRef = React.useRef<HTMLFormElement | null>(null);
 
   return (
     <form action={onSubmit} ref={formRef} className="grid gap-4 py-4">
@@ -38,7 +56,14 @@ export default function TemplateForm({ initialData = null, onSubmit, onCancel })
         </div>
         <div className="space-y-2">
           <Label htmlFor="frequency">Frecuencia</Label>
-          <select id="frequency" name="frequency" value={freq} onChange={(e) => setFreq(e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+          <select
+            id="frequency"
+            name="frequency"
+            value={freq}
+            onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setFreq(event.target.value)}
+            className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            required
+          >
             <option value="MONTHLY">Mensual</option>
             <option value="WEEKLY">Semanal</option>
             <option value="BIWEEKLY">Bisemanal</option>

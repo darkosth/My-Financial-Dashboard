@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const navLinks = [
+const navLinks: Array<{ href: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   {
     href: "/dashboard",
     label: "Dashboard",
@@ -37,7 +38,7 @@ const navLinks = [
   },
 ];
 
-const getLinkClassName = (isActive) =>
+const getLinkClassName = (isActive: boolean) =>
   `flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
     isActive
       ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
@@ -52,7 +53,15 @@ const mobileMenuItemClassName =
 
 const mobileMenuIconClassName = "h-4 w-4 max-sm:h-6 max-sm:w-6";
 
-export default function AuthenticatedNavbar({ userName, workspaceName, migrationPhase }) {
+export default function AuthenticatedNavbar({
+  userName,
+  workspaceName,
+  migrationPhase,
+}: {
+  userName: string;
+  workspaceName: string;
+  migrationPhase?: string | null;
+}) {
   const pathname = usePathname();
 
   const handleLogout = async () => {

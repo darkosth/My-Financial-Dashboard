@@ -1,19 +1,37 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRightLeft, DoorOpen, CheckCircle2, Building2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { leaveWorkspace, switchActiveWorkspace } from "@/lib/actions/settingsActions";
 
-export default function WorkspaceAccessCard({ activeWorkspaceId, memberships }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+type WorkspaceMembership = {
+  id: string;
+  role: string;
+  workspace: {
+    id: string;
+    name: string;
+    owner: {
+      name?: string | null;
+      email?: string | null;
+    };
+  };
+};
 
-  const handleSwitch = (workspaceId) => {
+type WorkspaceAccessCardProps = {
+  activeWorkspaceId: string;
+  memberships: WorkspaceMembership[];
+};
+
+export default function WorkspaceAccessCard({ activeWorkspaceId, memberships }: WorkspaceAccessCardProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = React.useTransition();
+  const [message, setMessage] = React.useState("");
+  const [error, setError] = React.useState("");
+
+  const handleSwitch = (workspaceId: string) => {
     setMessage("");
     setError("");
 
@@ -21,7 +39,8 @@ export default function WorkspaceAccessCard({ activeWorkspaceId, memberships }) 
       const result = await switchActiveWorkspace(workspaceId);
 
       if (!result.success) {
-        setError(result.error || "Could not switch workspace.");
+        const message = "error" in result ? result.error : "Could not switch workspace.";
+        setError(message);
         return;
       }
 
@@ -30,7 +49,7 @@ export default function WorkspaceAccessCard({ activeWorkspaceId, memberships }) 
     });
   };
 
-  const handleLeave = (workspaceId, workspaceName) => {
+  const handleLeave = (workspaceId: string, workspaceName: string) => {
     const confirmed = window.confirm(`Leave "${workspaceName}"? You will lose access to its data.`);
 
     if (!confirmed) {
@@ -44,7 +63,8 @@ export default function WorkspaceAccessCard({ activeWorkspaceId, memberships }) 
       const result = await leaveWorkspace(workspaceId);
 
       if (!result.success) {
-        setError(result.error || "Could not leave workspace.");
+        const message = "error" in result ? result.error : "Could not leave workspace.";
+        setError(message);
         return;
       }
 

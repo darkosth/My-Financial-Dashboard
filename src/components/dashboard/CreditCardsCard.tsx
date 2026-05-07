@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Plus } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -21,19 +21,41 @@ import {
   isCreditCardStale,
 } from "@/lib/creditCardReview";
 
-const formatReviewedDate = (value) =>
+type CreditCardRow = {
+  id: string;
+  name: string;
+  balance: number;
+  creditLimit: number;
+  dueDate?: number | null;
+  minimumPayment?: number | null;
+  minimumPaymentPercentage?: number | null;
+  apr?: number | null;
+  lastReviewedAt?: Date | string | null;
+  createdAt: Date | string;
+};
+
+type CreditCardsCardProps = {
+  creditCards: CreditCardRow[];
+  totalCreditLimit: number;
+  totalAvailableCredit: number;
+  totalDebt: number;
+};
+
+const formatReviewedDate = (value: Date | string) =>
   new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   }).format(new Date(value));
 
-const formatCurrency = (value) =>
+const formatCurrency = (value: number) =>
   `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const formatApr = (value) => `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+const formatApr = (value: number) =>
+  `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
-const formatPercent = (value) => `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+const formatPercent = (value: number) =>
+  `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
 const staleRowClassName =
   "border-l-4 border-l-red-500 bg-red-50/80 hover:bg-red-100/80 dark:border-l-red-400 dark:bg-red-950/30 dark:hover:bg-red-950/45";
@@ -44,14 +66,19 @@ const staleBadgeClassName =
 const staleBannerClassName =
   "rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 dark:border-red-900/50 dark:bg-red-950/35 dark:text-red-100";
 
-export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAvailableCredit, totalDebt }) {
+export default function CreditCardsCard({
+  creditCards,
+  totalCreditLimit,
+  totalAvailableCredit,
+  totalDebt,
+}: CreditCardsCardProps) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
-  const [editingCard, setEditingCard] = useState(null);
-  const [viewingCard, setViewingCard] = useState(null);
-  const formRef = useRef(null);
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [editingCard, setEditingCard] = React.useState<CreditCardRow | null>(null);
+  const [viewingCard, setViewingCard] = React.useState<CreditCardRow | null>(null);
+  const formRef = React.useRef<HTMLFormElement | null>(null);
 
-  const handleSubmit = async (formData) => {
+  const handleSubmit = async (formData: FormData) => {
     const result = editingCard ? await updateCreditCard(editingCard.id, formData) : await createCreditCard(formData);
 
     if (result.success) {
@@ -65,7 +92,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Seguro que quieres eliminar esta tarjeta de credito?")) {
       const result = await deleteCreditCard(id);
       if (!result.success) {
@@ -80,7 +107,10 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
   };
 
   const totalMinimumPayment = creditCards.reduce((sum, card) => sum + getCreditCardEffectiveMinimumPayment(card), 0);
-  const totalMonthlyInterest = creditCards.reduce((sum, card) => sum + (getCreditCardMonthlyInterestEstimate(card) || 0), 0);
+  const totalMonthlyInterest = creditCards.reduce(
+    (sum, card) => sum + (getCreditCardMonthlyInterestEstimate(card) || 0),
+    0
+  );
   const sortedCreditCards = [...creditCards].sort((a, b) => b.balance - a.balance);
 
   return (
@@ -282,10 +312,10 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                   <p className="text-lg font-bold text-amber-600">
                     {formatCurrency(getCreditCardEffectiveMinimumPayment(viewingCard))}
                   </p>
-                  {viewingCard.minimumPaymentPercentage > 0 ? (
+                  {(viewingCard.minimumPaymentPercentage ?? 0) > 0 ? (
                     <p className="text-xs text-muted-foreground">
                       Minimo fijo: {formatCurrency(viewingCard.minimumPayment || 0)} - Porcentaje:{" "}
-                      {formatPercent(viewingCard.minimumPaymentPercentage)}
+                      {formatPercent(viewingCard.minimumPaymentPercentage ?? 0)}
                     </p>
                   ) : null}
                 </div>
@@ -356,7 +386,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       defaultValue={editingCard?.balance}
                       placeholder="0.00"
                       required
-                      onFocus={(event) => event.target.select()}
+                      onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
                       className="bg-background text-right font-medium text-red-600 focus-visible:ring-red-500 dark:text-red-400"
                     />
                   </div>
@@ -371,7 +401,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       defaultValue={editingCard?.creditLimit}
                       placeholder="0.00"
                       required
-                      onFocus={(event) => event.target.select()}
+                      onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
                       className="bg-background text-right font-medium text-foreground"
                     />
                   </div>
@@ -388,7 +418,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       inputMode="decimal"
                       defaultValue={editingCard?.minimumPayment}
                       placeholder="0.00"
-                      onFocus={(event) => event.target.select()}
+                      onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
                       className="bg-background text-right font-medium text-amber-600 focus-visible:ring-amber-500 dark:text-amber-400"
                     />
                   </div>
@@ -402,7 +432,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       inputMode="decimal"
                       defaultValue={editingCard?.minimumPaymentPercentage ?? ""}
                       placeholder="Ej: 2.00"
-                      onFocus={(event) => event.target.select()}
+                      onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
                       className="bg-background text-right font-medium text-foreground"
                     />
                   </div>
@@ -421,7 +451,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       defaultValue={editingCard?.dueDate}
                       placeholder="Ej: 15"
                       required
-                      onFocus={(event) => event.target.select()}
+                      onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
                       className="bg-background text-center text-foreground"
                     />
                   </div>
@@ -435,7 +465,7 @@ export default function CreditCardsCard({ creditCards, totalCreditLimit, totalAv
                       inputMode="decimal"
                       defaultValue={editingCard?.apr ?? ""}
                       placeholder="Ej: 24.99"
-                      onFocus={(event) => event.target.select()}
+                      onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
                       className="bg-background text-right font-medium text-foreground"
                     />
                   </div>

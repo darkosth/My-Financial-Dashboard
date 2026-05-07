@@ -1,20 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { DollarSign, Save } from "lucide-react";
 import { updateWeeklyIncome } from "@/lib/actions/settingsActions";
 
-export default function WeeklyIncomeForm({ currentIncome, workspaceId }) {
-  const [income, setIncome] = useState(currentIncome || 0);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+type WeeklyIncomeFormProps = {
+  currentIncome: number | null;
+  workspaceId: string;
+};
+
+export default function WeeklyIncomeForm({ currentIncome, workspaceId }: WeeklyIncomeFormProps) {
+  const [income, setIncome] = React.useState<string>(String(currentIncome ?? 0));
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
 
   const handleSave = async () => {
     setIsSaving(true);
     setSaved(false);
     
-    const result = await updateWeeklyIncome(workspaceId, income);
+    const parsed = Number.parseFloat(income);
+    if (!Number.isFinite(parsed)) {
+      alert("Ingresa un número válido.");
+      setIsSaving(false);
+      return;
+    }
+
+    const result = await updateWeeklyIncome(workspaceId, parsed);
     
     if (result.success) {
       setSaved(true);
@@ -33,14 +45,14 @@ export default function WeeklyIncomeForm({ currentIncome, workspaceId }) {
         <input
           type="number"
           value={income}
-          onChange={(e) => setIncome(e.target.value)}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setIncome(event.currentTarget.value)}
           className="w-full pl-10 pr-4 py-2 border-2 border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring outline-none transition-all text-lg font-semibold"
           placeholder="1000"
         />
       </div>
       <Button 
         onClick={handleSave} 
-        disabled={isSaving || income === ""}
+        disabled={isSaving || income.trim() === ""}
         className={saved ? "bg-emerald-600 hover:bg-emerald-700 text-white transition-colors" : ""}
       >
         <Save className="w-4 h-4 mr-2" />

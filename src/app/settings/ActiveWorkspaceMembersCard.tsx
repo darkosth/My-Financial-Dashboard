@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Crown, ShieldX, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,13 +11,22 @@ export default function ActiveWorkspaceMembersCard({
   members,
   currentUserId,
   canManageMembers,
+}: {
+  members: Array<{
+    id: string;
+    role: string;
+    userId: string;
+    user: { name?: string | null; email?: string | null };
+  }>;
+  currentUserId: string;
+  canManageMembers: boolean;
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [isPending, startTransition] = React.useTransition();
+  const [message, setMessage] = React.useState("");
+  const [error, setError] = React.useState("");
 
-  const handleRemove = (memberId, memberName) => {
+  const handleRemove = (memberId: string, memberName: string) => {
     const confirmed = window.confirm(`Remove "${memberName}" from this workspace?`);
 
     if (!confirmed) {
@@ -31,7 +40,8 @@ export default function ActiveWorkspaceMembersCard({
       const result = await removeWorkspaceMember(memberId);
 
       if (!result.success) {
-        setError(result.error || "Could not remove member.");
+        const message = "error" in result ? result.error : "Could not remove member.";
+        setError(message);
         return;
       }
 

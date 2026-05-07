@@ -29,6 +29,7 @@ export type ScheduledPayment = {
 
 export type AccountLike = {
   id: string;
+  name: string;
   balance: number;
 };
 
@@ -39,6 +40,10 @@ export type CreditCardLike = {
   balance: number;
   creditLimit: number;
   minimumPayment?: number | null;
+  minimumPaymentPercentage?: number | null;
+  apr?: number | null;
+  lastReviewedAt?: Date | string | null;
+  createdAt: Date | string;
 };
 
 export type HistoryRecordLike = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import * as React from "react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { ArrowDownRight, Calendar as CalendarIcon, MoreHorizontal, Search, Trash2 } from "lucide-react";
@@ -11,11 +11,22 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { clearPendingExpenses, deletePendingExpense } from "@/lib/actions/pendingExpenseActions";
 
-export default function UniqueExpensesClient({ initialExpenses }) {
-  const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
+type PendingExpenseRow = {
+  id: string;
+  description?: string | null;
+  amount: number;
+  createdAt: Date | string;
+};
 
-  const filteredExpenses = useMemo(
+type UniqueExpensesClientProps = {
+  initialExpenses: PendingExpenseRow[];
+};
+
+export default function UniqueExpensesClient({ initialExpenses }: UniqueExpensesClientProps) {
+  const router = useRouter();
+  const [searchTerm, setSearchTerm] = React.useState("");
+
+  const filteredExpenses = React.useMemo(
     () =>
       initialExpenses.filter((expense) =>
         (expense.description || "Sin descripción").toLowerCase().includes(searchTerm.toLowerCase())
@@ -25,7 +36,7 @@ export default function UniqueExpensesClient({ initialExpenses }) {
 
   const totalPending = initialExpenses.reduce((acc, expense) => acc + expense.amount, 0);
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (!window.confirm("¿Seguro que quieres eliminar este gasto único?")) return;
 
     const result = await deletePendingExpense(id);
@@ -73,13 +84,13 @@ export default function UniqueExpensesClient({ initialExpenses }) {
           <div className="flex w-full md:w-auto gap-3">
             <div className="relative flex-1 md:w-72">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Buscar gasto..."
-                className="pl-9 bg-muted/40 border-border focus-visible:ring-emerald-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <Input
+              type="text"
+              placeholder="Buscar gasto..."
+              className="pl-9 bg-muted/40 border-border focus-visible:ring-emerald-500"
+              value={searchTerm}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(event.currentTarget.value)}
+            />
             </div>
             <Button variant="destructive" onClick={handleClearAll} disabled={initialExpenses.length === 0}>
               <Trash2 className="h-4 w-4 mr-2" /> Borrar todo

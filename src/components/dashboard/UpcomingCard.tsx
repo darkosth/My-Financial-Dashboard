@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,20 +8,39 @@ import { AppDialogContent, Dialog, DialogHeader, DialogTitle } from "@/component
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CalendarClock, MoreHorizontal } from "lucide-react";
-import TemplateForm from "@/components/forms/TemplateForm";
+import TemplateForm, { type TemplateFormData } from "@/components/forms/TemplateForm";
 import PaymentActionDialog from "@/components/payments/PaymentActionDialog";
 import { updateTemplate } from "@/lib/actions/templateActions";
 import { formatCalendarDateLabel, getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
 import { usePaymentActionDialog } from "@/lib/usePaymentActionDialog";
 
-export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }) {
+type UpcomingPaymentRow = {
+  id: string;
+  name: string;
+  amount: number;
+  occurrenceDate: Date | string;
+  isAutoPay?: boolean | null;
+  kind?: string;
+  carryoverId?: string | null;
+  templateId?: string;
+  sourceCycleReference?: Date | string | null;
+};
+
+type UpcomingCardProps = {
+  upcomingPayments: UpcomingPaymentRow[];
+  totalUpcomingExpenses: number;
+};
+
+type EditableTemplate = TemplateFormData & { id: string };
+
+export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }: UpcomingCardProps) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [editingTemplate, setEditingTemplate] = React.useState<EditableTemplate | null>(null);
   const { isPaymentDialogOpen, isSubmittingPaymentAction, selectedPaymentItem, openPaymentDialog, closePaymentDialog, submitPaymentAction } =
     usePaymentActionDialog();
 
-  const handleEditSubmit = async (formData) => {
+  const handleEditSubmit = async (formData: FormData) => {
     if (!editingTemplate) return;
 
     const result = await updateTemplate(editingTemplate.id, formData);
@@ -120,10 +139,12 @@ export default function UpcomingCard({ upcomingPayments, totalUpcomingExpenses }
 
                         <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-xl border-border">
                           <DropdownMenuItem
-                            onClick={() => openPaymentDialog({
-                              ...payment,
-                              templateId: payment.id,
-                            })}
+                            onClick={() =>
+                              openPaymentDialog({
+                                ...payment,
+                                templateId: payment.id,
+                              })
+                            }
                             className="cursor-pointer text-sm sm:text-base font-medium py-3 px-4 rounded-lg text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50 dark:focus:bg-emerald-950/40 transition-colors mb-1"
                           >
                             Gestionar pago
