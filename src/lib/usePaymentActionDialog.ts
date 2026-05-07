@@ -2,15 +2,23 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { applyPaymentAction } from "@/lib/actions/paymentActions";
-import { getSettlementDate } from "@/lib/paymentResolution";
+import { applyPaymentAction, type ApplyPaymentActionInput } from "@/lib/actions/paymentActions";
+import { getSettlementDate, type SettlementDateCandidate } from "@/lib/paymentResolution";
+import type { PaymentAction, PaymentItem } from "@/components/payments/PaymentActionDialog";
+
+export type PaymentDialogItem = PaymentItem &
+  SettlementDateCandidate & {
+  kind?: PaymentItem["kind"] | ApplyPaymentActionInput["kind"];
+  templateId: string;
+  carryoverId?: string | null;
+};
 
 export function usePaymentActionDialog() {
   const router = useRouter();
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItem, setSelectedItem] = useState<PaymentDialogItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const openPaymentDialog = (item) => {
+  const openPaymentDialog = (item: PaymentDialogItem) => {
     setSelectedItem(item);
   };
 
@@ -19,7 +27,13 @@ export function usePaymentActionDialog() {
     setSelectedItem(null);
   };
 
-  const submitPaymentAction = async ({ action, amountPaid }) => {
+  const submitPaymentAction = async ({
+    action,
+    amountPaid,
+  }: {
+    action: PaymentAction | ApplyPaymentActionInput["action"];
+    amountPaid?: ApplyPaymentActionInput["amountPaid"];
+  }) => {
     if (!selectedItem || isSubmitting) {
       return { success: false, error: "No item selected" };
     }
@@ -28,7 +42,7 @@ export function usePaymentActionDialog() {
 
     try {
       const result = await applyPaymentAction({
-        kind: selectedItem.kind,
+        kind: selectedItem.kind ?? "template",
         templateId: selectedItem.templateId,
         carryoverId: selectedItem.carryoverId,
         settlementDate: getSettlementDate(selectedItem),

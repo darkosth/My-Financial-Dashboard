@@ -67,7 +67,7 @@ export default function ActiveWorkspaceMembersCard({
           {members.map((member) => {
             const isOwner = member.role === "OWNER";
             const isCurrentUser = member.userId === currentUserId;
-            const memberName = member.user.name || member.user.email;
+            const memberName = member.user.name || member.user.email || "Member";
 
             return (
               <div

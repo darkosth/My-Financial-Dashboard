@@ -141,12 +141,24 @@ export const getOptionalPercentage = (formData: FormData, field: string, label: 
   return parseOptionalPercentage(rawValue, label, options);
 };
 
-export const getDayOfMonth = (
+export function getDayOfMonth(
+  formData: FormData,
+  field: string,
+  label?: string,
+  options?: { optional?: false },
+): number;
+export function getDayOfMonth(
+  formData: FormData,
+  field: string,
+  label: string | undefined,
+  options: { optional: true },
+): number | null;
+export function getDayOfMonth(
   formData: FormData,
   field: string,
   label: string = field,
   { optional = false }: { optional?: boolean } = {},
-) => {
+): number | null {
   const rawValue = readFieldValue(formData, field);
 
   if (optional && (rawValue == null || rawValue === "")) {
@@ -160,7 +172,7 @@ export const getDayOfMonth = (
   }
 
   return day;
-};
+}
 
 export const parseEnumValue = <T extends string>(value: unknown, validValues: Set<T>, label = "Value") => {
   if (typeof value !== "string" || !validValues.has(value as T)) {
@@ -199,7 +211,13 @@ export const getOptionalDateOnly = (formData: FormData, field: string, label: st
   return parseDateOnly(rawValue, label, { optional: true });
 };
 
-export const parseCalendarDate = (value: unknown, label = "Date", { optional = false }: { optional?: boolean } = {}) => {
+export function parseCalendarDate(value: unknown, label?: string, options?: { optional?: false }): Date;
+export function parseCalendarDate(value: unknown, label: string | undefined, options: { optional: true }): Date | null;
+export function parseCalendarDate(
+  value: unknown,
+  label = "Date",
+  { optional = false }: { optional?: boolean } = {},
+): Date | null {
   if (optional && (value == null || value === "")) {
     return null;
   }
@@ -211,7 +229,7 @@ export const parseCalendarDate = (value: unknown, label = "Date", { optional = f
   }
 
   return parsedValue;
-};
+}
 
 export const validationFailure = (error: unknown, fallbackMessage: string): ActionResult => {
   if (error instanceof ValidationError) {

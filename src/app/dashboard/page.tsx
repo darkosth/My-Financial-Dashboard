@@ -49,7 +49,7 @@ export default async function DashboardPage() {
         <WaterfallCard
           waterfallData={snapshot.waterfallData}
           finalRemainingS4={snapshot.finalRemainingS4}
-          standardWeeklyIncome={snapshot.appSettings.weeklyIncome}
+          standardWeeklyIncome={snapshot.appSettings.weeklyIncome ?? 0}
         />
 
         <UpcomingCard

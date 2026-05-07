@@ -100,13 +100,18 @@ async function ensureUserWorkspaceAccess(identity: SessionIdentity): Promise<Cur
     });
   }
 
+  if (!preference) {
+    throw new Error("Failed to ensure user preference");
+  }
+
   const memberships = await prisma.workspaceMember.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "asc" },
   });
 
+  const activeWorkspaceId = preference.activeWorkspaceId;
   const activeMembership =
-    memberships.find((membership) => membership.workspaceId === preference.activeWorkspaceId) ?? memberships[0] ?? null;
+    memberships.find((membership) => membership.workspaceId === activeWorkspaceId) ?? memberships[0] ?? null;
 
   const activeWorkspace =
     activeMembership
@@ -115,7 +120,7 @@ async function ensureUserWorkspaceAccess(identity: SessionIdentity): Promise<Cur
         })
       : null;
 
-  if (activeMembership && preference.activeWorkspaceId !== activeMembership.workspaceId) {
+  if (activeMembership && activeWorkspaceId !== activeMembership.workspaceId) {
     preference = await prisma.userPreference.update({
       where: { userId: user.id },
       data: { activeWorkspaceId: activeMembership.workspaceId },
@@ -139,4 +144,3 @@ export async function getCurrentUserContext(): Promise<CurrentUserContext> {
 
   return ensureUserWorkspaceAccess(identity);
 }
-

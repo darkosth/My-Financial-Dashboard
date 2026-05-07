@@ -11,7 +11,7 @@ type WaterfallPaymentItem = {
   kind?: string;
   templateId: string;
   carryoverId?: string | null;
-  occurrenceDate?: Date | string | null;
+  occurrenceDate: Date | string;
   sourceCycleReference?: Date | string | null;
   name: string;
   amount: number;
@@ -151,7 +151,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
                             </div>
 
                             <ul className="mt-2 space-y-1">
-                              {data.details.map((detail, idx) => (
+                              {(data.details ?? []).map((detail, idx) => (
                                 <li key={idx}>
                                   <button
                                     type="button"

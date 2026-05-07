@@ -90,7 +90,7 @@ export type FinanceSnapshotInput = {
   creditCardHistoryRecords?: CreditCardHistoryRecordLike[];
   carryovers?: PaymentCarryoverLike[];
   pendingExpenses?: PendingExpenseLike[];
-  appSettings?: AppSettingsLike & Record<string, unknown>;
+  appSettings?: (AppSettingsLike & Record<string, unknown>) | null;
 };
 
 export const DEFAULT_WEEKLY_INCOME = 1000;
@@ -140,9 +140,11 @@ export const buildFinanceSnapshot = (data: FinanceSnapshotInput, todayInput: Dat
   const creditCardHistoryRecords = data.creditCardHistoryRecords ?? [];
   const carryovers = data.carryovers ?? [];
   const pendingExpenses = data.pendingExpenses ?? [];
+  const rawAppSettings = data.appSettings ?? undefined;
+  const weeklyIncome = rawAppSettings?.weeklyIncome ?? DEFAULT_WEEKLY_INCOME;
   const appSettings = {
-    weeklyIncome: data.appSettings?.weeklyIncome ?? DEFAULT_WEEKLY_INCOME,
-    ...data.appSettings,
+    ...(rawAppSettings ?? {}),
+    weeklyIncome,
   };
 
   const scheduledPayments = getScheduledPayments({ templates, creditCards });

@@ -192,7 +192,16 @@ export default function TemplatesClient({ initialTemplates }: TemplatesClientPro
               {freq === "MONTHLY" ? (
                 <div className="space-y-2">
                   <Label htmlFor="dayOfMonth">Día de cobro (1-31)</Label>
-                  <Input id="dayOfMonth" name="dayOfMonth" defaultValue={editingTemplate?.dayOfMonth} type="number" min="1" max="31" placeholder="Ej: 15" required />
+                  <Input
+                    id="dayOfMonth"
+                    name="dayOfMonth"
+                    defaultValue={editingTemplate?.dayOfMonth ?? undefined}
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="Ej: 15"
+                    required
+                  />
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -202,7 +211,13 @@ export default function TemplatesClient({ initialTemplates }: TemplatesClientPro
               )}
 
               <div className="flex items-center space-x-2 pt-2">
-                <input type="checkbox" id="isAutoPay" name="isAutoPay" defaultChecked={editingTemplate?.isAutoPay} className="h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500" />
+                <input
+                  type="checkbox"
+                  id="isAutoPay"
+                  name="isAutoPay"
+                  defaultChecked={editingTemplate?.isAutoPay ?? false}
+                  className="h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500"
+                />
                 <Label htmlFor="isAutoPay" className="font-normal text-foreground">Este pago está en Auto-Pay</Label>
               </div>
 

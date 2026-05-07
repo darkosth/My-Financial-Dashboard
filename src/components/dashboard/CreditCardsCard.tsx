@@ -77,6 +77,7 @@ export default function CreditCardsCard({
   const [editingCard, setEditingCard] = React.useState<CreditCardRow | null>(null);
   const [viewingCard, setViewingCard] = React.useState<CreditCardRow | null>(null);
   const formRef = React.useRef<HTMLFormElement | null>(null);
+  const monthlyInterestEstimate = viewingCard ? getCreditCardMonthlyInterestEstimate(viewingCard) : null;
 
   const handleSubmit = async (formData: FormData) => {
     const result = editingCard ? await updateCreditCard(editingCard.id, formData) : await createCreditCard(formData);
@@ -328,9 +329,9 @@ export default function CreditCardsCard({
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Interes/Mes</p>
                   <p className="text-lg font-semibold text-foreground">
-                    {getCreditCardMonthlyInterestEstimate(viewingCard) == null
+                    {monthlyInterestEstimate == null
                       ? "No configurado"
-                      : formatCurrency(getCreditCardMonthlyInterestEstimate(viewingCard))}
+                      : formatCurrency(monthlyInterestEstimate)}
                   </p>
                 </div>
               </div>
@@ -416,7 +417,7 @@ export default function CreditCardsCard({
                       type="number"
                       step="0.01"
                       inputMode="decimal"
-                      defaultValue={editingCard?.minimumPayment}
+                      defaultValue={editingCard?.minimumPayment ?? undefined}
                       placeholder="0.00"
                       onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
                       className="bg-background text-right font-medium text-amber-600 focus-visible:ring-amber-500 dark:text-amber-400"
@@ -448,7 +449,7 @@ export default function CreditCardsCard({
                       inputMode="numeric"
                       min="1"
                       max="31"
-                      defaultValue={editingCard?.dueDate}
+                      defaultValue={editingCard?.dueDate ?? ""}
                       placeholder="Ej: 15"
                       required
                       onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}

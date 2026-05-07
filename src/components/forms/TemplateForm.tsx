@@ -32,11 +32,11 @@ export default function TemplateForm({ initialData = null, onSubmit, onCancel }:
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="name">Nombre</Label>
-          <Input id="name" name="name" defaultValue={initialData?.name} required />
+          <Input id="name" name="name" defaultValue={initialData?.name ?? ""} required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="amount">Monto ($)</Label>
-          <Input id="amount" name="amount" defaultValue={initialData?.amount} type="number" step="0.01" required />
+          <Input id="amount" name="amount" defaultValue={initialData?.amount ?? ""} type="number" step="0.01" required />
         </div>
       </div>
 
@@ -74,7 +74,7 @@ export default function TemplateForm({ initialData = null, onSubmit, onCancel }:
       {freq === "MONTHLY" ? (
         <div className="space-y-2">
           <Label htmlFor="dayOfMonth">Día de cobro (1-31)</Label>
-          <Input id="dayOfMonth" name="dayOfMonth" defaultValue={initialData?.dayOfMonth} type="number" min="1" max="31" required />
+          <Input id="dayOfMonth" name="dayOfMonth" defaultValue={initialData?.dayOfMonth ?? ""} type="number" min="1" max="31" required />
         </div>
       ) : (
         <div className="space-y-2">
@@ -84,7 +84,13 @@ export default function TemplateForm({ initialData = null, onSubmit, onCancel }:
       )}
 
       <div className="flex items-center space-x-2 pt-2">
-        <input type="checkbox" id="isAutoPay" name="isAutoPay" defaultChecked={initialData?.isAutoPay} className="h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500" />
+        <input
+          type="checkbox"
+          id="isAutoPay"
+          name="isAutoPay"
+          defaultChecked={initialData?.isAutoPay ?? false}
+          className="h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500"
+        />
         <Label htmlFor="isAutoPay" className="font-normal text-foreground">Este pago está en Auto-Pay</Label>
       </div>
 

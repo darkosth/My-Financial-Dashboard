@@ -1,6 +1,8 @@
-const pad = (value) => String(value).padStart(2, "0");
+type CalendarDateInput = Date | string | number | null | undefined;
 
-export const parseDateOnlyString = (value) => {
+const pad = (value: string | number) => String(value).padStart(2, "0");
+
+export const parseDateOnlyString = (value: string | null | undefined): Date | null => {
   if (!value) return null;
   const [year, month, day] = value.split("-").map(Number);
 
@@ -11,7 +13,7 @@ export const parseDateOnlyString = (value) => {
   return new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
 };
 
-export const normalizeCalendarDate = (value) => {
+export const normalizeCalendarDate = (value: CalendarDateInput): Date | null => {
   if (!value) return null;
 
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -36,7 +38,7 @@ export const normalizeCalendarDate = (value) => {
   );
 };
 
-export const formatCalendarDateForInput = (value) => {
+export const formatCalendarDateForInput = (value: CalendarDateInput): string => {
   const normalizedDate = normalizeCalendarDate(value);
   if (!normalizedDate) return "";
 
@@ -47,9 +49,13 @@ export const formatCalendarDateForInput = (value) => {
   ].join("-");
 };
 
-export const getCalendarDateKey = (value) => formatCalendarDateForInput(value);
+export const getCalendarDateKey = (value: CalendarDateInput) => formatCalendarDateForInput(value);
 
-export const formatCalendarDateLabel = (value, options, locale = "en-US") => {
+export const formatCalendarDateLabel = (
+  value: CalendarDateInput,
+  options?: Intl.DateTimeFormatOptions,
+  locale: string = "en-US"
+): string => {
   const normalizedDate = normalizeCalendarDate(value);
   if (!normalizedDate) return "";
 

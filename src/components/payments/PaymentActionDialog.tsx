@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils";
 import { formatCalendarDateLabel } from "@/lib/calendarDate";
 import type { ActionResult } from "@/lib/actions/validation";
 
-type PaymentAction = "full" | "partial_stay" | "partial_move" | "move";
+export type PaymentAction = "full" | "partial_stay" | "partial_move" | "move";
 
-type PaymentItem = {
+export type PaymentItem = {
   kind?: string | null;
   name: string;
   amount: number;

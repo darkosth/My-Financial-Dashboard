@@ -1,4 +1,4 @@
-export async function sendTelegramMessage(text) {
+export async function sendTelegramMessage(text: string): Promise<boolean> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
@@ -28,7 +28,7 @@ export async function sendTelegramMessage(text) {
     }
 
     return true;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Failed to send Telegram message:", error);
     return false;
   }
