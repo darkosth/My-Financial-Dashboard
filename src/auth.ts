@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import prisma from "@/lib/prisma";
 
@@ -76,20 +76,31 @@ const ensureUserAccess = async (user: SignInUserLike) => {
   }
 };
 
+const googleClientId = process.env.AUTH_GOOGLE_ID;
+const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
+
+if (!googleClientId || !googleClientSecret) {
+  throw new Error("Missing Google OAuth env vars: AUTH_GOOGLE_ID and/or AUTH_GOOGLE_SECRET");
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: {
     signIn: "/",
     error: "/",
   },
-  providers: [Google as any],
+  providers: [
+    Google({
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
+    }),
+  ],
   callbacks: {
-    authorized({ auth }: any) {
+    authorized({ auth }) {
       return !!auth?.user;
     },
-    async signIn({ user }: any) {
+    async signIn({ user }) {
       await ensureUserAccess(user);
       return true;
     },
   },
-});
-
+} satisfies NextAuthConfig);
