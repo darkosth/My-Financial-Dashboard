@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { formatCalendarDateForInput } from "@/lib/calendarDate";
 
-export type TemplateFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY" | (string & {});
+export type TemplateFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY" | "YEARLY";
 
 export type TemplateFormData = {
   frequency?: TemplateFrequency | null;
@@ -60,13 +60,14 @@ export default function TemplateForm({ initialData = null, onSubmit, onCancel }:
             id="frequency"
             name="frequency"
             value={freq}
-            onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setFreq(event.target.value)}
+            onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setFreq(event.target.value as TemplateFrequency)}
             className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
             required
           >
             <option value="MONTHLY">Mensual</option>
             <option value="WEEKLY">Semanal</option>
             <option value="BIWEEKLY">Bisemanal</option>
+            <option value="YEARLY">Anual</option>
           </select>
         </div>
       </div>

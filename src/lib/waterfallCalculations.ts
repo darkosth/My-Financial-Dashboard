@@ -1,5 +1,6 @@
 import {
   addDays,
+  addYears,
   addMonths,
   differenceInCalendarDays,
   format,
@@ -127,6 +128,10 @@ const getFollowingOccurrence = (item: ScheduledPayment, occurrenceDate: DateLike
     return getMonthlyOccurrenceForMonth(addMonths(normalizedOccurrence, 1), item.dayOfMonth);
   }
 
+  if (item.frequency === "YEARLY") {
+    return addYears(normalizedOccurrence, 1);
+  }
+
   const stepInDays = getRecurringStepInDays(item.frequency);
   if (!stepInDays) return null;
 
@@ -144,6 +149,17 @@ export const getNextTemplateOccurrence = (item: ScheduledPayment, referenceDate:
       occurrenceDate = getMonthlyOccurrenceForMonth(addMonths(normalizedReferenceDate, 1), item.dayOfMonth);
     }
 
+    return occurrenceDate;
+  }
+
+  if (item.frequency === "YEARLY") {
+    const anchorDate = normalizeDate(item.lastPaidAt ?? null);
+    if (!anchorDate) return null;
+
+    let occurrenceDate = startOfDay(anchorDate);
+    while (occurrenceDate < normalizedReferenceDate) {
+      occurrenceDate = addYears(occurrenceDate, 1);
+    }
     return occurrenceDate;
   }
 
@@ -174,6 +190,18 @@ export const getTemplateOccurrenceInInterval = (item: ScheduledPayment, interval
     ];
 
     return candidates.find((date) => isWithinInterval(date, interval)) ?? null;
+  }
+
+  if (item.frequency === "YEARLY") {
+    const anchorDate = normalizeDate(item.lastPaidAt ?? null);
+    if (!anchorDate) return null;
+
+    let occurrenceDate = startOfDay(anchorDate);
+    while (occurrenceDate < interval.start) {
+      occurrenceDate = addYears(occurrenceDate, 1);
+    }
+
+    return isWithinInterval(occurrenceDate, interval) ? occurrenceDate : null;
   }
 
   const anchorDate = normalizeDate(item.lastPaidAt ?? null);

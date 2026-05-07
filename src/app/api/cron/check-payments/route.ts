@@ -4,6 +4,23 @@ import { sendTelegramMessage } from "@/lib/telegram";
 import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
 import { serializeCreditCard } from "@/lib/money";
 
+const newYorkDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+});
+
+const getNewYorkDayWithOffset = (date: Date, offsetDays = 0) => {
+  const parts = newYorkDateFormatter.formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+  const shiftedDate = new Date(Date.UTC(year, month - 1, day + offsetDays, 12, 0, 0, 0));
+
+  return shiftedDate.getUTCDate();
+};
+
 export async function GET(request: Request) {
   // 1. Capa de Seguridad (Protección contra intrusos)
   const authHeader = request.headers.get("authorization");
@@ -28,12 +45,12 @@ export async function GET(request: Request) {
   try {
     // 2. Control de Zona Horaria (El Reloj de Nueva York)
     const today = new Date();
-    const options: Intl.DateTimeFormatOptions = { timeZone: "America/New_York", day: "numeric" };
-    // Extraemos solo el número del día (1 al 31) según tu hora local
-    const currentDay = Number.parseInt(new Intl.DateTimeFormat("en-US", options).format(today), 10);
+    // Extraemos hoy y mañana como fechas reales en Nueva York para respetar cierres de mes.
+    const currentDay = getNewYorkDayWithOffset(today);
+    const tomorrowDay = getNewYorkDayWithOffset(today, 1);
 
     // Queremos avisar si la tarjeta vence hoy, o mañana (1 día de anticipación)
-    const targetDays = [currentDay, currentDay === 31 ? 1 : currentDay + 1];
+    const targetDays = Array.from(new Set([currentDay, tomorrowDay]));
 
     // 3. Consulta a la Base de Datos
     const dueCards = await prisma.creditCard.findMany({
@@ -77,4 +94,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
-

@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { getNextTemplateOccurrence, getTemplateCycleReference } from "@/lib/waterfallCalculations";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
@@ -17,6 +18,14 @@ import {
   validationFailure,
   type ActionResult,
 } from "@/lib/actions/validation";
+
+type DbClient = Prisma.TransactionClient;
+
+const withAdvisoryLock = async <T>(lockKey: string, fn: (tx: DbClient) => Promise<T>): Promise<T> =>
+  prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+    return fn(tx);
+  });
 
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
@@ -148,29 +157,31 @@ export async function markCreditCardAsPaid(creditCardId: string, occurrenceDateI
     }
 
     const cycleReference = getTemplateCycleReference(scheduledItem, occurrenceDate);
-    const previousPayments = await prisma.creditCardPaymentHistory.findMany({
-      where: {
-        creditCardId: validatedCreditCardId,
-        workspaceId: activeWorkspace.id,
-        cycleReference,
-      },
-    });
-    const alreadyPaid = previousPayments.map(serializeHistoryRecord).reduce((acc, item) => acc + item.amountPaid, 0);
-    const pendingAmount = Math.max(minimumPayment - alreadyPaid, 0);
+    const cycleKey = cycleReference.toISOString();
+    await withAdvisoryLock(`credit-card:${activeWorkspace.id}:${validatedCreditCardId}:${cycleKey}`, async (tx) => {
+      const previousPayments = await tx.creditCardPaymentHistory.findMany({
+        where: {
+          creditCardId: validatedCreditCardId,
+          workspaceId: activeWorkspace.id,
+          cycleReference,
+        },
+      });
+      const alreadyPaid = previousPayments.map(serializeHistoryRecord).reduce((acc, item) => acc + item.amountPaid, 0);
+      const pendingAmount = Math.max(minimumPayment - alreadyPaid, 0);
 
-    if (pendingAmount <= 0) {
-      revalidateFinanceViews();
-      return { success: true };
-    }
+      if (pendingAmount <= 0) {
+        return;
+      }
 
-    await prisma.creditCardPaymentHistory.create({
-      data: {
-        creditCardId: validatedCreditCardId,
-        ...getMoneyUpdateData(pendingAmount, "amountPaidCents"),
-        workspaceId: activeWorkspace.id,
-        cycleReference,
-        datePaid: new Date(),
-      },
+      await tx.creditCardPaymentHistory.create({
+        data: {
+          creditCardId: validatedCreditCardId,
+          ...getMoneyUpdateData(pendingAmount, "amountPaidCents"),
+          workspaceId: activeWorkspace.id,
+          cycleReference,
+          datePaid: new Date(),
+        },
+      });
     });
 
     revalidateFinanceViews();
@@ -180,4 +191,3 @@ export async function markCreditCardAsPaid(creditCardId: string, occurrenceDateI
     return { success: false, error: "Failed to mark credit card payment as paid" };
   }
 }
-

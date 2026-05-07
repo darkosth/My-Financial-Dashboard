@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,6 +26,7 @@ type AccountsCardProps = {
 };
 
 export default function AccountsCard({ accounts, totalLiquidity, pendingExpensesTotal }: AccountsCardProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = React.useState(false);
   const [editingAccount, setEditingAccount] = React.useState<AccountRow | null>(null);
   const formRef = React.useRef<HTMLFormElement | null>(null);
@@ -38,6 +40,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
       setIsOpen(false);
       setEditingAccount(null);
       formRef.current?.reset();
+      router.refresh();
     } else {
       alert("Hubo un error al guardar la cuenta.");
     }
@@ -49,7 +52,9 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
     const result = await deleteAccount(id);
     if (!result.success) {
       alert("Hubo un error al eliminar la cuenta.");
+      return;
     }
+    router.refresh();
   };
 
   return (

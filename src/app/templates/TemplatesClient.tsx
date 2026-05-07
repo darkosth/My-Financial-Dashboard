@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { formatCalendarDateForInput } from "@/lib/calendarDate";
 import { createTemplate, deleteTemplate, updateTemplate } from "@/lib/actions/templateActions";
 
-type TemplateFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY" | (string & {});
+type TemplateFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY" | "YEARLY";
 
 type TemplateRow = {
   id: string;
@@ -33,7 +34,15 @@ type TemplatesClientProps = {
   initialTemplates: TemplateRow[];
 };
 
+const getFrequencyLabel = (frequency: TemplateFrequency) => {
+  if (frequency === "WEEKLY") return "Cada Semana";
+  if (frequency === "BIWEEKLY") return "Cada 2 Semanas";
+  if (frequency === "YEARLY") return "Anual";
+  return "Mensual";
+};
+
 export default function TemplatesClient({ initialTemplates }: TemplatesClientProps) {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = React.useState("");
   const [freq, setFreq] = React.useState<TemplateFrequency>("MONTHLY");
   const [isOpen, setIsOpen] = React.useState(false);
@@ -90,6 +99,9 @@ export default function TemplatesClient({ initialTemplates }: TemplatesClientPro
     if (template.frequency === "BIWEEKLY") {
       return acc + (template.amount * 26) / 12;
     }
+    if (template.frequency === "YEARLY") {
+      return acc + template.amount / 12;
+    }
     return acc;
   }, 0);
 
@@ -102,6 +114,7 @@ export default function TemplatesClient({ initialTemplates }: TemplatesClientPro
       setIsOpen(false);
       setEditingTemplate(null);
       formRef.current?.reset();
+      router.refresh();
     } else {
       alert("Hubo un error al guardar. Revisa la consola.");
     }
@@ -112,7 +125,9 @@ export default function TemplatesClient({ initialTemplates }: TemplatesClientPro
       const result = await deleteTemplate(id);
       if (!result.success) {
         alert("Error deleting the item.");
+        return;
       }
+      router.refresh();
     }
   };
 
@@ -178,13 +193,14 @@ export default function TemplatesClient({ initialTemplates }: TemplatesClientPro
                     id="frequency"
                     name="frequency"
                     value={freq}
-                    onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setFreq(event.currentTarget.value)}
+                    onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setFreq(event.currentTarget.value as TemplateFrequency)}
                     className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     required
                   >
                     <option value="MONTHLY">Mensual</option>
                     <option value="WEEKLY">Semanal (EW)</option>
                     <option value="BIWEEKLY">Bisemanal (E2W)</option>
+                    <option value="YEARLY">Anual</option>
                   </select>
                 </div>
               </div>
@@ -319,7 +335,7 @@ export default function TemplatesClient({ initialTemplates }: TemplatesClientPro
                         ) : (
                           <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
                             <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{template.frequency === "WEEKLY" ? "Cada Semana" : "Cada 2 Semanas"}</span>
+                            <span>{getFrequencyLabel(template.frequency)}</span>
                           </div>
                         )}
                       </div>

@@ -10,7 +10,7 @@ import { getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
 import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
 import type { CurrentUserContext } from "@/lib/workspaceContext";
 
-export type TemplateFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY";
+export type TemplateFrequency = "MONTHLY" | "WEEKLY" | "BIWEEKLY" | "YEARLY";
 
 export type ScheduledPaymentKind = "template" | "credit-card";
 
@@ -122,7 +122,7 @@ export const getValidTemplates = (templates: ScheduledPayment[] = []) =>
   templates.filter(
     (template) =>
       (template.frequency === "MONTHLY" && !!template.dayOfMonth) ||
-      ((template.frequency === "WEEKLY" || template.frequency === "BIWEEKLY") && !!template.lastPaidAt),
+      ((template.frequency === "WEEKLY" || template.frequency === "BIWEEKLY" || template.frequency === "YEARLY") && !!template.lastPaidAt),
   );
 
 export const getScheduledPayments = ({ templates = [], creditCards = [] }: { templates?: ScheduledPayment[]; creditCards?: CreditCardLike[] }) => [

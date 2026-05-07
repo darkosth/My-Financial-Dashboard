@@ -1,6 +1,7 @@
 "use server";
 
 import { addDays, startOfDay } from "date-fns";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getNextTemplateOccurrence, getProjectionWeekStart, getTemplateCycleReference } from "@/lib/waterfallCalculations";
@@ -27,6 +28,13 @@ const revalidateFinanceViews = () => {
 };
 
 const normalizeAmount = (value: unknown) => parseMoneyAmount((value ?? 0) as unknown, "Paid amount");
+type DbClient = Prisma.TransactionClient;
+
+const withAdvisoryLock = async <T>(lockKey: string, fn: (tx: DbClient) => Promise<T>): Promise<T> =>
+  prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+    return fn(tx);
+  });
 
 type SettleTemplateOccurrenceInput = {
   templateId: string;
@@ -55,71 +63,74 @@ async function settleTemplateOccurrence({
   const normalizedOccurrenceDate = parseCalendarDate(occurrenceDate, "Occurrence date");
 
   const cycleReference = getTemplateCycleReference(template, normalizedOccurrenceDate);
-  const alreadyPaidRecords = await prisma.history.findMany({
-    where: {
-      templateId: validatedTemplateId,
-      workspaceId: activeWorkspace.id,
-      cycleReference,
-    },
-  });
-  const alreadyPaid = alreadyPaidRecords.map(serializeHistoryRecord);
-
-  const paidAmountSoFar = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
-  const remainingBeforeAction = Math.max(template.amount - paidAmountSoFar, 0);
-  const safeAmountPaid = Math.min(Math.max(amountPaid, 0), remainingBeforeAction);
-  const remainingAfterPayment = Math.max(remainingBeforeAction - safeAmountPaid, 0);
-
-  if (safeAmountPaid > 0) {
-    await prisma.history.create({
-      data: {
-        templateId: template.id,
-        ...getMoneyUpdateData(safeAmountPaid, "amountPaidCents"),
+  const cycleKey = cycleReference.toISOString();
+  await withAdvisoryLock(`template:${activeWorkspace.id}:${template.id}:${cycleKey}`, async (tx) => {
+    const alreadyPaidRecords = await tx.history.findMany({
+      where: {
+        templateId: validatedTemplateId,
         workspaceId: activeWorkspace.id,
         cycleReference,
-        datePaid: new Date(),
       },
     });
-  }
+    const alreadyPaid = alreadyPaidRecords.map(serializeHistoryRecord);
 
-  if (moveRemainingToNextWeek && remainingAfterPayment > 0) {
-    await prisma.paymentCarryover.upsert({
-      where: {
-        templateId_originCycleReference: {
+    const paidAmountSoFar = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
+    const remainingBeforeAction = Math.max(template.amount - paidAmountSoFar, 0);
+    const safeAmountPaid = Math.min(Math.max(amountPaid, 0), remainingBeforeAction);
+    const remainingAfterPayment = Math.max(remainingBeforeAction - safeAmountPaid, 0);
+
+    if (safeAmountPaid > 0) {
+      await tx.history.create({
+        data: {
           templateId: template.id,
+          ...getMoneyUpdateData(safeAmountPaid, "amountPaidCents"),
+          workspaceId: activeWorkspace.id,
+          cycleReference,
+          datePaid: new Date(),
+        },
+      });
+    }
+
+    if (moveRemainingToNextWeek && remainingAfterPayment > 0) {
+      await tx.paymentCarryover.upsert({
+        where: {
+          templateId_originCycleReference: {
+            templateId: template.id,
+            originCycleReference: cycleReference,
+          },
+        },
+        update: {
+          ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
+          workspaceId: activeWorkspace.id,
+          targetWeekStart: addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7),
+        },
+        create: {
+          templateId: template.id,
+          workspaceId: activeWorkspace.id,
+          originCycleReference: cycleReference,
+          targetWeekStart: addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7),
+          ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
+        },
+      });
+    } else {
+      await tx.paymentCarryover.deleteMany({
+        where: {
+          templateId: template.id,
+          workspaceId: activeWorkspace.id,
           originCycleReference: cycleReference,
         },
-      },
-      update: {
-        ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
-        workspaceId: activeWorkspace.id,
-        targetWeekStart: addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7),
-      },
-      create: {
-        templateId: template.id,
-        workspaceId: activeWorkspace.id,
-        originCycleReference: cycleReference,
-        targetWeekStart: addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7),
-        ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
-      },
-    });
-  } else {
-    await prisma.paymentCarryover.deleteMany({
-      where: {
-        templateId: template.id,
-        workspaceId: activeWorkspace.id,
-        originCycleReference: cycleReference,
-      },
-    });
-  }
+      });
+    }
 
-  if (remainingAfterPayment <= 0) {
-    await prisma.template.update({
-      where: { id: template.id },
-      data: {
-        lastPaidAt: normalizedOccurrenceDate,
-      },
-    });
-  }
+    if (remainingAfterPayment <= 0) {
+      await tx.template.update({
+        where: { id: template.id },
+        data: {
+          lastPaidAt: normalizedOccurrenceDate,
+        },
+      });
+    }
+  });
 
   revalidateFinanceViews();
   return { success: true };
@@ -152,64 +163,64 @@ async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWee
     throw new Error("Gasto no encontrado");
   }
 
-  const alreadyPaidRecords = await prisma.history.findMany({
-    where: {
-      templateId: template.id,
-      workspaceId: activeWorkspace.id,
-      cycleReference: carryover.originCycleReference,
-    },
-  });
-  const alreadyPaid = alreadyPaidRecords.map(serializeHistoryRecord);
-
-  const paidAmountSoFar = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
-  const remainingBeforeAction = Math.max(template.amount - paidAmountSoFar, 0);
-  const safeAmountPaid = Math.min(Math.max(amountPaid, 0), remainingBeforeAction);
-  const remainingAfterPayment = Math.max(remainingBeforeAction - safeAmountPaid, 0);
-
-  if (remainingBeforeAction <= 0) {
-    await prisma.paymentCarryover.delete({
-      where: { id: carryover.id },
-    });
-    revalidateFinanceViews();
-    return { success: true };
-  }
-
-  if (safeAmountPaid > 0) {
-    await prisma.history.create({
-      data: {
+  await withAdvisoryLock(`carryover:${activeWorkspace.id}:${carryover.id}`, async (tx) => {
+    const alreadyPaidRecords = await tx.history.findMany({
+      where: {
         templateId: template.id,
-        ...getMoneyUpdateData(safeAmountPaid, "amountPaidCents"),
         workspaceId: activeWorkspace.id,
         cycleReference: carryover.originCycleReference,
-        datePaid: new Date(),
       },
     });
-  }
+    const alreadyPaid = alreadyPaidRecords.map(serializeHistoryRecord);
 
-  if (remainingAfterPayment <= 0) {
-    await prisma.paymentCarryover.delete({
-      where: { id: carryover.id },
-    });
-    revalidateFinanceViews();
-    return { success: true };
-  }
+    const paidAmountSoFar = alreadyPaid.reduce((acc, record) => acc + record.amountPaid, 0);
+    const remainingBeforeAction = Math.max(template.amount - paidAmountSoFar, 0);
+    const safeAmountPaid = Math.min(Math.max(amountPaid, 0), remainingBeforeAction);
+    const remainingAfterPayment = Math.max(remainingBeforeAction - safeAmountPaid, 0);
 
-  if (moveRemainingToNextWeek) {
-    await prisma.paymentCarryover.update({
-      where: { id: carryover.id },
-      data: {
-        ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
-        targetWeekStart: addDays(startOfDay(new Date(carryover.targetWeekStart)), 7),
-      },
-    });
-  } else {
-    await prisma.paymentCarryover.update({
-      where: { id: carryover.id },
-      data: {
-        ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
-      },
-    });
-  }
+    if (remainingBeforeAction <= 0) {
+      await tx.paymentCarryover.delete({
+        where: { id: carryover.id },
+      });
+      return;
+    }
+
+    if (safeAmountPaid > 0) {
+      await tx.history.create({
+        data: {
+          templateId: template.id,
+          ...getMoneyUpdateData(safeAmountPaid, "amountPaidCents"),
+          workspaceId: activeWorkspace.id,
+          cycleReference: carryover.originCycleReference,
+          datePaid: new Date(),
+        },
+      });
+    }
+
+    if (remainingAfterPayment <= 0) {
+      await tx.paymentCarryover.delete({
+        where: { id: carryover.id },
+      });
+      return;
+    }
+
+    if (moveRemainingToNextWeek) {
+      await tx.paymentCarryover.update({
+        where: { id: carryover.id },
+        data: {
+          ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
+          targetWeekStart: addDays(startOfDay(new Date(carryover.targetWeekStart)), 7),
+        },
+      });
+    } else {
+      await tx.paymentCarryover.update({
+        where: { id: carryover.id },
+        data: {
+          ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
+        },
+      });
+    }
+  });
 
   revalidateFinanceViews();
   return { success: true };
@@ -474,4 +485,3 @@ export async function moveCarryoverToNextWeek(carryoverId: string, amountPaidInp
     return { success: false, error: "Failed to move carryover to next week" };
   }
 }
-
