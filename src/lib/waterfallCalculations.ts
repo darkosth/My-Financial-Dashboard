@@ -275,8 +275,12 @@ export const getUpcomingPendingPayments = ({
       const cycleKey = `${getPaymentOwnerKey(item)}:${getCycleKey(cycleReference)}`;
       const paidAmount = paymentSummaryMap.get(cycleKey) ?? 0;
       const carryover = getItemKind(item) === "template" ? byOriginCycle.get(cycleKey) : null;
-      const deferredAmount = carryover?.remainingAmount ?? 0;
-      const pendingAmount = Math.max(item.amount - paidAmount - deferredAmount, 0);
+      if (carryover) {
+        occurrenceDate = getFollowingOccurrence(item, occurrenceDate);
+        continue;
+      }
+
+      const pendingAmount = Math.max(item.amount - paidAmount, 0);
 
       if (pendingAmount > 0) {
         upcomingPayments.push({
@@ -390,10 +394,12 @@ export const calculateWaterfall = ({
       const cycleKey = `${getPaymentOwnerKey(item)}:${getCycleKey(cycleReference)}`;
       const paidAmount = paymentSummaryMap.get(cycleKey) ?? 0;
       const carryover = getItemKind(item) === "template" ? byOriginCycle.get(cycleKey) : null;
-      const deferredAmount = carryover?.remainingAmount ?? 0;
-      const pendingAmount = Math.max(item.amount - paidAmount - deferredAmount, 0);
+      if (carryover) {
+        return;
+      }
+
+      const pendingAmount = Math.max(item.amount - paidAmount, 0);
       const isFullyPaid = paidAmount >= item.amount;
-      const isMovedWithoutPayment = deferredAmount > 0 && paidAmount <= 0;
       const shouldShowOriginalDetail = pendingAmount > 0;
 
       if (shouldShowOriginalDetail && (weekNumber === 1 || occurrenceDate >= toStartOfDay(today))) {
@@ -407,8 +413,8 @@ export const calculateWaterfall = ({
           name: item.name,
           amount: pendingAmount > 0 ? pendingAmount : item.amount,
           isPaid: isFullyPaid,
-          isDeferred: deferredAmount > 0,
-          isMovedWithoutPayment,
+          isDeferred: false,
+          isMovedWithoutPayment: false,
           paidAmount,
           occurrenceDate,
           cycleReference,

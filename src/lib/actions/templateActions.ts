@@ -61,6 +61,7 @@ async function settleTemplateOccurrence({
   }
 
   const normalizedOccurrenceDate = parseCalendarDate(occurrenceDate, "Occurrence date");
+  const targetWeekStart = addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7);
 
   const cycleReference = getTemplateCycleReference(template, normalizedOccurrenceDate);
   const cycleKey = cycleReference.toISOString();
@@ -86,7 +87,7 @@ async function settleTemplateOccurrence({
           ...getMoneyUpdateData(safeAmountPaid, "amountPaidCents"),
           workspaceId: activeWorkspace.id,
           cycleReference,
-          datePaid: new Date(),
+          datePaid: moveRemainingToNextWeek ? targetWeekStart : new Date(),
         },
       });
     }
@@ -102,13 +103,13 @@ async function settleTemplateOccurrence({
         update: {
           ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
           workspaceId: activeWorkspace.id,
-          targetWeekStart: addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7),
+          targetWeekStart,
         },
         create: {
           templateId: template.id,
           workspaceId: activeWorkspace.id,
           originCycleReference: cycleReference,
-          targetWeekStart: addDays(getProjectionWeekStart(normalizedOccurrenceDate), 7),
+          targetWeekStart,
           ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
         },
       });
@@ -164,6 +165,8 @@ async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWee
   }
 
   await withAdvisoryLock(`carryover:${activeWorkspace.id}:${carryover.id}`, async (tx) => {
+    const currentTargetWeekStart = startOfDay(new Date(carryover.targetWeekStart));
+    const nextTargetWeekStart = addDays(currentTargetWeekStart, 7);
     const alreadyPaidRecords = await tx.history.findMany({
       where: {
         templateId: template.id,
@@ -192,7 +195,7 @@ async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWee
           ...getMoneyUpdateData(safeAmountPaid, "amountPaidCents"),
           workspaceId: activeWorkspace.id,
           cycleReference: carryover.originCycleReference,
-          datePaid: new Date(),
+          datePaid: moveRemainingToNextWeek ? nextTargetWeekStart : currentTargetWeekStart,
         },
       });
     }
@@ -209,7 +212,7 @@ async function settleCarryover({ carryoverId, amountPaid, moveRemainingToNextWee
         where: { id: carryover.id },
         data: {
           ...getMoneyUpdateData(remainingAfterPayment, "remainingAmountCents"),
-          targetWeekStart: addDays(startOfDay(new Date(carryover.targetWeekStart)), 7),
+          targetWeekStart: nextTargetWeekStart,
         },
       });
     } else {
