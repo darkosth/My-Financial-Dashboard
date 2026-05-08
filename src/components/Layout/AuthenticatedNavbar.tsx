@@ -56,11 +56,13 @@ const mobileMenuIconClassName = "h-4 w-4 max-sm:h-6 max-sm:w-6";
 export default function AuthenticatedNavbar({
   userName,
   workspaceName,
-  migrationPhase,
+  buildCommitLabel,
+  buildCommitSha,
 }: {
   userName: string;
   workspaceName: string;
-  migrationPhase?: string | null;
+  buildCommitLabel?: string | null;
+  buildCommitSha?: string | null;
 }) {
   const pathname = usePathname();
 
@@ -77,9 +79,12 @@ export default function AuthenticatedNavbar({
             <div className="flex flex-col leading-none">
               <div className="flex items-center gap-2">
                 <span className="text-lg">MyFinance</span>
-                {migrationPhase ? (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                    {migrationPhase}
+                {buildCommitLabel ? (
+                  <span
+                    className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+                    title={buildCommitSha || "local build"}
+                  >
+                    {buildCommitLabel}
                   </span>
                 ) : null}
               </div>

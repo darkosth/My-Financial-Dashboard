@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarIcon, LayoutDashboard, Wallet } from "lucide-react";
 import { auth } from "@/auth";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
-import { MIGRATION_PHASE } from "@/lib/migrationPhase";
+import { BUILD_COMMIT_LABEL, BUILD_COMMIT_SHA } from "@/lib/buildInfo";
 import AuthenticatedNavbar from "@/components/Layout/AuthenticatedNavbar";
 import GoogleSignInButton from "@/components/Layout/GoogleSignInButton";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -18,8 +18,8 @@ export default async function Navbar() {
           <Link href="/" className="flex items-center gap-2 font-bold tracking-tight text-foreground">
             <Wallet className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
             <span className="text-2xl">MyFinance</span>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
-              {MIGRATION_PHASE}
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground" title={BUILD_COMMIT_SHA || "local build"}>
+              {BUILD_COMMIT_LABEL}
             </span>
           </Link>
 
@@ -58,5 +58,12 @@ export default async function Navbar() {
     context.user?.email?.trim() ||
     "MyFinance";
 
-  return <AuthenticatedNavbar userName={userName} workspaceName={context.activeWorkspace.name} migrationPhase={MIGRATION_PHASE} />;
+  return (
+    <AuthenticatedNavbar
+      userName={userName}
+      workspaceName={context.activeWorkspace.name}
+      buildCommitLabel={BUILD_COMMIT_LABEL}
+      buildCommitSha={BUILD_COMMIT_SHA}
+    />
+  );
 }
