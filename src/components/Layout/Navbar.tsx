@@ -18,9 +18,14 @@ export default async function Navbar() {
           <Link href="/" className="flex items-center gap-2 font-bold tracking-tight text-foreground">
             <Wallet className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
             <span className="text-2xl">MyFinance</span>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground" title={BUILD_COMMIT_SHA || "local build"}>
-              {BUILD_COMMIT_LABEL}
-            </span>
+            {BUILD_COMMIT_LABEL ? (
+              <span
+                className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground"
+                title={BUILD_COMMIT_SHA || "local build"}
+              >
+                {BUILD_COMMIT_LABEL}
+              </span>
+            ) : null}
           </Link>
 
           <div className="hidden items-center gap-2 sm:flex">
