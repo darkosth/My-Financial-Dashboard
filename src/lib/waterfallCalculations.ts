@@ -395,8 +395,9 @@ export const calculateWaterfall = ({
       const isFullyPaid = paidAmount >= item.amount;
       const isMovedWithoutPayment = deferredAmount > 0 && paidAmount <= 0;
       const isHandledThisWeek = pendingAmount <= 0;
+      const shouldShowOriginalDetail = pendingAmount > 0 || (deferredAmount > 0 && !isFullyPaid);
 
-      if (weekNumber === 1 || occurrenceDate >= toStartOfDay(today) || isHandledThisWeek) {
+      if (shouldShowOriginalDetail && (weekNumber === 1 || occurrenceDate >= toStartOfDay(today) || isHandledThisWeek)) {
         if (pendingAmount > 0) {
           expensesInWeek += pendingAmount;
         }
