@@ -32,7 +32,7 @@ type DbClient = Prisma.TransactionClient;
 
 const withAdvisoryLock = async <T>(lockKey: string, fn: (tx: DbClient) => Promise<T>): Promise<T> =>
   prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
     return fn(tx);
   });
 
