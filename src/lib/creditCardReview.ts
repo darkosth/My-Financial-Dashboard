@@ -32,12 +32,18 @@ export const getCreditCardMonthlyInterestEstimate = (card: CreditCardReviewLike)
 const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 export const getCreditCardEffectiveMinimumPayment = (card: CreditCardMinimumPaymentLike) => {
-  const minimumPayment = card.minimumPayment || 0;
-  const minimumPaymentPercentage = card.minimumPaymentPercentage || 0;
+  const balance = Math.max(card.balance, 0);
+  const minimumPayment = Math.max(card.minimumPayment ?? 0, 0);
+  const minimumPaymentPercentage = card.minimumPaymentPercentage ?? 0;
 
-  if (minimumPaymentPercentage <= 0) {
-    return roundCurrency(minimumPayment);
+  if (balance <= 0) {
+    return 0;
   }
 
-  return roundCurrency(Math.max(minimumPayment, card.balance * (minimumPaymentPercentage / 100)));
+  if (minimumPaymentPercentage <= 0) {
+    return roundCurrency(Math.min(balance, minimumPayment));
+  }
+
+  const percentagePayment = balance * (minimumPaymentPercentage / 100);
+  return roundCurrency(Math.min(balance, Math.max(minimumPayment, percentagePayment)));
 };
