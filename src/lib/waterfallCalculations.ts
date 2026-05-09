@@ -400,7 +400,7 @@ export const calculateWaterfall = ({
 
       const pendingAmount = Math.max(item.amount - paidAmount, 0);
       const isFullyPaid = paidAmount >= item.amount;
-      const shouldShowOriginalDetail = pendingAmount > 0;
+      const shouldShowOriginalDetail = pendingAmount > 0 || isFullyPaid;
 
       if (shouldShowOriginalDetail && (weekNumber === 1 || occurrenceDate >= toStartOfDay(today))) {
         if (pendingAmount > 0) {

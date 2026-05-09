@@ -109,7 +109,7 @@ export default function WaterfallCard({ waterfallData, finalRemainingS4, standar
               <div className="grid grid-cols-1 md:grid-cols-4 gap-0 divide-y md:divide-y-0 md:divide-x divide-border">
                 {waterfallData.map((data) => {
                   const visibleDetails = (data.details ?? []).filter(
-                    (detail) => !detail.isPaid && !detail.isDeferred && detail.amount > 0
+                    (detail) => !detail.isDeferred && (detail.isPaid || detail.amount > 0)
                   );
                   const weekDanger = data.restante <= 0;
                   const hasExpenses = visibleDetails.length > 0;
