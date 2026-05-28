@@ -139,26 +139,6 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                       </p>
                     ) : null}
                   </div>
-                  <div onClick={(event: React.MouseEvent) => event.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-10 w-10 rounded-full p-0 transition-colors hover:bg-muted">
-                          <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52 rounded-xl border-border p-2 shadow-xl">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setReconnectPlaidItemId(null);
-                            setIsPlaidDialogOpen(true);
-                          }}
-                          className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:data-[highlighted]:bg-blue-950/50 dark:data-[highlighted]:text-blue-300"
-                        >
-                          Conectar banco
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
                 </div>
               </div>
             </AccordionTrigger>
@@ -255,15 +235,6 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                                 ) : (
                                   <>
                                     <DropdownMenuItem
-                                      onClick={() => {
-                                        setReconnectPlaidItemId(null);
-                                        setIsPlaidDialogOpen(true);
-                                      }}
-                                      className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium"
-                                    >
-                                      Conectar banco
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
                                       onClick={() => handleDelete(account.id)}
                                       className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700 dark:hover:bg-red-950/45 dark:hover:text-red-200 dark:data-[highlighted]:bg-red-950/45 dark:data-[highlighted]:text-red-200"
                                     >
@@ -290,7 +261,17 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                   }}
                   className="mt-2 w-full border border-dashed border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <Plus className="mr-2 h-4 w-4" /> Agregar cuenta
+                  <Plus className="mr-2 h-4 w-4" /> Agregar Cuenta Manual
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setReconnectPlaidItemId(null);
+                    setIsPlaidDialogOpen(true);
+                  }}
+                  className="mt-2 w-full border border-dashed border-border text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/40 dark:hover:text-blue-200"
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Conectar banco
                 </Button>
               </div>
             </AccordionContent>

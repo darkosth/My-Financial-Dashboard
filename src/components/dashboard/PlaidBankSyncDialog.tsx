@@ -88,6 +88,7 @@ export default function PlaidBankSyncDialog({
   const router = useRouter();
   const [linkToken, setLinkToken] = React.useState<string | null>(null);
   const [linkMode, setLinkMode] = React.useState<"connect" | "update">("connect");
+  const [isPlaidLinkActive, setIsPlaidLinkActive] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [review, setReview] = React.useState<ConnectResponse | null>(null);
@@ -98,6 +99,7 @@ export default function PlaidBankSyncDialog({
   const resetState = React.useCallback(() => {
     setLinkToken(null);
     setLinkMode("connect");
+    setIsPlaidLinkActive(false);
     setLoading(false);
     setError(null);
     setReview(null);
@@ -109,6 +111,7 @@ export default function PlaidBankSyncDialog({
   const handleLinkSuccess = React.useCallback(
     async (publicToken: string) => {
       setLoading(true);
+      setIsPlaidLinkActive(false);
       setError(null);
 
       try {
@@ -138,14 +141,25 @@ export default function PlaidBankSyncDialog({
   const { open: openPlaid, ready } = usePlaidLink({
     token: linkToken,
     onSuccess: (publicToken) => {
+      setIsPlaidLinkActive(false);
       void handleLinkSuccess(publicToken);
     },
     onExit: (plaidError) => {
+      setIsPlaidLinkActive(false);
       if (plaidError?.display_message) {
         setError(plaidError.display_message);
       }
     },
   });
+
+  const handleOpenPlaid = React.useCallback(() => {
+    if (!linkToken || !ready) {
+      return;
+    }
+
+    setIsPlaidLinkActive(true);
+    openPlaid();
+  }, [linkToken, openPlaid, ready]);
 
   React.useEffect(() => {
     if (!open) {
@@ -179,8 +193,8 @@ export default function PlaidBankSyncDialog({
     }
 
     openedRef.current = true;
-    openPlaid();
-  }, [importSummary, linkToken, open, openPlaid, ready, review]);
+    handleOpenPlaid();
+  }, [handleOpenPlaid, importSummary, linkToken, open, ready, review]);
 
   const toggleSelection = (id: string) => {
     setSelectedIds((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]));
@@ -307,7 +321,25 @@ export default function PlaidBankSyncDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent size="wide">
+      <AppDialogContent
+        size="wide"
+        showCloseButton={!isPlaidLinkActive}
+        onEscapeKeyDown={(event) => {
+          if (isPlaidLinkActive) {
+            event.preventDefault();
+          }
+        }}
+        onInteractOutside={(event) => {
+          if (isPlaidLinkActive) {
+            event.preventDefault();
+          }
+        }}
+        onPointerDownOutside={(event) => {
+          if (isPlaidLinkActive) {
+            event.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{plaidItemId || mode === "reconnect" ? "Reconectar banco" : "Conectar banco"}</DialogTitle>
           <DialogDescription>
@@ -331,22 +363,26 @@ export default function PlaidBankSyncDialog({
         ) : review ? (
           renderReview()
         ) : (
-          <div className="space-y-4 py-4">
+          <div className={`space-y-4 py-4 ${isPlaidLinkActive ? "pointer-events-none opacity-60" : ""}`}>
             <div className="flex items-start gap-3 rounded-2xl border border-border bg-muted/40 p-4">
               {plaidItemId || mode === "reconnect" ? <RefreshCcw className="mt-0.5 h-5 w-5 text-muted-foreground" /> : <Landmark className="mt-0.5 h-5 w-5 text-muted-foreground" />}
               <div className="space-y-1 text-sm text-muted-foreground">
-                <p className="font-medium text-foreground">{loading ? "Preparando Plaid Link..." : "Abriendo Plaid Link..."}</p>
+                <p className="font-medium text-foreground">
+                  {loading ? "Preparando Plaid Link..." : isPlaidLinkActive ? "Plaid Link activo..." : "Abriendo Plaid Link..."}
+                </p>
                 <p>
-                  Si no aparece automaticamente, usa el boton de abajo para abrir el flujo manualmente.
+                  {isPlaidLinkActive
+                    ? "El formulario queda bloqueado mientras completas o cancelas Plaid Link."
+                    : "Si no aparece automaticamente, usa el boton de abajo para abrir el flujo manualmente."}
                 </p>
               </div>
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPlaidLinkActive}>
                 Cancelar
               </Button>
-              <Button type="button" onClick={() => openPlaid()} disabled={!ready || loading || !linkToken}>
+              <Button type="button" onClick={handleOpenPlaid} disabled={!ready || loading || !linkToken || isPlaidLinkActive}>
                 Abrir Plaid Link
               </Button>
             </DialogFooter>
