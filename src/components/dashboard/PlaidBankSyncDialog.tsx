@@ -31,6 +31,34 @@ type ImportResponse = {
   creditCardsImported: number;
 };
 
+type ApiErrorPayload = {
+  code?: string;
+  error?: string;
+};
+
+const fallbackErrorMessage = "La conexion bancaria fallo por un error inesperado.";
+
+const getPlaidErrorMessage = (payload: ApiErrorPayload | null, fallbackMessage: string) => {
+  switch (payload?.code) {
+    case "UNAUTHORIZED":
+      return "Tu sesion expiro. Vuelve a iniciar sesion e intenta otra vez.";
+    case "PLAID_NOT_CONFIGURED":
+      return "Plaid no esta configurado en este entorno todavia.";
+    case "PLAID_REAUTH_REQUIRED":
+      return payload.error || "El banco pide reautenticacion antes de continuar.";
+    case "PLAID_ITEM_NOT_FOUND":
+      return payload.error || "No se encontro la conexion bancaria solicitada.";
+    case "PLAID_WORKSPACE_MISMATCH":
+      return "Esta conexion bancaria pertenece a otro workspace.";
+    case "NO_REMOTE_ACCOUNTS_SELECTED":
+      return "Selecciona al menos una cuenta o tarjeta para importar.";
+    case "VALIDATION_ERROR":
+      return payload.error || fallbackMessage;
+    default:
+      return payload?.error || fallbackMessage || fallbackErrorMessage;
+  }
+};
+
 const postJson = async <T,>(url: string, body: Record<string, unknown>) => {
   const response = await fetch(url, {
     method: "POST",
@@ -41,8 +69,8 @@ const postJson = async <T,>(url: string, body: Record<string, unknown>) => {
   });
 
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(payload.error || "Request failed");
+    const payload = (await response.json().catch(() => ({ error: fallbackErrorMessage }))) as ApiErrorPayload;
+    throw new Error(getPlaidErrorMessage(payload, fallbackErrorMessage));
   }
 
   return (await response.json()) as T;

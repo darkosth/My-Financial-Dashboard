@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server";
 import { parseOptionalText } from "@/lib/actions/validation";
 import { syncPlaidItemById, syncWorkspacePlaidItems } from "@/lib/plaidSync";
 import { isPlaidConfigured } from "@/lib/plaid";
+import { apiErrorResponse, apiJsonError } from "@/lib/apiErrors";
 
 export async function POST(request: Request) {
   if (!isPlaidConfigured()) {
-    return NextResponse.json({ skipped: true, reason: "plaid_not_configured" });
+    return apiJsonError(200, "PLAID_NOT_CONFIGURED", "Plaid no esta configurado en este entorno.", {
+      skipped: true,
+      reason: "plaid_not_configured",
+    });
   }
 
   try {
@@ -14,13 +17,15 @@ export async function POST(request: Request) {
 
     if (plaidItemId) {
       const result = await syncPlaidItemById(plaidItemId);
-      return NextResponse.json(result);
+      return Response.json(result);
     }
 
     const result = await syncWorkspacePlaidItems();
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (error) {
-    console.error("Failed to sync Plaid balances:", error);
-    return NextResponse.json({ error: "Failed to sync balances." }, { status: 500 });
+    return apiErrorResponse(error, {
+      action: "Failed to sync Plaid balances",
+      fallbackMessage: "No se pudieron sincronizar los balances.",
+    });
   }
 }
