@@ -22,8 +22,42 @@ export async function loadFinanceData() {
 
   const [accounts, creditCards, templates, historyRecords, creditCardHistoryRecords, carryovers, pendingExpenses, appSettings] =
     await Promise.all([
-      prisma.account.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
-      prisma.creditCard.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
+      prisma.account.findMany({
+        where: { workspaceId },
+        include: {
+          plaidRemoteAccount: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  institutionName: true,
+                  status: true,
+                  lastSyncedAt: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.creditCard.findMany({
+        where: { workspaceId },
+        include: {
+          plaidRemoteAccount: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  institutionName: true,
+                  status: true,
+                  lastSyncedAt: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
       prisma.template.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
       prisma.history.findMany({ where: { workspaceId }, orderBy: { datePaid: "desc" } }),
       prisma.creditCardPaymentHistory.findMany({ where: { workspaceId }, orderBy: { datePaid: "desc" } }),
@@ -49,4 +83,3 @@ export async function loadFinanceSnapshot(today: Date = new Date()) {
   const data = await loadFinanceData();
   return buildFinanceSnapshot(data, today);
 }
-

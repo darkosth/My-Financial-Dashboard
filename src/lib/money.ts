@@ -16,17 +16,85 @@ export const getMoneyUpdateData = <FieldName extends string>(
   [centsField]: amountToCents(amount),
 });
 
-export const serializeAccount = <T extends { balanceCents: MoneyCents | null }>(account: T) => {
+const serializePlaidMetadata = <
+  T extends {
+    plaidRemoteAccount?: {
+      mask?: string | null;
+      subtype?: string | null;
+      item?: {
+        id?: string | null;
+        institutionName?: string | null;
+        status?: string | null;
+        lastSyncedAt?: Date | string | null;
+      } | null;
+    } | null;
+  },
+>(
+  entity: T,
+) => {
+  if (!entity.plaidRemoteAccount) {
+    return {
+      institutionName: null,
+      mask: null,
+      subtype: null,
+      plaidItemId: null,
+      plaidStatus: null,
+      lastSyncedAt: null,
+    };
+  }
+
+  return {
+    institutionName: entity.plaidRemoteAccount.item?.institutionName ?? null,
+    mask: entity.plaidRemoteAccount.mask ?? null,
+    subtype: entity.plaidRemoteAccount.subtype ?? null,
+    plaidItemId: entity.plaidRemoteAccount.item?.id ?? null,
+    plaidStatus: entity.plaidRemoteAccount.item?.status ?? null,
+    lastSyncedAt: entity.plaidRemoteAccount.item?.lastSyncedAt ?? null,
+  };
+};
+
+export const serializeAccount = <
+  T extends {
+    balanceCents: MoneyCents | null;
+    plaidRemoteAccount?: {
+      mask?: string | null;
+      subtype?: string | null;
+      item?: {
+        id?: string | null;
+        institutionName?: string | null;
+        status?: string | null;
+        lastSyncedAt?: Date | string | null;
+      } | null;
+    } | null;
+  },
+>(
+  account: T,
+) => {
   const { balanceCents, ...rest } = account;
 
   return {
     ...rest,
     balance: resolveStoredMoney(balanceCents),
+    ...serializePlaidMetadata(account),
   };
 };
 
 export const serializeCreditCard = <
-  T extends { balanceCents: MoneyCents | null; creditLimitCents: MoneyCents | null; minimumPaymentCents: MoneyCents | null },
+  T extends {
+    balanceCents: MoneyCents | null;
+    creditLimitCents: MoneyCents | null;
+    minimumPaymentCents: MoneyCents | null;
+    plaidRemoteAccount?: {
+      mask?: string | null;
+      subtype?: string | null;
+      item?: {
+        id?: string | null;
+        institutionName?: string | null;
+        status?: string | null;
+        lastSyncedAt?: Date | string | null;
+      } | null;
+    } | null;
+  },
 >(
   creditCard: T,
 ) => {
@@ -37,6 +105,7 @@ export const serializeCreditCard = <
     balance: resolveStoredMoney(balanceCents),
     creditLimit: resolveStoredMoney(creditLimitCents),
     minimumPayment: resolveStoredMoney(minimumPaymentCents),
+    ...serializePlaidMetadata(creditCard),
   };
 };
 
@@ -84,4 +153,3 @@ export const serializeAppSettings = <T extends { weeklyIncomeCents: MoneyCents |
     weeklyIncome: resolveStoredMoney(weeklyIncomeCents),
   };
 };
-

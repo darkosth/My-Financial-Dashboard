@@ -2,17 +2,18 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { MoreHorizontal, Plus, RefreshCcw, ShieldAlert, Unplug } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AppDialogContent, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createCreditCard, deleteCreditCard, updateCreditCard } from "@/lib/actions/creditCardActions";
+import { disconnectLinkedPlaidEntity, refreshLinkedPlaidEntity } from "@/lib/actions/plaidActions";
 import {
   CREDIT_CARD_STALE_REVIEW_DAYS,
   getCreditCardEffectiveMinimumPayment,
@@ -20,6 +21,7 @@ import {
   getCreditCardMonthlyInterestEstimate,
   isCreditCardStale,
 } from "@/lib/creditCardReview";
+import PlaidBankSyncDialog from "@/components/dashboard/PlaidBankSyncDialog";
 
 type CreditCardRow = {
   id: string;
@@ -32,6 +34,13 @@ type CreditCardRow = {
   apr?: number | null;
   lastReviewedAt?: Date | string | null;
   createdAt: Date | string;
+  source?: "MANUAL" | "PLAID";
+  institutionName?: string | null;
+  mask?: string | null;
+  subtype?: string | null;
+  plaidItemId?: string | null;
+  plaidStatus?: string | null;
+  lastSyncedAt?: Date | string | null;
 };
 
 type CreditCardsCardProps = {
@@ -57,6 +66,19 @@ const formatApr = (value: number) =>
 const formatPercent = (value: number) =>
   `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
+const formatSyncDate = (value: Date | string | null | undefined) => {
+  if (!value) {
+    return "Sin sync aun";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+};
+
 const staleRowClassName =
   "border-l-4 border-l-red-500 bg-red-50/80 hover:bg-red-100/80 dark:border-l-red-400 dark:bg-red-950/30 dark:hover:bg-red-950/45";
 
@@ -68,7 +90,6 @@ const staleBannerClassName =
 
 export default function CreditCardsCard({
   creditCards,
-  totalCreditLimit,
   totalAvailableCredit,
   totalDebt,
 }: CreditCardsCardProps) {
@@ -76,8 +97,11 @@ export default function CreditCardsCard({
   const [isOpen, setIsOpen] = React.useState(false);
   const [editingCard, setEditingCard] = React.useState<CreditCardRow | null>(null);
   const [viewingCard, setViewingCard] = React.useState<CreditCardRow | null>(null);
+  const [reconnectPlaidItemId, setReconnectPlaidItemId] = React.useState<string | null>(null);
+  const [isPlaidDialogOpen, setIsPlaidDialogOpen] = React.useState(false);
   const formRef = React.useRef<HTMLFormElement | null>(null);
   const monthlyInterestEstimate = viewingCard ? getCreditCardMonthlyInterestEstimate(viewingCard) : null;
+  const isEditingPlaid = editingCard?.source === "PLAID";
 
   const handleSubmit = async (formData: FormData) => {
     const result = editingCard ? await updateCreditCard(editingCard.id, formData) : await createCreditCard(formData);
@@ -89,29 +113,51 @@ export default function CreditCardsCard({
       formRef.current?.reset();
       router.refresh();
     } else {
-      alert("Hubo un error al guardar la tarjeta.");
+      alert(result.error || "Hubo un error al guardar la tarjeta.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Seguro que quieres eliminar esta tarjeta de credito?")) {
-      const result = await deleteCreditCard(id);
-      if (!result.success) {
-        alert("No se pudo eliminar la tarjeta.");
-      } else {
-        setIsOpen(false);
-        setEditingCard(null);
-        setViewingCard(null);
-        router.refresh();
-      }
+    if (!window.confirm("Seguro que quieres eliminar esta tarjeta de credito?")) {
+      return;
     }
+
+    const result = await deleteCreditCard(id);
+    if (!result.success) {
+      alert("No se pudo eliminar la tarjeta.");
+      return;
+    }
+
+    setIsOpen(false);
+    setEditingCard(null);
+    setViewingCard(null);
+    router.refresh();
+  };
+
+  const handleRefresh = async (id: string) => {
+    const result = await refreshLinkedPlaidEntity("credit-card", id);
+    if (!result.success) {
+      alert(result.error || "No se pudo actualizar el balance sincronizado.");
+      return;
+    }
+    router.refresh();
+  };
+
+  const handleDisconnect = async (id: string) => {
+    if (!window.confirm("Esta accion desvinculara el sync bancario y dejara la tarjeta como manual. Continuar?")) {
+      return;
+    }
+
+    const result = await disconnectLinkedPlaidEntity("credit-card", id);
+    if (!result.success) {
+      alert(result.error || "No se pudo desvincular la tarjeta.");
+      return;
+    }
+    router.refresh();
   };
 
   const totalMinimumPayment = creditCards.reduce((sum, card) => sum + getCreditCardEffectiveMinimumPayment(card), 0);
-  const totalMonthlyInterest = creditCards.reduce(
-    (sum, card) => sum + (getCreditCardMonthlyInterestEstimate(card) || 0),
-    0
-  );
+  const totalMonthlyInterest = creditCards.reduce((sum, card) => sum + (getCreditCardMonthlyInterestEstimate(card) || 0), 0);
   const sortedCreditCards = [...creditCards].sort((a, b) => b.balance - a.balance);
 
   return (
@@ -121,7 +167,14 @@ export default function CreditCardsCard({
           <AccordionItem value="credit-cards" className="border-none">
             <AccordionTrigger className="px-4 py-5 transition-all hover:bg-muted/50 hover:no-underline sm:px-6">
               <div className="flex w-full items-center justify-between pr-2 sm:pr-4">
-                <h2 className="text-lg font-semibold text-foreground sm:text-xl">Tarjetas de Credito</h2>
+                <div className="space-y-1">
+                  <h2 className="text-lg font-semibold text-foreground sm:text-xl">Tarjetas de Credito</h2>
+                  {creditCards.some((card) => card.source === "PLAID") ? (
+                    <p className="text-xs text-muted-foreground">
+                      {creditCards.filter((card) => card.source === "PLAID").length} tarjetas con Bank sync
+                    </p>
+                  ) : null}
+                </div>
                 <p className="whitespace-nowrap text-xl font-bold text-red-600 sm:text-2xl">
                   -${totalDebt.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </p>
@@ -142,19 +195,22 @@ export default function CreditCardsCard({
                   </TableHeader>
 
                   <TableBody>
-                    {creditCards.length === 0 && (
+                    {creditCards.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="py-4 text-center text-sm text-muted-foreground">
                           No tienes tarjetas de credito registradas.
                         </TableCell>
                       </TableRow>
-                    )}
+                    ) : null}
 
                     {sortedCreditCards.map((card) => {
                       const availableCredit = card.creditLimit - card.balance;
                       const stale = isCreditCardStale(card);
                       const minimumPayment = getCreditCardEffectiveMinimumPayment(card);
-                      const monthlyInterestEstimate = getCreditCardMonthlyInterestEstimate(card);
+                      const monthlyInterest = getCreditCardMonthlyInterestEstimate(card);
+                      const isPlaid = card.source === "PLAID";
+                      const needsReauth = card.plaidStatus === "NEEDS_REAUTH";
+                      const disconnected = card.plaidStatus === "DISCONNECTED";
 
                       return (
                         <TableRow
@@ -166,19 +222,29 @@ export default function CreditCardsCard({
                             setIsOpen(true);
                           }}
                         >
-                          <TableCell className="max-w-[120px] px-2 font-medium text-sm sm:max-w-[200px] sm:px-4 sm:text-base">
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-2">
+                          <TableCell className="max-w-[160px] px-2 font-medium text-sm sm:max-w-[240px] sm:px-4 sm:text-base">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span className="truncate" title={card.name}>
                                   {card.name}
                                 </span>
+                                <Badge variant={isPlaid ? "secondary" : "outline"}>{isPlaid ? "Bank sync" : "Manual"}</Badge>
                                 {stale ? (
                                   <Badge variant="outline" className={staleBadgeClassName}>
                                     Actualizar
                                   </Badge>
                                 ) : null}
+                                {needsReauth ? <Badge variant="destructive">Needs reauth</Badge> : null}
+                                {disconnected ? <Badge variant="outline">Desvinculada</Badge> : null}
                               </div>
-                              <span className="text-[10px] font-normal text-muted-foreground sm:text-xs">Due {card.dueDate}</span>
+                              <span className="text-[10px] font-normal text-muted-foreground sm:text-xs">
+                                {card.dueDate ? `Due ${card.dueDate}` : "Sin dia de corte"}
+                              </span>
+                              {isPlaid ? (
+                                <span className="text-[10px] font-normal text-muted-foreground sm:text-xs">
+                                  {card.institutionName || "Banco"}{card.mask ? ` • ${card.mask}` : ""}{card.subtype ? ` • ${card.subtype}` : ""} • Sync: {formatSyncDate(card.lastSyncedAt)}
+                                </span>
+                              ) : null}
                             </div>
                           </TableCell>
 
@@ -191,7 +257,7 @@ export default function CreditCardsCard({
                           </TableCell>
 
                           <TableCell className="px-2 text-right text-sm font-semibold text-foreground sm:px-4 sm:text-base">
-                            {monthlyInterestEstimate == null ? "--" : formatCurrency(monthlyInterestEstimate)}
+                            {monthlyInterest == null ? "--" : formatCurrency(monthlyInterest)}
                           </TableCell>
 
                           <TableCell className="w-[40px] px-0 text-right sm:w-[60px] sm:px-4" onClick={(event) => event.stopPropagation()}>
@@ -202,24 +268,55 @@ export default function CreditCardsCard({
                                 </Button>
                               </DropdownMenuTrigger>
 
-                              <DropdownMenuContent align="end" className="w-48 rounded-xl border-border p-2 shadow-xl">
+                              <DropdownMenuContent align="end" className="w-52 rounded-xl border-border p-2 shadow-xl">
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setEditingCard(card);
                                     setViewingCard(null);
                                     setIsOpen(true);
                                   }}
-                                  className="mb-1 cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 focus:bg-blue-50 focus:text-blue-700 data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700 sm:text-base dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:focus:bg-blue-950/50 dark:focus:text-blue-300 dark:data-[highlighted]:bg-blue-950/50 dark:data-[highlighted]:text-blue-300"
+                                  className="mb-1 cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700 sm:text-base dark:hover:bg-blue-950/50 dark:hover:text-blue-300 dark:data-[highlighted]:bg-blue-950/50 dark:data-[highlighted]:text-blue-300"
                                 >
                                   Editar tarjeta
                                 </DropdownMenuItem>
 
-                                <DropdownMenuItem
-                                  onClick={() => handleDelete(card.id)}
-                                  className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 focus:bg-red-50 focus:text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700 sm:text-base dark:hover:bg-red-950/45 dark:hover:text-red-200 dark:focus:bg-red-950/45 dark:focus:text-red-200 dark:data-[highlighted]:bg-red-950/45 dark:data-[highlighted]:text-red-200"
-                                >
-                                  Eliminar tarjeta
-                                </DropdownMenuItem>
+                                {isPlaid ? (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleRefresh(card.id)} className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium">
+                                      <RefreshCcw className="mr-2 h-4 w-4" />
+                                      Actualizar balance
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        if (!card.plaidItemId) {
+                                          alert("No se encontro la referencia bancaria para esta tarjeta.");
+                                          return;
+                                        }
+                                        setReconnectPlaidItemId(card.plaidItemId ?? null);
+                                        setIsPlaidDialogOpen(true);
+                                      }}
+                                      className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium"
+                                    >
+                                      <ShieldAlert className="mr-2 h-4 w-4" />
+                                      Reconectar banco
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => handleDisconnect(card.id)}
+                                      className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700 dark:hover:bg-red-950/45 dark:hover:text-red-200 dark:data-[highlighted]:bg-red-950/45 dark:data-[highlighted]:text-red-200"
+                                    >
+                                      <Unplug className="mr-2 h-4 w-4" />
+                                      Desvincular banco
+                                    </DropdownMenuItem>
+                                  </>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={() => handleDelete(card.id)}
+                                    className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700 sm:text-base dark:hover:bg-red-950/45 dark:hover:text-red-200 dark:data-[highlighted]:bg-red-950/45 dark:data-[highlighted]:text-red-200"
+                                  >
+                                    Eliminar tarjeta
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -277,20 +374,24 @@ export default function CreditCardsCard({
         <AppDialogContent>
           {viewingCard ? (
             <div className="flex flex-col gap-6 py-2">
-              {isCreditCardStale(viewingCard) ? (
-                <div className={staleBannerClassName}>
-                  Esta tarjeta lleva mas de {CREDIT_CARD_STALE_REVIEW_DAYS} dias sin actualizarse.
-                </div>
-              ) : null}
+              {isCreditCardStale(viewingCard) ? <div className={staleBannerClassName}>Esta tarjeta lleva mas de {CREDIT_CARD_STALE_REVIEW_DAYS} dias sin actualizarse.</div> : null}
 
               <div className="mt-4 space-y-1 text-center">
                 <h3 className="text-2xl font-bold tracking-tight text-foreground">{viewingCard.name}</h3>
-                <div className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
-                  Dia de corte: {viewingCard.dueDate}
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Badge variant={viewingCard.source === "PLAID" ? "secondary" : "outline"}>{viewingCard.source === "PLAID" ? "Bank sync" : "Manual"}</Badge>
+                  <div className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
+                    {viewingCard.dueDate ? `Dia de corte: ${viewingCard.dueDate}` : "Sin dia de corte"}
+                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Ultima actualizacion: {formatReviewedDate(getCreditCardLastReviewedAt(viewingCard))}
                 </p>
+                {viewingCard.source === "PLAID" ? (
+                  <p className="text-xs text-muted-foreground">
+                    {viewingCard.institutionName || "Banco"}{viewingCard.mask ? ` • ${viewingCard.mask}` : ""}{viewingCard.subtype ? ` • ${viewingCard.subtype}` : ""} • Sync: {formatSyncDate(viewingCard.lastSyncedAt)}
+                  </p>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border bg-muted/40 p-5 shadow-sm">
@@ -304,35 +405,24 @@ export default function CreditCardsCard({
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Disponible</p>
-                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                    {formatCurrency(viewingCard.creditLimit - viewingCard.balance)}
-                  </p>
+                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(viewingCard.creditLimit - viewingCard.balance)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Pago Min.</p>
-                  <p className="text-lg font-bold text-amber-600">
-                    {formatCurrency(getCreditCardEffectiveMinimumPayment(viewingCard))}
-                  </p>
+                  <p className="text-lg font-bold text-amber-600">{formatCurrency(getCreditCardEffectiveMinimumPayment(viewingCard))}</p>
                   {(viewingCard.minimumPaymentPercentage ?? 0) > 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      Minimo fijo: {formatCurrency(viewingCard.minimumPayment || 0)} - Porcentaje:{" "}
-                      {formatPercent(viewingCard.minimumPaymentPercentage ?? 0)}
+                      Minimo fijo: {formatCurrency(viewingCard.minimumPayment || 0)} - Porcentaje: {formatPercent(viewingCard.minimumPaymentPercentage ?? 0)}
                     </p>
                   ) : null}
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">APR</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {viewingCard.apr == null ? "No configurado" : formatApr(viewingCard.apr)}
-                  </p>
+                  <p className="text-lg font-semibold text-foreground">{viewingCard.apr == null ? "No configurado" : formatApr(viewingCard.apr)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Interes/Mes</p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {monthlyInterestEstimate == null
-                      ? "No configurado"
-                      : formatCurrency(monthlyInterestEstimate)}
-                  </p>
+                  <p className="text-lg font-semibold text-foreground">{monthlyInterestEstimate == null ? "No configurado" : formatCurrency(monthlyInterestEstimate)}</p>
                 </div>
               </div>
 
@@ -353,19 +443,29 @@ export default function CreditCardsCard({
               <DialogHeader>
                 <DialogTitle>{editingCard ? "Editar tarjeta" : "Nueva tarjeta de credito"}</DialogTitle>
                 <DialogDescription>
-                  Indica deuda, limite, APR y dia de corte para seguir tu credito en el tablero.
+                  {isEditingPlaid
+                    ? "Las tarjetas con Bank sync actualizan balance y limite automaticamente. Aqui puedes completar campos faltantes como dia de corte, APR o pago minimo."
+                    : "Indica deuda, limite, APR y dia de corte para seguir tu credito en el tablero."}
                 </DialogDescription>
               </DialogHeader>
 
               <form action={handleSubmit} ref={formRef} className="grid gap-4 py-4">
                 <div className="grid gap-2 text-center">
                   {editingCard ? (
-                    <div className="mb-2 space-y-1">
-                      <Label className="block w-full text-center uppercase tracking-wider text-muted-foreground">
-                        Tarjeta a actualizar
-                      </Label>
-                      <p className="text-lg font-bold uppercase tracking-wider text-foreground">{editingCard.name}</p>
-                      <input type="hidden" name="name" value={editingCard.name} />
+                    <div className="mb-2 space-y-2">
+                      <div className="space-y-1">
+                        <Label className="block w-full text-center uppercase tracking-wider text-muted-foreground">
+                          Tarjeta a actualizar
+                        </Label>
+                        {isEditingPlaid ? (
+                          <Input id="name" name="name" defaultValue={editingCard.name} required className="bg-background text-center text-lg font-bold tracking-wider text-foreground" />
+                        ) : (
+                          <>
+                            <p className="text-lg font-bold uppercase tracking-wider text-foreground">{editingCard.name}</p>
+                            <input type="hidden" name="name" value={editingCard.name} />
+                          </>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2 text-left">
@@ -386,9 +486,10 @@ export default function CreditCardsCard({
                       inputMode="decimal"
                       defaultValue={editingCard?.balance}
                       placeholder="0.00"
-                      required
+                      required={!isEditingPlaid}
+                      readOnly={!!isEditingPlaid}
                       onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
-                      className="bg-background text-right font-medium text-red-600 focus-visible:ring-red-500 dark:text-red-400"
+                      className="bg-background text-right font-medium text-red-600 focus-visible:ring-red-500 read-only:cursor-not-allowed read-only:opacity-70 dark:text-red-400"
                     />
                   </div>
                   <div className="space-y-2">
@@ -401,12 +502,19 @@ export default function CreditCardsCard({
                       inputMode="decimal"
                       defaultValue={editingCard?.creditLimit}
                       placeholder="0.00"
-                      required
+                      required={!isEditingPlaid}
+                      readOnly={!!isEditingPlaid}
                       onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
-                      className="bg-background text-right font-medium text-foreground"
+                      className="bg-background text-right font-medium text-foreground read-only:cursor-not-allowed read-only:opacity-70"
                     />
                   </div>
                 </div>
+
+                {isEditingPlaid ? (
+                  <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+                    Balance y limite quedan controlados por el banco. Puedes editar los campos restantes para completar el seguimiento manual.
+                  </div>
+                ) : null}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -451,7 +559,7 @@ export default function CreditCardsCard({
                       max="31"
                       defaultValue={editingCard?.dueDate ?? ""}
                       placeholder="Ej: 15"
-                      required
+                      required={!isEditingPlaid}
                       onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
                       className="bg-background text-center text-foreground"
                     />
@@ -482,6 +590,18 @@ export default function CreditCardsCard({
           )}
         </AppDialogContent>
       </Dialog>
+
+      <PlaidBankSyncDialog
+        open={isPlaidDialogOpen}
+        onOpenChange={(nextOpen) => {
+          setIsPlaidDialogOpen(nextOpen);
+          if (!nextOpen) {
+            setReconnectPlaidItemId(null);
+          }
+        }}
+        plaidItemId={reconnectPlaidItemId}
+        mode="reconnect"
+      />
     </section>
   );
 }

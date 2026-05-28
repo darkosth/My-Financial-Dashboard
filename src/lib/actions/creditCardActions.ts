@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import { DataSource, type Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { getNextTemplateOccurrence, getTemplateCycleReference } from "@/lib/waterfallCalculations";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
@@ -67,12 +67,6 @@ export async function updateCreditCard(id: string, formData: FormData): Promise<
   try {
     const creditCardId = parseRequiredText(id, "Credit card id");
     const name = getRequiredText(formData, "name", "Credit card name");
-    const balance = getMoneyAmount(formData, "balance", "Balance");
-    const creditLimit = getMoneyAmount(formData, "creditLimit", "Credit limit");
-    const minimumPayment = getOptionalMoneyAmount(formData, "minimumPayment", "Minimum payment", balance * 0.02);
-    const minimumPaymentPercentage = getOptionalPercentage(formData, "minimumPaymentPercentage", "Minimum payment percentage");
-    const apr = getOptionalPercentage(formData, "apr", "APR");
-    const dueDate = getDayOfMonth(formData, "dueDate", "Due date");
     const { activeWorkspace } = await getCurrentUserContext();
     const creditCardRecord = await prisma.creditCard.findFirst({
       where: { id: creditCardId, workspaceId: activeWorkspace.id },
@@ -85,16 +79,32 @@ export async function updateCreditCard(id: string, formData: FormData): Promise<
 
     await prisma.creditCard.update({
       where: { id: creditCard.id },
-      data: {
-        name,
-        ...getMoneyUpdateData(balance, "balanceCents"),
-        ...getMoneyUpdateData(creditLimit, "creditLimitCents"),
-        ...getMoneyUpdateData(minimumPayment, "minimumPaymentCents"),
-        minimumPaymentPercentage,
-        apr,
-        dueDate,
-        lastReviewedAt: new Date(),
-      },
+      data:
+        creditCardRecord?.source === DataSource.PLAID
+          ? {
+              name,
+              ...getMoneyUpdateData(
+                getOptionalMoneyAmount(formData, "minimumPayment", "Minimum payment", creditCard.minimumPayment ?? 0) ?? 0,
+                "minimumPaymentCents",
+              ),
+              minimumPaymentPercentage: getOptionalPercentage(formData, "minimumPaymentPercentage", "Minimum payment percentage"),
+              apr: getOptionalPercentage(formData, "apr", "APR"),
+              dueDate: getDayOfMonth(formData, "dueDate", "Due date", { optional: true }),
+              lastReviewedAt: new Date(),
+            }
+          : {
+              name,
+              ...getMoneyUpdateData(getMoneyAmount(formData, "balance", "Balance"), "balanceCents"),
+              ...getMoneyUpdateData(getMoneyAmount(formData, "creditLimit", "Credit limit"), "creditLimitCents"),
+              ...getMoneyUpdateData(
+                getOptionalMoneyAmount(formData, "minimumPayment", "Minimum payment", creditCard.balance * 0.02),
+                "minimumPaymentCents",
+              ),
+              minimumPaymentPercentage: getOptionalPercentage(formData, "minimumPaymentPercentage", "Minimum payment percentage"),
+              apr: getOptionalPercentage(formData, "apr", "APR"),
+              dueDate: getDayOfMonth(formData, "dueDate", "Due date"),
+              lastReviewedAt: new Date(),
+            },
     });
     revalidateFinanceViews();
     return { success: true };

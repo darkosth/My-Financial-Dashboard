@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { DataSource } from "@prisma/client";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 import { getMoneyAmount, getRequiredText, parseRequiredText, validationFailure, type ActionResult } from "@/lib/actions/validation";
 import { getMoneyUpdateData } from "@/lib/money";
@@ -28,7 +29,6 @@ export async function updateAccount(id: string, formData: FormData): Promise<Act
   try {
     const accountId = parseRequiredText(id, "Account id");
     const name = getRequiredText(formData, "name", "Account name");
-    const balance = getMoneyAmount(formData, "balance", "Balance");
     const { activeWorkspace } = await getCurrentUserContext();
     const account = await prisma.account.findFirst({
       where: { id: accountId, workspaceId: activeWorkspace.id },
@@ -40,7 +40,10 @@ export async function updateAccount(id: string, formData: FormData): Promise<Act
 
     await prisma.account.update({
       where: { id: account.id },
-      data: { name, ...getMoneyUpdateData(balance, "balanceCents") },
+      data:
+        account.source === DataSource.PLAID
+          ? { name }
+          : { name, ...getMoneyUpdateData(getMoneyAmount(formData, "balance", "Balance"), "balanceCents") },
     });
     revalidatePath("/dashboard");
     return { success: true };
@@ -73,4 +76,3 @@ export async function deleteAccount(id: string): Promise<ActionResult> {
     return { success: false, error: "Failed to delete account" };
   }
 }
-

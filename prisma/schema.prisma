@@ -33,6 +33,36 @@ enum WorkspaceRole {
   MEMBER
 }
 
+enum DataSource {
+  MANUAL
+  PLAID
+}
+
+enum PlaidItemStatus {
+  ACTIVE
+  NEEDS_REAUTH
+  DISCONNECTED
+}
+
+enum PlaidSyncStatus {
+  PENDING
+  OK
+  ERROR
+}
+
+enum PlaidAccountKind {
+  DEPOSITORY
+  CREDIT
+  LOAN
+  INVESTMENT
+  OTHER
+}
+
+enum PlaidImportTargetKind {
+  ACCOUNT
+  CREDIT_CARD
+}
+
 model User {
   id          String            @id @default(cuid())
   email       String            @unique
@@ -65,6 +95,7 @@ model Workspace {
   pendingExpenses PendingExpense[]
   paymentCarryovers PaymentCarryover[]
   appSettings AppSettings?
+  plaidItems PlaidItem[]
 
   @@map("workspaces")
 }
@@ -95,34 +126,91 @@ model UserPreference {
 }
 
 model Account {
-  id           String    @id @default(cuid())
-  name         String
-  balanceCents Int       @default(0) @map("balance_cents")
-  workspaceId  String
-  createdAt    DateTime  @default(now())
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id               String              @id @default(cuid())
+  name             String
+  balanceCents     Int                 @default(0) @map("balance_cents")
+  workspaceId      String
+  source           DataSource          @default(MANUAL)
+  createdAt        DateTime            @default(now())
+  workspace        Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plaidRemoteAccount PlaidRemoteAccount? @relation("ImportedAccount")
 
   @@index([workspaceId, createdAt])
+  @@index([workspaceId, source])
 
   @@map("accounts")
 }
 
 model CreditCard {
-  id                       String    @id @default(cuid())
+  id                       String              @id @default(cuid())
   name                     String
-  balanceCents             Int       @default(0) @map("balance_cents")
-  creditLimitCents         Int       @default(0) @map("credit_limit_cents")
-  minimumPaymentCents      Int       @default(0) @map("minimum_payment_cents")
+  balanceCents             Int                 @default(0) @map("balance_cents")
+  creditLimitCents         Int                 @default(0) @map("credit_limit_cents")
+  minimumPaymentCents      Int                 @default(0) @map("minimum_payment_cents")
   minimumPaymentPercentage Float?
   apr                      Float?
-  dueDate                  Int
+  dueDate                  Int?
   workspaceId              String
-  createdAt                DateTime  @default(now())
+  source                   DataSource          @default(MANUAL)
+  createdAt                DateTime            @default(now())
   lastReviewedAt           DateTime?
-  workspace                Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace                Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plaidRemoteAccount       PlaidRemoteAccount? @relation("ImportedCreditCard")
 
   @@index([workspaceId, createdAt])
+  @@index([workspaceId, source])
   @@map("credit_cards")
+}
+
+model PlaidItem {
+  id                    String              @id @default(cuid())
+  workspaceId           String
+  plaidItemId           String              @unique @map("plaid_item_id")
+  accessTokenCiphertext String?             @map("access_token_ciphertext")
+  institutionId         String?             @map("institution_id")
+  institutionName       String?             @map("institution_name")
+  status                PlaidItemStatus     @default(ACTIVE)
+  lastSyncStatus        PlaidSyncStatus     @default(PENDING) @map("last_sync_status")
+  lastSyncedAt          DateTime?           @map("last_synced_at")
+  lastSyncErrorCode     String?             @map("last_sync_error_code")
+  lastSyncErrorMessage  String?             @map("last_sync_error_message")
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  workspace             Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  remoteAccounts        PlaidRemoteAccount[]
+
+  @@index([workspaceId, status])
+  @@map("plaid_items")
+}
+
+model PlaidRemoteAccount {
+  id                    String                 @id @default(cuid())
+  plaidItemId           String
+  workspaceId           String
+  plaidAccountId        String                 @unique @map("plaid_account_id")
+  kind                  PlaidAccountKind
+  subtype               String?
+  name                  String
+  officialName          String?                @map("official_name")
+  mask                  String?
+  isoCurrencyCode       String?                @map("iso_currency_code")
+  currentBalanceCents   Int?                   @map("current_balance_cents")
+  availableBalanceCents Int?                   @map("available_balance_cents")
+  creditLimitCents      Int?                   @map("credit_limit_cents")
+  isImported            Boolean                @default(false) @map("is_imported")
+  importTargetKind      PlaidImportTargetKind? @map("import_target_kind")
+  importedAccountId     String?                @unique @map("imported_account_id")
+  importedCreditCardId  String?                @unique @map("imported_credit_card_id")
+  lastSyncedAt          DateTime?              @map("last_synced_at")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  item                  PlaidItem              @relation(fields: [plaidItemId], references: [id], onDelete: Cascade)
+  importedAccount       Account?               @relation("ImportedAccount", fields: [importedAccountId], references: [id], onDelete: SetNull)
+  importedCreditCard    CreditCard?            @relation("ImportedCreditCard", fields: [importedCreditCardId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, isImported])
+  @@index([plaidItemId])
+  @@map("plaid_remote_accounts")
 }
 
 model Template {

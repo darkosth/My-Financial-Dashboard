@@ -31,6 +31,13 @@ export type AccountLike = {
   id: string;
   name: string;
   balance: number;
+  source?: "MANUAL" | "PLAID";
+  institutionName?: string | null;
+  mask?: string | null;
+  subtype?: string | null;
+  plaidItemId?: string | null;
+  plaidStatus?: string | null;
+  lastSyncedAt?: Date | string | null;
 };
 
 export type CreditCardLike = {
@@ -44,6 +51,13 @@ export type CreditCardLike = {
   apr?: number | null;
   lastReviewedAt?: Date | string | null;
   createdAt: Date | string;
+  source?: "MANUAL" | "PLAID";
+  institutionName?: string | null;
+  mask?: string | null;
+  subtype?: string | null;
+  plaidItemId?: string | null;
+  plaidStatus?: string | null;
+  lastSyncedAt?: Date | string | null;
 };
 
 export type HistoryRecordLike = {

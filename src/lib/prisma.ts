@@ -20,7 +20,9 @@ if (
   !globalForPrisma.prisma.user ||
   !globalForPrisma.prisma.workspace ||
   !globalForPrisma.prisma.workspaceMember ||
-  !globalForPrisma.prisma.userPreference
+  !globalForPrisma.prisma.userPreference ||
+  !globalForPrisma.prisma.plaidItem ||
+  !globalForPrisma.prisma.plaidRemoteAccount
 ) {
   globalForPrisma.prisma = createPrismaClient();
 }
@@ -32,4 +34,3 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export default prisma;
-

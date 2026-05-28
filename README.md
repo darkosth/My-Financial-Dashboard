@@ -29,6 +29,14 @@ Optional Telegram payment alerts:
 
 In production, the cron route fails closed unless `CRON_SECRET` and `TELEGRAM_WORKSPACE_ID` are set. This prevents global financial alerts from reading every workspace.
 
+Optional Plaid bank sync:
+
+- `PLAID_CLIENT_ID`
+- `PLAID_SECRET`
+- `PLAID_ENV` (`sandbox`, `development`, or `production`)
+- `PLAID_ENCRYPTION_KEY` (recommended; falls back to `AUTH_SECRET` if omitted)
+- `PLAID_WEBHOOK_URL` (optional)
+
 ## Verification
 
 ```bash

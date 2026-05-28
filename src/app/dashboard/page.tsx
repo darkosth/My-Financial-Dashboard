@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import AccountsCard from "@/components/dashboard/AccountsCard";
 import CreditCardsCard from "@/components/dashboard/CreditCardsCard";
+import PlaidAutoSync from "@/components/dashboard/PlaidAutoSync";
 import UpcomingCard from "@/components/dashboard/UpcomingCard";
 import WaterfallCard from "@/components/dashboard/WaterfallCard";
 import QuickExpenseButton from "@/app/dashboard/QuickExpenseButton";
@@ -27,6 +28,11 @@ export default async function DashboardPage() {
   return (
     <main className="min-h-screen bg-background p-6 font-sans text-foreground md:p-10">
       <div className="mx-auto max-w-5xl space-y-8">
+        <PlaidAutoSync
+          workspaceId={snapshot.context?.activeWorkspace?.id ?? "workspace"}
+          enabled={snapshot.accounts.some((account) => account.source === "PLAID") || snapshot.creditCards.some((card) => card.source === "PLAID")}
+        />
+
         <DashboardHeader userDisplayName={userDisplayName} workspaceName={snapshot.context?.activeWorkspace?.name} />
 
         <div className="flex justify-start">
