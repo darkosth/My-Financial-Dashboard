@@ -320,7 +320,7 @@ export default function PlaidBankSyncDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={!isPlaidLinkActive}>
       <AppDialogContent
         size="wide"
         showCloseButton={!isPlaidLinkActive}
