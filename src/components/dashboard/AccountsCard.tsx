@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { createAccount, deleteAccount, updateAccount } from "@/lib/actions/accountActions";
 import { disconnectLinkedPlaidEntity, refreshLinkedPlaidEntity } from "@/lib/actions/plaidActions";
-import PlaidBankSyncDialog from "@/components/dashboard/PlaidBankSyncDialog";
 
 type AccountRow = {
   id: string;
@@ -52,8 +51,6 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
   const router = useRouter();
   const [isOpen, setIsOpen] = React.useState(false);
   const [editingAccount, setEditingAccount] = React.useState<AccountRow | null>(null);
-  const [isPlaidDialogOpen, setIsPlaidDialogOpen] = React.useState(false);
-  const [reconnectPlaidItemId, setReconnectPlaidItemId] = React.useState<string | null>(null);
   const formRef = React.useRef<HTMLFormElement | null>(null);
 
   const linkedAccountCount = accounts.filter((account) => account.source === "PLAID").length;
@@ -105,14 +102,17 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
     router.refresh();
   };
 
-  const openReconnectDialog = (account: AccountRow) => {
+  const openReconnectRoute = (account: AccountRow) => {
     if (!account.plaidItemId) {
       alert("No se encontro la referencia bancaria para esta cuenta.");
       return;
     }
 
-    setReconnectPlaidItemId(account.plaidItemId ?? null);
-    setIsPlaidDialogOpen(true);
+    const searchParams = new URLSearchParams({
+      mode: "reconnect",
+      plaidItemId: account.plaidItemId,
+    });
+    router.push(`/plaid?${searchParams.toString()}`);
   };
 
   return (
@@ -217,7 +217,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                                       Actualizar balance
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
-                                      onClick={() => openReconnectDialog(account)}
+                                      onClick={() => openReconnectRoute(account)}
                                       className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium"
                                     >
                                       <ShieldAlert className="mr-2 h-4 w-4" />
@@ -265,10 +265,7 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                 </Button>
                 <Button
                   variant="ghost"
-                  onClick={() => {
-                    setReconnectPlaidItemId(null);
-                    setIsPlaidDialogOpen(true);
-                  }}
+                  onClick={() => router.push("/plaid")}
                   className="mt-2 w-full border border-dashed border-border text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/40 dark:hover:text-blue-200"
                 >
                   <Plus className="mr-2 h-4 w-4" /> Conectar banco
@@ -359,17 +356,6 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
         </AppDialogContent>
       </Dialog>
 
-      <PlaidBankSyncDialog
-        open={isPlaidDialogOpen}
-        onOpenChange={(nextOpen) => {
-          setIsPlaidDialogOpen(nextOpen);
-          if (!nextOpen) {
-            setReconnectPlaidItemId(null);
-          }
-        }}
-        plaidItemId={reconnectPlaidItemId}
-        mode={reconnectPlaidItemId ? "reconnect" : "connect"}
-      />
     </section>
   );
 }

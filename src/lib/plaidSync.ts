@@ -195,7 +195,13 @@ const syncRemoteAccountsForItem = async ({
   }
 };
 
-export const createPlaidLinkToken = async ({ plaidItemId }: { plaidItemId?: string } = {}) => {
+export const createPlaidLinkToken = async ({
+  plaidItemId,
+  requireExistingItem = false,
+}: {
+  plaidItemId?: string;
+  requireExistingItem?: boolean;
+} = {}) => {
   const { user, activeWorkspace } = await getCurrentUserContext();
   const client = getPlaidClient();
   const existingItem =
@@ -204,6 +210,11 @@ export const createPlaidLinkToken = async ({ plaidItemId }: { plaidItemId?: stri
           where: { id: plaidItemId, workspaceId: activeWorkspace.id },
         })
       : null;
+
+  if (plaidItemId && requireExistingItem && !existingItem) {
+    throw new Error("No linked bank item was found to reconnect.");
+  }
+
   const accessToken =
     existingItem?.accessTokenCiphertext != null ? decryptPlaidAccessToken(existingItem.accessTokenCiphertext) : undefined;
   const response = await client.linkTokenCreate(

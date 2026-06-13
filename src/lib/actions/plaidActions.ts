@@ -4,6 +4,20 @@ import { revalidatePath } from "next/cache";
 import { getPlaidItemIdForLocalEntity, syncPlaidItemById, unlinkPlaidEntity } from "@/lib/plaidSync";
 import type { ActionResult } from "@/lib/actions/validation";
 
+const logPlaidActionError = (action: string, error: unknown) => {
+  const details =
+    error instanceof Error
+      ? {
+          name: error.name,
+          message: error.message,
+        }
+      : {
+          message: String(error),
+        };
+
+  console.error(`${action}:`, details);
+};
+
 const revalidateFinanceViews = () => {
   revalidatePath("/dashboard");
   revalidatePath("/calendar");
@@ -22,7 +36,7 @@ export async function refreshLinkedPlaidEntity(entityType: "account" | "credit-c
     revalidateFinanceViews();
     return { success: true };
   } catch (error) {
-    console.error("Error refreshing Plaid sync:", error);
+    logPlaidActionError("Error refreshing Plaid sync", error);
     return { success: false, error: "No se pudo actualizar el balance sincronizado." };
   }
 }
@@ -33,7 +47,7 @@ export async function disconnectLinkedPlaidEntity(entityType: "account" | "credi
     revalidateFinanceViews();
     return { success: true };
   } catch (error) {
-    console.error("Error disconnecting Plaid entity:", error);
+    logPlaidActionError("Error disconnecting Plaid entity", error);
     return { success: false, error: "No se pudo desvincular la cuenta del banco." };
   }
 }

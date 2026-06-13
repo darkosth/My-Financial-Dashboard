@@ -34,8 +34,13 @@ export default function PlaidAutoSync({ workspaceId, enabled }: PlaidAutoSyncPro
       },
       body: JSON.stringify({}),
     })
-      .then((response) => response.json())
-      .then((payload) => {
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as { skipped?: boolean } | null;
+
+        if (!response.ok) {
+          throw new Error("Plaid sync request failed");
+        }
+
         if (!payload?.skipped) {
           router.refresh();
         }

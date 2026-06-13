@@ -21,7 +21,6 @@ import {
   getCreditCardMonthlyInterestEstimate,
   isCreditCardStale,
 } from "@/lib/creditCardReview";
-import PlaidBankSyncDialog from "@/components/dashboard/PlaidBankSyncDialog";
 
 type CreditCardRow = {
   id: string;
@@ -97,8 +96,6 @@ export default function CreditCardsCard({
   const [isOpen, setIsOpen] = React.useState(false);
   const [editingCard, setEditingCard] = React.useState<CreditCardRow | null>(null);
   const [viewingCard, setViewingCard] = React.useState<CreditCardRow | null>(null);
-  const [reconnectPlaidItemId, setReconnectPlaidItemId] = React.useState<string | null>(null);
-  const [isPlaidDialogOpen, setIsPlaidDialogOpen] = React.useState(false);
   const formRef = React.useRef<HTMLFormElement | null>(null);
   const monthlyInterestEstimate = viewingCard ? getCreditCardMonthlyInterestEstimate(viewingCard) : null;
   const isEditingPlaid = editingCard?.source === "PLAID";
@@ -292,8 +289,11 @@ export default function CreditCardsCard({
                                           alert("No se encontro la referencia bancaria para esta tarjeta.");
                                           return;
                                         }
-                                        setReconnectPlaidItemId(card.plaidItemId ?? null);
-                                        setIsPlaidDialogOpen(true);
+                                        const searchParams = new URLSearchParams({
+                                          mode: "reconnect",
+                                          plaidItemId: card.plaidItemId,
+                                        });
+                                        router.push(`/plaid?${searchParams.toString()}`);
                                       }}
                                       className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium"
                                     >
@@ -591,17 +591,6 @@ export default function CreditCardsCard({
         </AppDialogContent>
       </Dialog>
 
-      <PlaidBankSyncDialog
-        open={isPlaidDialogOpen}
-        onOpenChange={(nextOpen) => {
-          setIsPlaidDialogOpen(nextOpen);
-          if (!nextOpen) {
-            setReconnectPlaidItemId(null);
-          }
-        }}
-        plaidItemId={reconnectPlaidItemId}
-        mode="reconnect"
-      />
     </section>
   );
 }

@@ -99,8 +99,22 @@ export const toApiError = (error: unknown, { fallbackMessage }: ErrorContext): A
 export const logApiError = (error: unknown, { action, fallbackMessage }: ErrorContext) => {
   const normalizedError = toApiError(error, { action, fallbackMessage });
   const logMethod = normalizedError.status >= 500 ? console.error : console.warn;
+  const details =
+    error instanceof Error
+      ? {
+          name: error.name,
+          message: error.message,
+        }
+      : {
+          message: String(error),
+        };
 
-  logMethod(`${action}:`, error);
+  logMethod(`${action}:`, {
+    code: normalizedError.code,
+    details,
+    message: normalizedError.message,
+    status: normalizedError.status,
+  });
 
   return normalizedError;
 };
