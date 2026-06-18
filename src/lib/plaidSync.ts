@@ -24,6 +24,7 @@ import {
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 
 type DbClient = Prisma.TransactionClient;
+type PlaidBalanceAccount = ReturnType<typeof extractBalanceAccounts>[number];
 
 type PlaidApiError = {
   response?: {
@@ -101,7 +102,7 @@ const buildRemoteAccountUpsertPayload = ({
   workspaceId: string;
   plaidItemId: string;
   institutionName: string | null;
-  account: Awaited<ReturnType<typeof extractBalanceAccounts>>[number];
+  account: PlaidBalanceAccount;
 }) => ({
   workspaceId,
   plaidItemId,
@@ -123,17 +124,17 @@ const buildRemoteAccountUpsertPayload = ({
   lastSyncedAt: new Date(),
 });
 
-const syncRemoteAccountsForItem = async ({
-  tx,
-  plaidItemId,
-  workspaceId,
+type PlaidItemSnapshot = {
+  accounts: PlaidBalanceAccount[];
+  institutionId: string | null;
+  institutionName: string | null;
+};
+
+const fetchPlaidItemSnapshot = async ({
   accessTokenCiphertext,
 }: {
-  tx: DbClient;
-  plaidItemId: string;
-  workspaceId: string;
   accessTokenCiphertext: string;
-}) => {
+}): Promise<PlaidItemSnapshot> => {
   const client = getPlaidClient();
   const accessToken = decryptPlaidAccessToken(accessTokenCiphertext);
   const balanceResponse = await client.accountsBalanceGet({
@@ -149,22 +150,37 @@ const syncRemoteAccountsForItem = async ({
           })
           .catch(() => null)
       : null;
-  const institutionName = getPlaidInstitutionName(institution?.data?.institution);
-  const accounts = extractBalanceAccounts(balanceResponse.data);
+  return {
+    accounts: extractBalanceAccounts(balanceResponse.data),
+    institutionId: institutionId ?? null,
+    institutionName: getPlaidInstitutionName(institution?.data?.institution),
+  };
+};
 
+const persistPlaidItemSnapshot = async ({
+  tx,
+  plaidItemId,
+  workspaceId,
+  snapshot,
+}: {
+  tx: DbClient;
+  plaidItemId: string;
+  workspaceId: string;
+  snapshot: PlaidItemSnapshot;
+}) => {
   await tx.plaidItem.update({
     where: { id: plaidItemId },
     data: {
-      institutionId: institutionId ?? null,
-      institutionName,
+      institutionId: snapshot.institutionId,
+      institutionName: snapshot.institutionName,
     },
   });
 
-  for (const account of accounts) {
+  for (const account of snapshot.accounts) {
     const payload = buildRemoteAccountUpsertPayload({
       workspaceId,
       plaidItemId,
-      institutionName,
+      institutionName: snapshot.institutionName,
       account,
     });
 
@@ -264,24 +280,45 @@ export const connectPlaidItem = async ({ publicToken }: { publicToken: string })
     },
   });
 
-  await withPlaidItemLock(`plaid-item:${item.id}`, async (tx) => {
-    await syncRemoteAccountsForItem({
-      tx,
-      plaidItemId: item.id,
-      workspaceId: activeWorkspace.id,
+  try {
+    const snapshot = await fetchPlaidItemSnapshot({
       accessTokenCiphertext: encryptedAccessToken,
     });
-    await tx.plaidItem.update({
+
+    await withPlaidItemLock(`plaid-item:${item.id}`, async (tx) => {
+      await persistPlaidItemSnapshot({
+        tx,
+        plaidItemId: item.id,
+        workspaceId: activeWorkspace.id,
+        snapshot,
+      });
+      await tx.plaidItem.update({
+        where: { id: item.id },
+        data: {
+          status: PlaidItemStatus.ACTIVE,
+          lastSyncStatus: PlaidSyncStatus.OK,
+          lastSyncedAt: new Date(),
+          lastSyncErrorCode: null,
+          lastSyncErrorMessage: null,
+        },
+      });
+    });
+  } catch (error) {
+    const { code, message } = getErrorDetails(error);
+    const status = resolveItemStatusFromError(code);
+
+    await prisma.plaidItem.update({
       where: { id: item.id },
       data: {
-        status: PlaidItemStatus.ACTIVE,
-        lastSyncStatus: PlaidSyncStatus.OK,
-        lastSyncedAt: new Date(),
-        lastSyncErrorCode: null,
-        lastSyncErrorMessage: null,
+        status,
+        lastSyncStatus: PlaidSyncStatus.ERROR,
+        lastSyncErrorCode: code,
+        lastSyncErrorMessage: message,
       },
     });
-  });
+
+    throw error;
+  }
 
   const remotes = await prisma.plaidRemoteAccount.findMany({
     where: { plaidItemId: item.id },
@@ -426,16 +463,20 @@ export const syncPlaidItemById = async (plaidItemId: string): Promise<SyncSummar
   }
 
   try {
+    const snapshot = await fetchPlaidItemSnapshot({
+      accessTokenCiphertext: item.accessTokenCiphertext!,
+    });
+
     return await withPlaidItemLock(`plaid-item:${item.id}`, async (tx) => {
       const before = await tx.plaidRemoteAccount.findMany({
         where: { plaidItemId: item.id },
       });
 
-      await syncRemoteAccountsForItem({
+      await persistPlaidItemSnapshot({
         tx,
         plaidItemId: item.id,
         workspaceId: activeWorkspace.id,
-        accessTokenCiphertext: item.accessTokenCiphertext!,
+        snapshot,
       });
 
       await tx.plaidItem.update({
