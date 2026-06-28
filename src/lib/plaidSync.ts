@@ -688,12 +688,21 @@ export const unlinkPlaidEntity = async ({
   });
 };
 
-export const getPlaidRawBalanceDebug = async ({ plaidItemId }: { plaidItemId: string }): Promise<PlaidRawBalanceDebug> => {
-  const { activeWorkspace } = await getCurrentUserContext();
+export const getPlaidRawBalanceDebug = async ({
+  plaidItemId,
+  requireWorkspaceAccess = true,
+}: {
+  plaidItemId: string;
+  requireWorkspaceAccess?: boolean;
+}): Promise<PlaidRawBalanceDebug> => {
+  const workspaceId =
+    requireWorkspaceAccess
+      ? (await getCurrentUserContext()).activeWorkspace.id
+      : null;
   const item = await prisma.plaidItem.findFirst({
     where: {
       id: plaidItemId,
-      workspaceId: activeWorkspace.id,
+      ...(workspaceId ? { workspaceId } : {}),
     },
   });
 
