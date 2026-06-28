@@ -70,6 +70,9 @@ export async function updateCreditCard(id: string, formData: FormData): Promise<
     const { activeWorkspace } = await getCurrentUserContext();
     const creditCardRecord = await prisma.creditCard.findFirst({
       where: { id: creditCardId, workspaceId: activeWorkspace.id },
+      include: {
+        plaidRemoteAccount: true,
+      },
     });
     const creditCard = creditCardRecord ? serializeCreditCard(creditCardRecord) : null;
 
@@ -77,12 +80,23 @@ export async function updateCreditCard(id: string, formData: FormData): Promise<
       throw new Error("Credit card not found");
     }
 
+    const canEditPlaidCreditLimit =
+      creditCardRecord?.source === DataSource.PLAID && creditCardRecord.plaidRemoteAccount?.creditLimitCents == null;
+
     await prisma.creditCard.update({
       where: { id: creditCard.id },
       data:
         creditCardRecord?.source === DataSource.PLAID
           ? {
               name,
+              ...(canEditPlaidCreditLimit
+                ? {
+                    ...getMoneyUpdateData(
+                      getOptionalMoneyAmount(formData, "creditLimit", "Credit limit", 0) ?? 0,
+                      "creditLimitCents",
+                    ),
+                  }
+                : {}),
               ...getMoneyUpdateData(
                 getOptionalMoneyAmount(formData, "minimumPayment", "Minimum payment", creditCard.minimumPayment ?? 0) ?? 0,
                 "minimumPaymentCents",

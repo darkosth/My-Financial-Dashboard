@@ -45,7 +45,10 @@ export type CreditCardLike = {
   name: string;
   dueDate?: number | null;
   balance: number;
-  creditLimit: number;
+  creditLimit: number | null;
+  bankCreditLimit?: number | null;
+  canEditCreditLimit?: boolean;
+  isManualCreditLimitFallback?: boolean;
   minimumPayment?: number | null;
   minimumPaymentPercentage?: number | null;
   apr?: number | null;
@@ -166,8 +169,8 @@ export const buildFinanceSnapshot = (data: FinanceSnapshotInput, todayInput: Dat
   const pendingExpensesTotal = pendingExpenses.reduce((acc, expense) => acc + expense.amount, 0);
   const totalLiquidity = totalAccountBalances - pendingExpensesTotal;
   const totalDebt = creditCards.reduce((acc, card) => acc + card.balance, 0);
-  const totalCreditLimit = creditCards.reduce((acc, card) => acc + card.creditLimit, 0);
-  const totalAvailableCredit = totalCreditLimit - totalDebt;
+  const totalCreditLimit = creditCards.reduce((acc, card) => acc + (card.creditLimit ?? 0), 0);
+  const totalAvailableCredit = creditCards.reduce((acc, card) => acc + (card.creditLimit == null ? 0 : card.creditLimit - card.balance), 0);
 
   const waterfallData = calculateWaterfall({
     totalLiquidity,

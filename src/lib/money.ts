@@ -21,6 +21,7 @@ const serializePlaidMetadata = <
     plaidRemoteAccount?: {
       mask?: string | null;
       subtype?: string | null;
+      creditLimitCents?: MoneyCents | null;
       item?: {
         id?: string | null;
         institutionName?: string | null;
@@ -47,6 +48,8 @@ const serializePlaidMetadata = <
     institutionName: entity.plaidRemoteAccount.item?.institutionName ?? null,
     mask: entity.plaidRemoteAccount.mask ?? null,
     subtype: entity.plaidRemoteAccount.subtype ?? null,
+    bankCreditLimit:
+      entity.plaidRemoteAccount.creditLimitCents == null ? null : resolveStoredMoney(entity.plaidRemoteAccount.creditLimitCents),
     plaidItemId: entity.plaidRemoteAccount.item?.id ?? null,
     plaidStatus: entity.plaidRemoteAccount.item?.status ?? null,
     lastSyncedAt: entity.plaidRemoteAccount.item?.lastSyncedAt ?? null,
@@ -87,6 +90,7 @@ export const serializeCreditCard = <
     plaidRemoteAccount?: {
       mask?: string | null;
       subtype?: string | null;
+      creditLimitCents?: MoneyCents | null;
       item?: {
         id?: string | null;
         institutionName?: string | null;
@@ -99,12 +103,19 @@ export const serializeCreditCard = <
   creditCard: T,
 ) => {
   const { balanceCents, creditLimitCents, minimumPaymentCents, ...rest } = creditCard;
+  const bankCreditLimitCents = creditCard.plaidRemoteAccount?.creditLimitCents ?? null;
+  const localCreditLimit = resolveStoredMoney(creditLimitCents);
+  const bankCreditLimit = bankCreditLimitCents == null ? null : resolveStoredMoney(bankCreditLimitCents);
+  const isManualCreditLimitFallback = bankCreditLimit == null && !!creditCard.plaidRemoteAccount && (creditLimitCents ?? 0) > 0;
+  const resolvedCreditLimit = bankCreditLimit ?? (isManualCreditLimitFallback ? localCreditLimit : creditCard.plaidRemoteAccount ? null : localCreditLimit);
 
   return {
     ...rest,
     balance: resolveStoredMoney(balanceCents),
-    creditLimit: resolveStoredMoney(creditLimitCents),
+    creditLimit: resolvedCreditLimit,
     minimumPayment: resolveStoredMoney(minimumPaymentCents),
+    canEditCreditLimit: !creditCard.plaidRemoteAccount || bankCreditLimit == null,
+    isManualCreditLimitFallback,
     ...serializePlaidMetadata(creditCard),
   };
 };

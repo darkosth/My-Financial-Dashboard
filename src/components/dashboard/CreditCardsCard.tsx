@@ -26,7 +26,10 @@ type CreditCardRow = {
   id: string;
   name: string;
   balance: number;
-  creditLimit: number;
+  creditLimit: number | null;
+  bankCreditLimit?: number | null;
+  canEditCreditLimit?: boolean;
+  isManualCreditLimitFallback?: boolean;
   dueDate?: number | null;
   minimumPayment?: number | null;
   minimumPaymentPercentage?: number | null;
@@ -58,6 +61,8 @@ const formatReviewedDate = (value: Date | string) =>
 
 const formatCurrency = (value: number) =>
   `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatCurrencyOrPlaceholder = (value: number | null | undefined) => (value == null ? "--" : formatCurrency(value));
 
 const formatApr = (value: number) =>
   `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
@@ -99,6 +104,7 @@ export default function CreditCardsCard({
   const formRef = React.useRef<HTMLFormElement | null>(null);
   const monthlyInterestEstimate = viewingCard ? getCreditCardMonthlyInterestEstimate(viewingCard) : null;
   const isEditingPlaid = editingCard?.source === "PLAID";
+  const canEditPlaidCreditLimit = !!editingCard?.canEditCreditLimit;
 
   const handleSubmit = async (formData: FormData) => {
     const result = editingCard ? await updateCreditCard(editingCard.id, formData) : await createCreditCard(formData);
@@ -201,7 +207,7 @@ export default function CreditCardsCard({
                     ) : null}
 
                     {sortedCreditCards.map((card) => {
-                      const availableCredit = card.creditLimit - card.balance;
+                      const availableCredit = card.creditLimit == null ? null : card.creditLimit - card.balance;
                       const stale = isCreditCardStale(card);
                       const minimumPayment = getCreditCardEffectiveMinimumPayment(card);
                       const monthlyInterest = getCreditCardMonthlyInterestEstimate(card);
@@ -226,6 +232,8 @@ export default function CreditCardsCard({
                                   {card.name}
                                 </span>
                                 <Badge variant={isPlaid ? "secondary" : "outline"}>{isPlaid ? "Bank sync" : "Manual"}</Badge>
+                                {card.isManualCreditLimitFallback ? <Badge variant="outline">Manual fallback</Badge> : null}
+                                {isPlaid && card.creditLimit == null ? <Badge variant="outline">Sin limite bancario</Badge> : null}
                                 {stale ? (
                                   <Badge variant="outline" className={staleBadgeClassName}>
                                     Actualizar
@@ -246,7 +254,7 @@ export default function CreditCardsCard({
                           </TableCell>
 
                           <TableCell className="px-2 text-right text-sm font-medium text-emerald-600 dark:text-emerald-400 sm:px-4 sm:text-base">
-                            {formatCurrency(availableCredit)}
+                            {formatCurrencyOrPlaceholder(availableCredit)}
                           </TableCell>
 
                           <TableCell className="px-2 text-right text-sm font-semibold text-amber-600 sm:px-4 sm:text-base">
@@ -380,6 +388,7 @@ export default function CreditCardsCard({
                 <h3 className="text-2xl font-bold tracking-tight text-foreground">{viewingCard.name}</h3>
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <Badge variant={viewingCard.source === "PLAID" ? "secondary" : "outline"}>{viewingCard.source === "PLAID" ? "Bank sync" : "Manual"}</Badge>
+                  {viewingCard.isManualCreditLimitFallback ? <Badge variant="outline">Manual fallback</Badge> : null}
                   <div className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
                     {viewingCard.dueDate ? `Dia de corte: ${viewingCard.dueDate}` : "Sin dia de corte"}
                   </div>
@@ -397,7 +406,10 @@ export default function CreditCardsCard({
               <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border bg-muted/40 p-5 shadow-sm">
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Limite Total</p>
-                  <p className="text-lg font-semibold text-foreground">{formatCurrency(viewingCard.creditLimit)}</p>
+                  <p className="text-lg font-semibold text-foreground">{formatCurrencyOrPlaceholder(viewingCard.creditLimit)}</p>
+                  {viewingCard.source === "PLAID" && viewingCard.creditLimit == null ? (
+                    <p className="text-xs text-muted-foreground">Plaid no envio este limite. Puedes completarlo manualmente.</p>
+                  ) : null}
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Deuda Actual</p>
@@ -405,7 +417,9 @@ export default function CreditCardsCard({
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Disponible</p>
-                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(viewingCard.creditLimit - viewingCard.balance)}</p>
+                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                    {viewingCard.creditLimit == null ? "--" : formatCurrency(viewingCard.creditLimit - viewingCard.balance)}
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Pago Min.</p>
@@ -444,7 +458,9 @@ export default function CreditCardsCard({
                 <DialogTitle>{editingCard ? "Editar tarjeta" : "Nueva tarjeta de credito"}</DialogTitle>
                 <DialogDescription>
                   {isEditingPlaid
-                    ? "Las tarjetas con Bank sync actualizan balance y limite automaticamente. Aqui puedes completar campos faltantes como dia de corte, APR o pago minimo."
+                    ? canEditPlaidCreditLimit
+                      ? "La deuda sigue sincronizada con el banco. Como Plaid no envio el limite, aqui puedes completarlo manualmente junto con dia de corte, APR o pago minimo."
+                      : "Las tarjetas con Bank sync actualizan balance y limite automaticamente. Aqui puedes completar campos faltantes como dia de corte, APR o pago minimo."
                     : "Indica deuda, limite, APR y dia de corte para seguir tu credito en el tablero."}
                 </DialogDescription>
               </DialogHeader>
@@ -500,10 +516,10 @@ export default function CreditCardsCard({
                       type="number"
                       step="0.01"
                       inputMode="decimal"
-                      defaultValue={editingCard?.creditLimit}
-                      placeholder="0.00"
+                      defaultValue={editingCard?.creditLimit ?? undefined}
+                      placeholder={isEditingPlaid && canEditPlaidCreditLimit ? "Opcional si el banco no lo envio" : "0.00"}
                       required={!isEditingPlaid}
-                      readOnly={!!isEditingPlaid}
+                      readOnly={!!isEditingPlaid && !canEditPlaidCreditLimit}
                       onFocus={(event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select()}
                       className="bg-background text-right font-medium text-foreground read-only:cursor-not-allowed read-only:opacity-70"
                     />
@@ -512,7 +528,9 @@ export default function CreditCardsCard({
 
                 {isEditingPlaid ? (
                   <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-                    Balance y limite quedan controlados por el banco. Puedes editar los campos restantes para completar el seguimiento manual.
+                    {canEditPlaidCreditLimit
+                      ? "El balance queda controlado por el banco. Este limite no vino en Plaid, asi que puedes guardarlo manualmente sin romper el sync."
+                      : "Balance y limite quedan controlados por el banco. Puedes editar los campos restantes para completar el seguimiento manual."}
                   </div>
                 ) : null}
 

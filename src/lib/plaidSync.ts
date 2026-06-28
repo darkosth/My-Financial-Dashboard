@@ -41,46 +41,6 @@ type SyncSummary = {
   status: PlaidItemStatus;
 };
 
-type PlaidRawBalanceDebugAccount = {
-  accountId: string;
-  name: string;
-  officialName: string | null;
-  type: string;
-  subtype: string | null;
-  mask: string | null;
-  balances: {
-    available: number | null;
-    current: number | null;
-    limit: number | null;
-    isoCurrencyCode: string | null;
-    unofficialCurrencyCode: string | null;
-  };
-  parserResult: {
-    kind: ReturnType<typeof mapPlaidAccountKind>;
-    currentBalanceCents: number;
-    availableBalanceCents: number | null;
-    creditLimitCents: number | null;
-  };
-  persistedRemote: {
-    id: string;
-    name: string;
-    kind: string;
-    subtype: string | null;
-    currentBalanceCents: number | null;
-    availableBalanceCents: number | null;
-    creditLimitCents: number | null;
-    isImported: boolean;
-    importTargetKind: string | null;
-    importedCreditCardId: string | null;
-  } | null;
-};
-
-export type PlaidRawBalanceDebug = {
-  plaidItemId: string;
-  institutionName: string | null;
-  accounts: PlaidRawBalanceDebugAccount[];
-};
-
 export type PlaidReviewAccount = {
   id: string;
   name: string;
@@ -244,7 +204,7 @@ const persistPlaidItemSnapshot = async ({
         where: { id: remoteAccount.importedCreditCardId },
         data: {
           balanceCents: payload.currentBalanceCents ?? 0,
-          creditLimitCents: payload.creditLimitCents ?? 0,
+          ...(payload.creditLimitCents == null ? {} : { creditLimitCents: payload.creditLimitCents }),
         },
       });
     }
@@ -686,103 +646,4 @@ export const unlinkPlaidEntity = async ({
       disconnectedItem: remainingImports === 0,
     };
   });
-};
-
-export const getPlaidRawBalanceDebug = async ({
-  plaidItemId,
-  requireWorkspaceAccess = true,
-}: {
-  plaidItemId: string;
-  requireWorkspaceAccess?: boolean;
-}): Promise<PlaidRawBalanceDebug> => {
-  const workspaceId =
-    requireWorkspaceAccess
-      ? (await getCurrentUserContext()).activeWorkspace.id
-      : null;
-  const item = await prisma.plaidItem.findFirst({
-    where: {
-      id: plaidItemId,
-      ...(workspaceId ? { workspaceId } : {}),
-    },
-  });
-
-  if (!item) {
-    throw new Error("Plaid item not found");
-  }
-
-  if (!item.accessTokenCiphertext) {
-    throw new Error("Linked Plaid account not found");
-  }
-
-  const client = getPlaidClient();
-  const accessToken = decryptPlaidAccessToken(item.accessTokenCiphertext);
-  const balanceResponse = await client.accountsBalanceGet({
-    access_token: accessToken,
-  });
-
-  const persistedRemotes = await prisma.plaidRemoteAccount.findMany({
-    where: {
-      plaidItemId: item.id,
-    },
-    select: {
-      id: true,
-      plaidAccountId: true,
-      name: true,
-      kind: true,
-      subtype: true,
-      currentBalanceCents: true,
-      availableBalanceCents: true,
-      creditLimitCents: true,
-      isImported: true,
-      importTargetKind: true,
-      importedCreditCardId: true,
-    },
-  });
-
-  const persistedByAccountId = new Map(persistedRemotes.map((remote) => [remote.plaidAccountId, remote]));
-
-  return {
-    plaidItemId: item.id,
-    institutionName: item.institutionName,
-    accounts: balanceResponse.data.accounts.map((account) => {
-      const persistedRemote = persistedByAccountId.get(account.account_id) ?? null;
-
-      return {
-        accountId: account.account_id,
-        name: account.name,
-        officialName: account.official_name ?? null,
-        type: account.type,
-        subtype: account.subtype ?? null,
-        mask: account.mask ?? null,
-        balances: {
-          available: account.balances.available ?? null,
-          current: account.balances.current ?? null,
-          limit: account.balances.limit ?? null,
-          isoCurrencyCode: account.balances.iso_currency_code ?? null,
-          unofficialCurrencyCode: account.balances.unofficial_currency_code ?? null,
-        },
-        parserResult: {
-          kind: mapPlaidAccountKind(account.type),
-          currentBalanceCents: amountToCents(account.balances.current ?? 0),
-          availableBalanceCents: account.balances.available == null ? null : amountToCents(account.balances.available),
-          creditLimitCents: account.balances.limit == null ? null : amountToCents(account.balances.limit),
-        },
-        persistedRemote:
-          persistedRemote == null
-            ? null
-            : {
-                id: persistedRemote.id,
-                name: persistedRemote.name,
-                kind: persistedRemote.kind,
-                subtype: persistedRemote.subtype,
-                currentBalanceCents: persistedRemote.currentBalanceCents,
-                availableBalanceCents: persistedRemote.availableBalanceCents,
-                creditLimitCents: persistedRemote.creditLimitCents,
-                isImported: persistedRemote.isImported,
-                importTargetKind: persistedRemote.importTargetKind,
-                importedCreditCardId: persistedRemote.importedCreditCardId,
-              },
-      };
-    }),
-  };
 };
