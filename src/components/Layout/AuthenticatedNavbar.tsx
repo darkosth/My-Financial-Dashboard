@@ -13,6 +13,7 @@ import {
   Settings,
   Wallet,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,11 +59,13 @@ export default function AuthenticatedNavbar({
   workspaceName,
   buildCommitLabel,
   buildCommitSha,
+  isSuperAdmin,
 }: {
   userName: string;
   workspaceName: string;
   buildCommitLabel?: string | null;
   buildCommitSha?: string | null;
+  isSuperAdmin: boolean;
 }) {
   const pathname = usePathname();
 
@@ -167,6 +170,18 @@ export default function AuthenticatedNavbar({
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
+
+                {isSuperAdmin ? (
+                  <>
+                    <DropdownMenuItem asChild className={mobileMenuItemClassName}>
+                      <Link href="/admin/access" className="flex items-center gap-2 font-medium text-emerald-700 max-sm:gap-3 dark:text-emerald-300">
+                        <ShieldCheck className={mobileMenuIconClassName} />
+                        <span>Premium Access</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                ) : null}
 
                 <DropdownMenuItem variant="destructive" onSelect={handleLogout} className={mobileMenuItemClassName}>
                   <LogOut className={mobileMenuIconClassName} />

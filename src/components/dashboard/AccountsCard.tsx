@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Plus, RefreshCcw, ShieldAlert, Unplug } from "lucide-react";
+import { LockKeyhole, MoreHorizontal, Plus, RefreshCcw, ShieldAlert, Unplug } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ type AccountsCardProps = {
   accounts: AccountRow[];
   totalLiquidity: number;
   pendingExpensesTotal: number;
+  hasPlaidAccess: boolean;
 };
 
 const formatSyncDate = (value: Date | string | null | undefined) => {
@@ -47,7 +48,7 @@ const formatSyncDate = (value: Date | string | null | undefined) => {
   }).format(new Date(value));
 };
 
-export default function AccountsCard({ accounts, totalLiquidity, pendingExpensesTotal }: AccountsCardProps) {
+export default function AccountsCard({ accounts, totalLiquidity, pendingExpensesTotal, hasPlaidAccess }: AccountsCardProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = React.useState(false);
   const [editingAccount, setEditingAccount] = React.useState<AccountRow | null>(null);
@@ -174,8 +175,13 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                               <div className="flex flex-wrap items-center gap-2">
                                 <span>{account.name}</span>
                                 <Badge variant={isPlaid ? "secondary" : "outline"}>{isPlaid ? "Bank sync" : "Manual"}</Badge>
-                                {needsReauth ? <Badge variant="destructive">Needs reauth</Badge> : null}
-                                {disconnected ? <Badge variant="outline">Desvinculada</Badge> : null}
+                                {disconnected ? (
+                                  <Badge variant="outline">Desvinculada</Badge>
+                                ) : isPlaid && !hasPlaidAccess ? (
+                                  <Badge variant="outline">Sync pausado</Badge>
+                                ) : needsReauth ? (
+                                  <Badge variant="destructive">Necesita reconexion</Badge>
+                                ) : null}
                               </div>
                               {isPlaid ? (
                                 <span className="text-xs font-normal text-muted-foreground">
@@ -209,21 +215,25 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
 
                                 {isPlaid ? (
                                   <>
-                                    <DropdownMenuItem
-                                      onClick={() => handleRefresh(account.id)}
-                                      className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium"
-                                    >
-                                      <RefreshCcw className="mr-2 h-4 w-4" />
-                                      Actualizar balance
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => openReconnectRoute(account)}
-                                      className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium"
-                                    >
-                                      <ShieldAlert className="mr-2 h-4 w-4" />
-                                      Reconectar banco
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
+                                    {hasPlaidAccess ? (
+                                      <>
+                                        <DropdownMenuItem
+                                          onClick={() => handleRefresh(account.id)}
+                                          className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium"
+                                        >
+                                          <RefreshCcw className="mr-2 h-4 w-4" />
+                                          Actualizar balance
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => openReconnectRoute(account)}
+                                          className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium"
+                                        >
+                                          <ShieldAlert className="mr-2 h-4 w-4" />
+                                          Reconectar banco
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                      </>
+                                    ) : null}
                                     <DropdownMenuItem
                                       onClick={() => handleDisconnect(account.id)}
                                       className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700 dark:hover:bg-red-950/45 dark:hover:text-red-200 dark:data-[highlighted]:bg-red-950/45 dark:data-[highlighted]:text-red-200"
@@ -265,10 +275,18 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
                 </Button>
                 <Button
                   variant="ghost"
-                  onClick={() => router.push("/plaid")}
+                  onClick={() => {
+                    if (hasPlaidAccess) {
+                      router.push("/plaid");
+                      return;
+                    }
+                    alert("La sincronizacion bancaria requiere acceso premium. Solicitalo al administrador.");
+                  }}
+                  aria-label={hasPlaidAccess ? "Conectar banco" : "Informacion sobre sincronizacion bancaria premium"}
                   className="mt-2 w-full border border-dashed border-border text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/40 dark:hover:text-blue-200"
                 >
-                  <Plus className="mr-2 h-4 w-4" /> Conectar banco
+                  {hasPlaidAccess ? <Plus className="mr-2 h-4 w-4" /> : <LockKeyhole className="mr-2 h-4 w-4" />}
+                  {hasPlaidAccess ? "Conectar banco" : "Bank sync premium"}
                 </Button>
               </div>
             </AccordionContent>
@@ -291,7 +309,9 @@ export default function AccountsCard({ accounts, totalLiquidity, pendingExpenses
             <DialogDescription>
               {editingAccount
                 ? isEditingPlaid
-                  ? "Las cuentas con Bank sync actualizan su balance automaticamente. Aqui solo puedes ajustar el nombre visible."
+                  ? hasPlaidAccess
+                    ? "Las cuentas con Bank sync actualizan su balance automaticamente. Aqui solo puedes ajustar el nombre visible."
+                    : "La sincronizacion esta pausada. El ultimo balance permanece visible y puedes ajustar el nombre o desvincular la cuenta."
                   : "Actualiza el dinero disponible que tienes actualmente en esta cuenta."
                 : "Registra el dinero disponible que tienes actualmente en tu banco o en efectivo."}
             </DialogDescription>

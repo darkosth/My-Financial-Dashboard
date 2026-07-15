@@ -8,15 +8,25 @@ import PlaidAutoSync from "@/components/dashboard/PlaidAutoSync";
 import UpcomingCard from "@/components/dashboard/UpcomingCard";
 import WaterfallCard from "@/components/dashboard/WaterfallCard";
 import QuickExpenseButton from "@/app/dashboard/QuickExpenseButton";
+import { userHasFeatureAccess } from "@/lib/featureAccess";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await auth();
 
   if (!session?.user) {
     redirect("/");
   }
 
-  const snapshot = await loadFinanceSnapshot();
+  const [snapshot, hasPlaidAccess, resolvedSearchParams] = await Promise.all([
+    loadFinanceSnapshot(),
+    userHasFeatureAccess(session.user.email, "PLAID"),
+    searchParams ?? Promise.resolve<Record<string, string | string[] | undefined>>({}),
+  ]);
+  const showPremiumNotice = resolvedSearchParams.premium === "plaid";
 
   const userDisplayName =
     session?.user?.name?.trim() ||
@@ -30,10 +40,16 @@ export default async function DashboardPage() {
       <div className="mx-auto max-w-5xl space-y-8">
         <PlaidAutoSync
           workspaceId={snapshot.context?.activeWorkspace?.id ?? "workspace"}
-          enabled={snapshot.accounts.some((account) => account.source === "PLAID") || snapshot.creditCards.some((card) => card.source === "PLAID")}
+          enabled={hasPlaidAccess && (snapshot.accounts.some((account) => account.source === "PLAID") || snapshot.creditCards.some((card) => card.source === "PLAID"))}
         />
 
         <DashboardHeader userDisplayName={userDisplayName} workspaceName={snapshot.context?.activeWorkspace?.name} />
+
+        {showPremiumNotice && !hasPlaidAccess ? (
+          <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-100">
+            La sincronizacion bancaria no esta habilitada para tu cuenta. Solicita acceso premium al administrador.
+          </div>
+        ) : null}
 
         <div className="flex justify-start">
           <QuickExpenseButton hasAccounts={snapshot.accounts.length > 0} />
@@ -43,6 +59,7 @@ export default async function DashboardPage() {
           accounts={snapshot.accounts}
           totalLiquidity={snapshot.totalLiquidity}
           pendingExpensesTotal={snapshot.pendingExpensesTotal}
+          hasPlaidAccess={hasPlaidAccess}
         />
 
         <CreditCardsCard
@@ -50,6 +67,7 @@ export default async function DashboardPage() {
           totalDebt={snapshot.totalDebt}
           totalCreditLimit={snapshot.totalCreditLimit}
           totalAvailableCredit={snapshot.totalAvailableCredit}
+          hasPlaidAccess={hasPlaidAccess}
         />
 
         <WaterfallCard

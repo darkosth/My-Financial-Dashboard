@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ValidationError } from "@/lib/actions/validation";
+import { FeatureAccessDeniedError, SuperAdminRequiredError } from "@/lib/featureAccess";
 
 type ErrorPayload = {
   code: string;
@@ -66,6 +67,14 @@ export const toApiError = (error: unknown, { fallbackMessage }: ErrorContext): A
 
   if (error instanceof ValidationError) {
     return new ApiError(400, "VALIDATION_ERROR", error.message);
+  }
+
+  if (error instanceof FeatureAccessDeniedError) {
+    return new ApiError(403, "PREMIUM_REQUIRED", "Esta funcion requiere acceso premium.");
+  }
+
+  if (error instanceof SuperAdminRequiredError) {
+    return new ApiError(403, "FORBIDDEN", "No tienes permiso para realizar esta accion.");
   }
 
   const plaidError = mapPlaidApiError(error as PlaidApiError, fallbackMessage);

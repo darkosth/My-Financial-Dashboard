@@ -22,6 +22,7 @@ import {
   mapPlaidAccountKind,
 } from "@/lib/plaid";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
+import { assertCurrentFeatureAccess } from "@/lib/featureAccess";
 
 type DbClient = Prisma.TransactionClient;
 type PlaidBalanceAccount = ReturnType<typeof extractBalanceAccounts>[number];
@@ -218,6 +219,7 @@ export const createPlaidLinkToken = async ({
   plaidItemId?: string;
   requireExistingItem?: boolean;
 } = {}) => {
+  await assertCurrentFeatureAccess("PLAID");
   const { user, activeWorkspace } = await getCurrentUserContext();
   const client = getPlaidClient();
   const existingItem =
@@ -248,6 +250,7 @@ export const createPlaidLinkToken = async ({
 };
 
 export const connectPlaidItem = async ({ publicToken }: { publicToken: string }) => {
+  await assertCurrentFeatureAccess("PLAID");
   const { activeWorkspace } = await getCurrentUserContext();
   const client = getPlaidClient();
   const exchange = await client.itemPublicTokenExchange({
@@ -339,6 +342,7 @@ export const connectPlaidItem = async ({ publicToken }: { publicToken: string })
 };
 
 export const importPlaidAccounts = async ({ remoteAccountIds }: { remoteAccountIds: string[] }) => {
+  await assertCurrentFeatureAccess("PLAID");
   const { activeWorkspace } = await getCurrentUserContext();
   const uniqueIds = [...new Set(remoteAccountIds)];
 
@@ -432,6 +436,7 @@ export const importPlaidAccounts = async ({ remoteAccountIds }: { remoteAccountI
 };
 
 export const syncPlaidItemById = async (plaidItemId: string): Promise<SyncSummary> => {
+  await assertCurrentFeatureAccess("PLAID");
   const { activeWorkspace } = await getCurrentUserContext();
   const item = await prisma.plaidItem.findFirst({
     where: {
@@ -523,6 +528,7 @@ export const syncPlaidItemById = async (plaidItemId: string): Promise<SyncSummar
 };
 
 export const syncWorkspacePlaidItems = async () => {
+  await assertCurrentFeatureAccess("PLAID");
   const { activeWorkspace } = await getCurrentUserContext();
   const items = await prisma.plaidItem.findMany({
     where: {

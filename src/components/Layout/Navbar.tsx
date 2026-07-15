@@ -6,6 +6,7 @@ import { BUILD_COMMIT_LABEL, BUILD_COMMIT_SHA } from "@/lib/buildInfo";
 import AuthenticatedNavbar from "@/components/Layout/AuthenticatedNavbar";
 import GoogleSignInButton from "@/components/Layout/GoogleSignInButton";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { isSuperAdminEmail } from "@/lib/featureAccess";
 
 export default async function Navbar() {
   const session = await auth();
@@ -69,6 +70,7 @@ export default async function Navbar() {
       workspaceName={context.activeWorkspace.name}
       buildCommitLabel={BUILD_COMMIT_LABEL}
       buildCommitSha={BUILD_COMMIT_SHA}
+      isSuperAdmin={isSuperAdminEmail(session.user?.email)}
     />
   );
 }

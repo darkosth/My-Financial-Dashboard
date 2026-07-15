@@ -20,6 +20,12 @@ Required:
 - `AUTH_GOOGLE_ID`
 - `AUTH_GOOGLE_SECRET`
 
+Premium feature administration:
+
+- `SUPER_ADMIN_EMAILS` (comma-separated Google emails; super administrators always have Plaid access)
+
+Plaid is available only to super administrators and users granted the `PLAID` premium feature from `/admin/access`.
+
 Optional Telegram payment alerts:
 
 - `TELEGRAM_BOT_TOKEN`

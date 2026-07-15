@@ -63,18 +63,42 @@ enum PlaidImportTargetKind {
   CREDIT_CARD
 }
 
+enum FeatureKey {
+  PLAID
+}
+
 model User {
-  id          String            @id @default(cuid())
-  email       String            @unique
-  name        String?
-  image       String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  workspaces  WorkspaceMember[]
-  ownedSpaces Workspace[]       @relation("WorkspaceOwner")
-  preference  UserPreference?
+  id                   String               @id @default(cuid())
+  email                String               @unique
+  name                 String?
+  image                String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  workspaces           WorkspaceMember[]
+  ownedSpaces          Workspace[]          @relation("WorkspaceOwner")
+  preference           UserPreference?
+  featureGrantsCreated FeatureAccessGrant[] @relation("FeatureGrantCreatedBy")
+  featureGrantsRevoked FeatureAccessGrant[] @relation("FeatureGrantRevokedBy")
 
   @@map("users")
+}
+
+model FeatureAccessGrant {
+  id              String     @id @default(cuid())
+  email           String
+  feature         FeatureKey
+  active          Boolean    @default(true)
+  createdByUserId String
+  revokedByUserId String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  revokedAt       DateTime?
+  createdBy       User       @relation("FeatureGrantCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  revokedBy       User?      @relation("FeatureGrantRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([email, feature])
+  @@index([feature, active])
+  @@map("feature_access_grants")
 }
 
 model Workspace {

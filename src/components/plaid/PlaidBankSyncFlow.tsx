@@ -46,6 +46,8 @@ const getPlaidErrorMessage = (payload: ApiErrorPayload | null, fallbackMessage: 
       return "Tu sesion expiro. Vuelve a iniciar sesion e intenta otra vez.";
     case "PLAID_NOT_CONFIGURED":
       return "Plaid no esta configurado en este entorno todavia.";
+    case "PREMIUM_REQUIRED":
+      return "Plaid requiere acceso premium.";
     case "PLAID_REAUTH_REQUIRED":
       return payload.error || "El banco pide reautenticacion antes de continuar.";
     case "PLAID_ITEM_NOT_FOUND":

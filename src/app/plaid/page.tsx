@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 import { redirect } from "next/navigation";
 import PlaidBankSyncFlow from "@/components/plaid/PlaidBankSyncFlow";
+import { currentUserHasFeatureAccess } from "@/lib/featureAccess";
 
 type PlaidPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -15,6 +16,10 @@ export default async function PlaidPage({ searchParams }: PlaidPageProps) {
 
   if (!session?.user) {
     redirect("/");
+  }
+
+  if (!(await currentUserHasFeatureAccess("PLAID"))) {
+    redirect("/dashboard?premium=plaid");
   }
 
   const resolvedParams = (await searchParams) ?? {};

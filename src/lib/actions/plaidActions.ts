@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getPlaidItemIdForLocalEntity, syncPlaidItemById, unlinkPlaidEntity } from "@/lib/plaidSync";
 import type { ActionResult } from "@/lib/actions/validation";
+import { FeatureAccessDeniedError } from "@/lib/featureAccess";
 
 const logPlaidActionError = (action: string, error: unknown) => {
   const details =
@@ -37,6 +38,9 @@ export async function refreshLinkedPlaidEntity(entityType: "account" | "credit-c
     return { success: true };
   } catch (error) {
     logPlaidActionError("Error refreshing Plaid sync", error);
+    if (error instanceof FeatureAccessDeniedError) {
+      return { success: false, error: "Plaid requiere acceso premium." };
+    }
     return { success: false, error: "No se pudo actualizar el balance sincronizado." };
   }
 }

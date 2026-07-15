@@ -50,6 +50,7 @@ type CreditCardsCardProps = {
   totalCreditLimit: number;
   totalAvailableCredit: number;
   totalDebt: number;
+  hasPlaidAccess: boolean;
 };
 
 const formatReviewedDate = (value: Date | string) =>
@@ -96,6 +97,7 @@ export default function CreditCardsCard({
   creditCards,
   totalAvailableCredit,
   totalDebt,
+  hasPlaidAccess,
 }: CreditCardsCardProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = React.useState(false);
@@ -239,8 +241,13 @@ export default function CreditCardsCard({
                                     Actualizar
                                   </Badge>
                                 ) : null}
-                                {needsReauth ? <Badge variant="destructive">Needs reauth</Badge> : null}
-                                {disconnected ? <Badge variant="outline">Desvinculada</Badge> : null}
+                                {disconnected ? (
+                                  <Badge variant="outline">Desvinculada</Badge>
+                                ) : isPlaid && !hasPlaidAccess ? (
+                                  <Badge variant="outline">Sync pausado</Badge>
+                                ) : needsReauth ? (
+                                  <Badge variant="destructive">Necesita reconexion</Badge>
+                                ) : null}
                               </div>
                               <span className="text-[10px] font-normal text-muted-foreground sm:text-xs">
                                 {card.dueDate ? `Due ${card.dueDate}` : "Sin dia de corte"}
@@ -287,28 +294,32 @@ export default function CreditCardsCard({
 
                                 {isPlaid ? (
                                   <>
-                                    <DropdownMenuItem onClick={() => handleRefresh(card.id)} className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium">
-                                      <RefreshCcw className="mr-2 h-4 w-4" />
-                                      Actualizar balance
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        if (!card.plaidItemId) {
-                                          alert("No se encontro la referencia bancaria para esta tarjeta.");
-                                          return;
-                                        }
-                                        const searchParams = new URLSearchParams({
-                                          mode: "reconnect",
-                                          plaidItemId: card.plaidItemId,
-                                        });
-                                        router.push(`/plaid?${searchParams.toString()}`);
-                                      }}
-                                      className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium"
-                                    >
-                                      <ShieldAlert className="mr-2 h-4 w-4" />
-                                      Reconectar banco
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
+                                    {hasPlaidAccess ? (
+                                      <>
+                                        <DropdownMenuItem onClick={() => handleRefresh(card.id)} className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium">
+                                          <RefreshCcw className="mr-2 h-4 w-4" />
+                                          Actualizar balance
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            if (!card.plaidItemId) {
+                                              alert("No se encontro la referencia bancaria para esta tarjeta.");
+                                              return;
+                                            }
+                                            const searchParams = new URLSearchParams({
+                                              mode: "reconnect",
+                                              plaidItemId: card.plaidItemId,
+                                            });
+                                            router.push(`/plaid?${searchParams.toString()}`);
+                                          }}
+                                          className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium"
+                                        >
+                                          <ShieldAlert className="mr-2 h-4 w-4" />
+                                          Reconectar banco
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                      </>
+                                    ) : null}
                                     <DropdownMenuItem
                                       onClick={() => handleDisconnect(card.id)}
                                       className="cursor-pointer rounded-lg px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 data-[highlighted]:bg-red-50 data-[highlighted]:text-red-700 dark:hover:bg-red-950/45 dark:hover:text-red-200 dark:data-[highlighted]:bg-red-950/45 dark:data-[highlighted]:text-red-200"
@@ -458,7 +469,9 @@ export default function CreditCardsCard({
                 <DialogTitle>{editingCard ? "Editar tarjeta" : "Nueva tarjeta de credito"}</DialogTitle>
                 <DialogDescription>
                   {isEditingPlaid
-                    ? canEditPlaidCreditLimit
+                    ? !hasPlaidAccess
+                      ? "La sincronizacion esta pausada. Los ultimos datos permanecen visibles y puedes completar campos manuales o desvincular la tarjeta."
+                      : canEditPlaidCreditLimit
                       ? "La deuda sigue sincronizada con el banco. Como Plaid no envio el limite, aqui puedes completarlo manualmente junto con dia de corte, APR o pago minimo."
                       : "Las tarjetas con Bank sync actualizan balance y limite automaticamente. Aqui puedes completar campos faltantes como dia de corte, APR o pago minimo."
                     : "Indica deuda, limite, APR y dia de corte para seguir tu credito en el tablero."}

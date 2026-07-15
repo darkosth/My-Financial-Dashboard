@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test src/lib/*.test.ts",
     "lint": "eslint .",
     "db:snapshot": "node scripts/create-db-snapshot.mjs",
     "verify": "npm run lint && npm run build",
