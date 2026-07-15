@@ -69,7 +69,11 @@ export const currentUserHasFeatureAccess = async (feature: FeatureKey) => {
 export const assertCurrentFeatureAccess = async (feature: FeatureKey) => {
   const session = await auth();
 
-  if (!session?.user?.email || !(await userHasFeatureAccess(session.user.email, feature))) {
+  if (!session?.user?.email) {
+    throw new Error("Unauthorized");
+  }
+
+  if (!(await userHasFeatureAccess(session.user.email, feature))) {
     throw new FeatureAccessDeniedError(feature);
   }
 
