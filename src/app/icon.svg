@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MyFinance">
+  <rect width="512" height="512" rx="112" fill="#07120d"/>
+  <path d="M112 166c0-29.8 24.2-54 54-54h180c29.8 0 54 24.2 54 54v180c0 29.8-24.2 54-54 54H166c-29.8 0-54-24.2-54-54V166Z" fill="#059669"/>
+  <path d="M168 326V186h39l49 83 49-83h39v140h-38v-78l-38 63h-24l-38-63v78h-38Z" fill="#f8faf9"/>
+  <circle cx="373" cy="139" r="34" fill="#a7f3d0"/>
+</svg>
