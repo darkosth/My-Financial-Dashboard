@@ -1,6 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MyFinance">
-  <rect width="512" height="512" rx="112" fill="#07120d"/>
-  <path d="M112 166c0-29.8 24.2-54 54-54h180c29.8 0 54 24.2 54 54v180c0 29.8-24.2 54-54 54H166c-29.8 0-54-24.2-54-54V166Z" fill="#059669"/>
-  <path d="M168 326V186h39l49 83 49-83h39v140h-38v-78l-38 63h-24l-38-63v78h-38Z" fill="#f8faf9"/>
-  <circle cx="373" cy="139" r="34" fill="#a7f3d0"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">MyFinance Orbit Vault</title>
+  <desc id="desc">Una orbita financiera alrededor de un nucleo protegido.</desc>
+  <defs>
+    <linearGradient id="tile" x1="128" y1="112" x2="392" y2="408" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10b981"/>
+      <stop offset="1" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="core" x1="216" y1="210" x2="304" y2="310" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d1fae5"/>
+      <stop offset="1" stop-color="#6ee7b7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#tile)"/>
+  <path d="M0 0h512v112C402 76 296 82 202 128 116 170 54 230 0 300V0Z" fill="#34d399" opacity=".2"/>
+
+  <g transform="translate(256 256) scale(1.344) translate(-256 -256)">
+    <path d="M344 194a118 118 0 0 0-174 13" fill="none" stroke="#f8faf9" stroke-width="34" stroke-linecap="round"/>
+    <path d="M168 318a118 118 0 0 0 177-12" fill="none" stroke="#f8faf9" stroke-width="34" stroke-linecap="round"/>
+    <path d="m341 168 25 43-50 1 25-44Z" fill="#f8faf9"/>
+    <path d="m171 344-25-43 50-1-25 44Z" fill="#f8faf9"/>
+
+    <circle cx="256" cy="256" r="72" fill="#07120d"/>
+    <path d="M256 205 307 256 256 307 205 256 256 205Z" fill="url(#core)"/>
+    <circle cx="256" cy="256" r="20" fill="#07120d"/>
+  </g>
 </svg>
