@@ -17,6 +17,10 @@ const SNAPSHOT_TABLES = [
   "payment_carryovers",
   "app_settings",
   "workspace_invites",
+  "telegram_connections",
+  "telegram_link_tokens",
+  "telegram_notification_preferences",
+  "telegram_notification_deliveries",
 ];
 
 const ENV_FILES = [".env.local", ".env"];

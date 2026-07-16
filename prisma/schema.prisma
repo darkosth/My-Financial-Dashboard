@@ -67,6 +67,18 @@ enum FeatureKey {
   PLAID
 }
 
+enum TelegramNotificationKind {
+  TEMPLATE
+  CREDIT_CARD
+  CARRYOVER
+}
+
+enum TelegramDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 model User {
   id                   String               @id @default(cuid())
   email                String               @unique
@@ -79,6 +91,8 @@ model User {
   preference           UserPreference?
   featureGrantsCreated FeatureAccessGrant[] @relation("FeatureGrantCreatedBy")
   featureGrantsRevoked FeatureAccessGrant[] @relation("FeatureGrantRevokedBy")
+  telegramConnection   TelegramConnection?
+  telegramLinkTokens   TelegramLinkToken[]
 
   @@map("users")
 }
@@ -102,66 +116,125 @@ model FeatureAccessGrant {
 }
 
 model Workspace {
-  id          String            @id @default(cuid())
-  name        String
-  ownerUserId String
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  owner       User              @relation("WorkspaceOwner", fields: [ownerUserId], references: [id])
-  members     WorkspaceMember[]
-  preferences UserPreference[]
-  invites     WorkspaceInvite[]
-  accounts    Account[]
-  creditCards CreditCard[]
-  templates   Template[]
-  history     History[]
+  id                       String                     @id @default(cuid())
+  name                     String
+  ownerUserId              String
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  owner                    User                       @relation("WorkspaceOwner", fields: [ownerUserId], references: [id])
+  members                  WorkspaceMember[]
+  preferences              UserPreference[]
+  invites                  WorkspaceInvite[]
+  accounts                 Account[]
+  creditCards              CreditCard[]
+  templates                Template[]
+  history                  History[]
   creditCardPaymentHistory CreditCardPaymentHistory[]
-  pendingExpenses PendingExpense[]
-  paymentCarryovers PaymentCarryover[]
-  appSettings AppSettings?
-  plaidItems PlaidItem[]
+  pendingExpenses          PendingExpense[]
+  paymentCarryovers        PaymentCarryover[]
+  appSettings              AppSettings?
+  plaidItems               PlaidItem[]
 
   @@map("workspaces")
 }
 
 model WorkspaceMember {
-  id          String        @id @default(cuid())
-  userId      String
-  workspaceId String
-  role        WorkspaceRole @default(MEMBER)
-  createdAt   DateTime      @default(now())
-  user        User          @relation(fields: [userId], references: [id])
-  workspace   Workspace     @relation(fields: [workspaceId], references: [id])
+  id                 String                          @id @default(cuid())
+  userId             String
+  workspaceId        String
+  role               WorkspaceRole                   @default(MEMBER)
+  createdAt          DateTime                        @default(now())
+  user               User                            @relation(fields: [userId], references: [id])
+  workspace          Workspace                       @relation(fields: [workspaceId], references: [id])
+  telegramPreference TelegramNotificationPreference?
 
   @@unique([userId, workspaceId])
   @@map("workspace_members")
 }
 
+model TelegramConnection {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  chatId         String   @unique
+  telegramUserId String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_connections")
+}
+
+model TelegramLinkToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("telegram_link_tokens")
+}
+
+model TelegramNotificationPreference {
+  id                String                         @id @default(cuid())
+  workspaceMemberId String                         @unique
+  enabled           Boolean                        @default(false)
+  createdAt         DateTime                       @default(now())
+  updatedAt         DateTime                       @updatedAt
+  workspaceMember   WorkspaceMember                @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  deliveries        TelegramNotificationDelivery[]
+
+  @@index([enabled])
+  @@map("telegram_notification_preferences")
+}
+
+model TelegramNotificationDelivery {
+  id             String                         @id @default(cuid())
+  preferenceId   String
+  kind           TelegramNotificationKind
+  eventId        String
+  occurrenceDate DateTime                       @db.Date
+  leadDays       Int
+  dedupeKey      String                         @unique
+  status         TelegramDeliveryStatus         @default(PENDING)
+  attempts       Int                            @default(0)
+  sentAt         DateTime?
+  lastAttemptAt  DateTime?
+  lastErrorCode  String?
+  createdAt      DateTime                       @default(now())
+  updatedAt      DateTime                       @updatedAt
+  preference     TelegramNotificationPreference @relation(fields: [preferenceId], references: [id], onDelete: Cascade)
+
+  @@index([status, lastAttemptAt])
+  @@map("telegram_notification_deliveries")
+}
+
 model UserPreference {
-  id                 String     @id @default(cuid())
-  userId             String     @unique
-  activeWorkspaceId  String?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
-  user               User       @relation(fields: [userId], references: [id])
-  activeWorkspace    Workspace? @relation(fields: [activeWorkspaceId], references: [id])
+  id                String     @id @default(cuid())
+  userId            String     @unique
+  activeWorkspaceId String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  user              User       @relation(fields: [userId], references: [id])
+  activeWorkspace   Workspace? @relation(fields: [activeWorkspaceId], references: [id])
 
   @@map("user_preferences")
 }
 
 model Account {
-  id               String              @id @default(cuid())
-  name             String
-  balanceCents     Int                 @default(0) @map("balance_cents")
-  workspaceId      String
-  source           DataSource          @default(MANUAL)
-  createdAt        DateTime            @default(now())
-  workspace        Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id                 String              @id @default(cuid())
+  name               String
+  balanceCents       Int                 @default(0) @map("balance_cents")
+  workspaceId        String
+  source             DataSource          @default(MANUAL)
+  createdAt          DateTime            @default(now())
+  workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   plaidRemoteAccount PlaidRemoteAccount? @relation("ImportedAccount")
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, source])
-
   @@map("accounts")
 }
 
@@ -187,20 +260,20 @@ model CreditCard {
 }
 
 model PlaidItem {
-  id                    String              @id @default(cuid())
+  id                    String               @id @default(cuid())
   workspaceId           String
-  plaidItemId           String              @unique @map("plaid_item_id")
-  accessTokenCiphertext String?             @map("access_token_ciphertext")
-  institutionId         String?             @map("institution_id")
-  institutionName       String?             @map("institution_name")
-  status                PlaidItemStatus     @default(ACTIVE)
-  lastSyncStatus        PlaidSyncStatus     @default(PENDING) @map("last_sync_status")
-  lastSyncedAt          DateTime?           @map("last_synced_at")
-  lastSyncErrorCode     String?             @map("last_sync_error_code")
-  lastSyncErrorMessage  String?             @map("last_sync_error_message")
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  workspace             Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plaidItemId           String               @unique @map("plaid_item_id")
+  accessTokenCiphertext String?              @map("access_token_ciphertext")
+  institutionId         String?              @map("institution_id")
+  institutionName       String?              @map("institution_name")
+  status                PlaidItemStatus      @default(ACTIVE)
+  lastSyncStatus        PlaidSyncStatus      @default(PENDING) @map("last_sync_status")
+  lastSyncedAt          DateTime?            @map("last_synced_at")
+  lastSyncErrorCode     String?              @map("last_sync_error_code")
+  lastSyncErrorMessage  String?              @map("last_sync_error_message")
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  workspace             Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   remoteAccounts        PlaidRemoteAccount[]
 
   @@index([workspaceId, status])
@@ -238,20 +311,19 @@ model PlaidRemoteAccount {
 }
 
 model Template {
-  id           String    @id @default(cuid())
-  name         String
-  amountCents  Int       @default(0) @map("amount_cents")
-  frequency    Frequency @default(MONTHLY)
-  isAutoPay    Boolean   @default(false)
-  category     Category
-  workspaceId  String
-  createdAt    DateTime  @default(now())
-  dayOfMonth   Int?
-  lastPaidAt   DateTime?
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  name        String
+  amountCents Int       @default(0) @map("amount_cents")
+  frequency   Frequency @default(MONTHLY)
+  isAutoPay   Boolean   @default(false)
+  category    Category
+  workspaceId String
+  createdAt   DateTime  @default(now())
+  dayOfMonth  Int?
+  lastPaidAt  DateTime?
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
-
   @@map("templates")
 }
 
@@ -286,12 +358,12 @@ model CreditCardPaymentHistory {
 }
 
 model PendingExpense {
-  id           String    @id @default(cuid())
-  description  String?
-  amountCents  Int       @default(0) @map("amount_cents")
-  workspaceId  String
-  createdAt    DateTime  @default(now())
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  description String?
+  amountCents Int       @default(0) @map("amount_cents")
+  workspaceId String
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
   @@map("pending_expenses")
@@ -331,7 +403,7 @@ model WorkspaceInvite {
   expiresAt   DateTime?
   active      Boolean   @default(true)
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("workspace_invites")
 }

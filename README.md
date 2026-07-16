@@ -26,14 +26,14 @@ Premium feature administration:
 
 Plaid is available only to super administrators and users granted the `PLAID` premium feature from `/admin/access`.
 
-Optional Telegram payment alerts:
+Free Telegram payment alerts:
 
 - `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_BOT_USERNAME`
+- `TELEGRAM_WEBHOOK_SECRET`
 - `CRON_SECRET`
-- `TELEGRAM_WORKSPACE_ID`
 
-In production, the cron route fails closed unless `CRON_SECRET` and `TELEGRAM_WORKSPACE_ID` are set. This prevents global financial alerts from reading every workspace.
+Each user connects a private Telegram chat from `/settings` and enables alerts per workspace. The webhook rejects unsigned updates, and the cron derives every financial query from the stored workspace membership. `TELEGRAM_CHAT_ID` and `TELEGRAM_WORKSPACE_ID` are supported only by the one-time `telegram:bootstrap` migration script; it is a dry run unless `--apply` is provided. Webhook replacement requires `telegram:webhook -- --replace`.
 
 Optional Plaid bank sync:
 

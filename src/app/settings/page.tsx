@@ -10,6 +10,7 @@ import InviteButton from "@/components/Workspace/InviteButton";
 import WeeklyIncomeForm from "./WeeklyIncomeForm";
 import WorkspaceAccessCard from "./WorkspaceAccessCard";
 import ActiveWorkspaceMembersCard from "./ActiveWorkspaceMembersCard";
+import TelegramNotificationsCard from "./TelegramNotificationsCard";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -24,7 +25,7 @@ export default async function SettingsPage() {
   const currentMembership = context.memberships.find((membership) => membership.workspaceId === activeWorkspaceId) ?? null;
   const canManageMembers = currentMembership?.role === "OWNER";
 
-  const [workspaceMembers, workspaceMemberships] = await Promise.all([
+  const [workspaceMembers, workspaceMemberships, telegramConnection, telegramPreference] = await Promise.all([
     activeWorkspaceId
       ? prisma.workspaceMember.findMany({
           where: { workspaceId: activeWorkspaceId },
@@ -59,6 +60,13 @@ export default async function SettingsPage() {
       },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.telegramConnection.findUnique({ where: { userId: context.user.id }, select: { id: true } }),
+    currentMembership
+      ? prisma.telegramNotificationPreference.findUnique({
+          where: { workspaceMemberId: currentMembership.id },
+          select: { enabled: true },
+        })
+      : null,
   ]);
 
   return (
@@ -96,6 +104,12 @@ export default async function SettingsPage() {
               <WeeklyIncomeForm currentIncome={currentWeeklyIncome} workspaceId={activeWorkspaceId} />
             </CardContent>
           </Card>
+
+          <TelegramNotificationsCard
+            connected={Boolean(telegramConnection)}
+            enabled={telegramPreference?.enabled ?? false}
+            workspaceName={context.activeWorkspace.name}
+          />
 
           {/* CARD 2: TEAM & ACCESS (INVITES) */}
           <Card className="shadow-sm border-border">
