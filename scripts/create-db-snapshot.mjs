@@ -21,6 +21,7 @@ const SNAPSHOT_TABLES = [
   "telegram_link_tokens",
   "telegram_notification_preferences",
   "telegram_notification_deliveries",
+  "learning_records",
 ];
 
 const ENV_FILES = [".env.local", ".env"];

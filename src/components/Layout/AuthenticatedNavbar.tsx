@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
+  BrainCircuit,
   CalendarIcon,
   LayoutDashboard,
   Menu,
@@ -36,6 +37,11 @@ const navLinks: Array<{ href: string; label: string; icon: React.ComponentType<{
     href: "/calendar",
     label: "Calendar",
     icon: CalendarIcon,
+  },
+  {
+    href: "/learning",
+    label: "Learning",
+    icon: BrainCircuit,
   },
 ];
 

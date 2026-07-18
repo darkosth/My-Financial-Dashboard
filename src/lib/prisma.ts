@@ -22,7 +22,8 @@ if (
   !globalForPrisma.prisma.workspaceMember ||
   !globalForPrisma.prisma.userPreference ||
   !globalForPrisma.prisma.plaidItem ||
-  !globalForPrisma.prisma.plaidRemoteAccount
+  !globalForPrisma.prisma.plaidRemoteAccount ||
+  !globalForPrisma.prisma.learningRecord
 ) {
   globalForPrisma.prisma = createPrismaClient();
 }

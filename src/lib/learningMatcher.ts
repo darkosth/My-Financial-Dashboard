@@ -1,0 +1,157 @@
+import { differenceInCalendarDays, parseISO } from "date-fns";
+import type { LearningSuggestion, LearningSuggestionReasonCode, LearningTransactionPayload } from "./learningTypes.ts";
+
+export const LEARNING_HEURISTIC_VERSION = "learning-v1";
+const MINIMUM_SCORE = 55;
+const MINIMUM_MARGIN = 8;
+
+export type LearningExpenseCandidate = {
+  amountCents: number;
+  category: string;
+  cycleReference: string;
+  name: string;
+  occurrenceDate: string;
+  templateId: string;
+};
+
+export type LearningConfirmationSignal = {
+  accountId: string;
+  merchantKey: string;
+  templateId: string;
+};
+
+export const normalizeLearningText = (value: string | null | undefined) =>
+  value
+    ?.normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim() ?? "";
+
+const getMerchantKey = (transaction: LearningTransactionPayload) =>
+  normalizeLearningText(transaction.merchantName || transaction.name);
+
+const scoreAmount = (transactionAmount: number, candidateAmount: number) => {
+  if (candidateAmount <= 0) return 0;
+  const ratio = Math.abs(transactionAmount - candidateAmount) / candidateAmount;
+  if (ratio === 0) return 50;
+  if (ratio <= 0.02) return 44;
+  if (ratio <= 0.1) return 28;
+  if (ratio <= 0.25) return 10;
+  return 0;
+};
+
+const scoreDate = (transactionDate: string, occurrenceDate: string) => {
+  const distance = Math.abs(differenceInCalendarDays(parseISO(transactionDate), parseISO(occurrenceDate)));
+  if (distance <= 1) return 15;
+  if (distance <= 3) return 10;
+  if (distance <= 7) return 4;
+  return 0;
+};
+
+const scoreName = (merchantKey: string, candidateName: string) => {
+  const merchantTokens = new Set(merchantKey.split(" ").filter((token) => token.length > 2));
+  const candidateTokens = new Set(normalizeLearningText(candidateName).split(" ").filter((token) => token.length > 2));
+  if (merchantTokens.size === 0 || candidateTokens.size === 0) return 0;
+
+  const intersection = [...merchantTokens].filter((token) => candidateTokens.has(token)).length;
+  const union = new Set([...merchantTokens, ...candidateTokens]).size;
+  return Math.round((intersection / union) * 20);
+};
+
+const categoryMap: Record<string, string[]> = {
+  BANK_FEES: ["DEBT", "OTHER"],
+  ENTERTAINMENT: ["ENTERTAINMENT"],
+  FOOD_AND_DRINK: ["FOOD"],
+  GENERAL_MERCHANDISE: ["PERSONAL", "OTHER"],
+  MEDICAL: ["MEDICAL"],
+  RENT_AND_UTILITIES: ["HOUSING", "UTILITIES"],
+  TRANSPORTATION: ["TRANSPORTATION"],
+};
+
+const addReason = (
+  reasons: LearningSuggestion["reasons"],
+  code: LearningSuggestionReasonCode,
+  points: number,
+) => {
+  if (points > 0) reasons.push({ code, points });
+  return points;
+};
+
+const scoreCandidate = ({
+  candidate,
+  confirmations,
+  merchantKey,
+  transaction,
+}: {
+  candidate: LearningExpenseCandidate;
+  confirmations: LearningConfirmationSignal[];
+  merchantKey: string;
+  transaction: LearningTransactionPayload;
+}): LearningSuggestion => {
+  const reasons: LearningSuggestion["reasons"] = [];
+  const amountPoints = addReason(reasons, "AMOUNT", scoreAmount(transaction.amountCents, candidate.amountCents));
+  const datePoints = addReason(
+    reasons,
+    "DATE",
+    scoreDate(transaction.authorizedDate ?? transaction.date, candidate.occurrenceDate),
+  );
+  const namePoints = addReason(reasons, "NAME", scoreName(merchantKey, candidate.name));
+  const categoryPoints = addReason(
+    reasons,
+    "CATEGORY",
+    transaction.categoryPrimary && categoryMap[transaction.categoryPrimary]?.includes(candidate.category) ? 8 : 0,
+  );
+  const learnedSignals = confirmations.filter(
+    (confirmation) => confirmation.templateId === candidate.templateId && confirmation.merchantKey === merchantKey,
+  );
+  const learnedMerchantPoints = addReason(reasons, "LEARNED_MERCHANT", Math.min(learnedSignals.length * 15, 30));
+  const learnedAccountPoints = addReason(
+    reasons,
+    "LEARNED_ACCOUNT",
+    learnedSignals.some((confirmation) => confirmation.accountId === transaction.accountId) ? 8 : 0,
+  );
+
+  return {
+    cycleReference: candidate.cycleReference,
+    features: {
+      amountDeltaCents: Math.abs(transaction.amountCents - candidate.amountCents),
+      categoryPrimary: transaction.categoryPrimary,
+      dateDistanceDays: Math.abs(
+        differenceInCalendarDays(
+          parseISO(transaction.authorizedDate ?? transaction.date),
+          parseISO(candidate.occurrenceDate),
+        ),
+      ),
+      learnedConfirmations: learnedSignals.length,
+      merchantKey,
+    },
+    heuristicVersion: LEARNING_HEURISTIC_VERSION,
+    reasons,
+    score: amountPoints + datePoints + namePoints + categoryPoints + learnedMerchantPoints + learnedAccountPoints,
+    templateId: candidate.templateId,
+  };
+};
+
+export const buildLearningSuggestion = ({
+  candidates,
+  confirmations,
+  transaction,
+}: {
+  candidates: LearningExpenseCandidate[];
+  confirmations: LearningConfirmationSignal[];
+  transaction: LearningTransactionPayload;
+}): LearningSuggestion | null => {
+  if (transaction.pending || transaction.removedAt || transaction.amountCents <= 0) return null;
+
+  const merchantKey = getMerchantKey(transaction);
+  const ranked = candidates
+    .map((candidate) => scoreCandidate({ candidate, confirmations, merchantKey, transaction }))
+    .sort((left, right) => right.score - left.score || left.templateId.localeCompare(right.templateId));
+  const first = ranked[0];
+  const second = ranked[1];
+
+  if (!first || first.score < MINIMUM_SCORE) return null;
+  if (second && first.score - second.score < MINIMUM_MARGIN) return null;
+  return first;
+};
