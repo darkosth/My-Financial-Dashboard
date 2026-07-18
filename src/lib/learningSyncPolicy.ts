@@ -68,11 +68,19 @@ export const normalizePlaidLearningTransaction = (
 export const mergeLearningTransactionPayload = (
   previous: LearningTransactionPayload | null,
   next: LearningTransactionPayload,
+  pendingPredecessor: LearningTransactionPayload | null = null,
 ): LearningTransactionPayload => ({
   ...next,
-  review: previous?.review ?? null,
-  suggestion: previous?.review ? (previous.suggestion ?? null) : null,
+  review: previous?.review ?? pendingPredecessor?.review ?? null,
+  suggestion: previous?.review
+    ? (previous.suggestion ?? null)
+    : pendingPredecessor?.review
+      ? (pendingPredecessor.suggestion ?? null)
+      : null,
 });
+
+export const isLearningTransactionReviewable = (transaction: LearningTransactionPayload) =>
+  !transaction.removedAt && transaction.amountCents > 0;
 
 export const markLearningTransactionRemoved = (
   transaction: LearningTransactionPayload,

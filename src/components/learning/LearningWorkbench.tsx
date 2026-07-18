@@ -117,7 +117,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-10">
+    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="border-b border-border pb-6">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -177,7 +177,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1.65fr)_minmax(16rem,0.75fr)]">
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(15rem,0.7fr)]">
         <section aria-labelledby="transactions-heading">
           <div className="mb-3 flex items-center justify-between">
             <h2 id="transactions-heading" className="text-lg font-semibold">Transacciones</h2>
@@ -229,7 +229,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
                         <select
                           value={selectedValue}
                           onChange={(event) => setSelections((current) => ({ ...current, [transaction.transactionId]: event.target.value }))}
-                          disabled={transaction.pending || isPending}
+                          disabled={isPending}
                           className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition-shadow focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <option value="">Seleccionar gasto…</option>
@@ -245,7 +245,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
                         <Button
                           size="sm"
                           onClick={() => review(transaction)}
-                          disabled={transaction.pending || isPending || !selectedValue}
+                          disabled={isPending || !selectedValue}
                           className="h-10 flex-1 gap-2 sm:flex-none"
                         >
                           {rowPending ? <RefreshCw className="size-4 animate-spin" /> : <Check className="size-4" />}
@@ -255,7 +255,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
                           size="sm"
                           variant="ghost"
                           onClick={() => review(transaction, true)}
-                          disabled={transaction.pending || isPending}
+                          disabled={isPending}
                           className="h-10 flex-1 sm:flex-none"
                         >
                           Ignorar

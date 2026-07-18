@@ -1,5 +1,6 @@
 import { LearningRecordKind, PlaidItemStatus, Prisma } from "@prisma/client";
 import type { RemovedTransaction, Transaction } from "plaid";
+import { LEARNING_LIQUIDITY_ACCOUNT_WHERE } from "@/lib/learningAccountPolicy";
 import { decryptPlaidAccessToken, getPlaidClient } from "@/lib/plaid";
 import prisma from "@/lib/prisma";
 import {
@@ -83,6 +84,9 @@ const persistPlaidSyncBatch = async ({
     [...batch.added, ...batch.modified].map((transaction) => [transaction.transaction_id, transaction]),
   );
   const externalKeys = [...new Set([...changedTransactions.keys(), ...batch.removed.map((item) => item.transaction_id)])];
+  for (const transaction of changedTransactions.values()) {
+    if (transaction.pending_transaction_id) externalKeys.push(transaction.pending_transaction_id);
+  }
   const existingRecords = externalKeys.length > 0
     ? await prisma.learningRecord.findMany({
         where: {
@@ -99,7 +103,15 @@ const persistPlaidSyncBatch = async ({
       const where = learningTransactionWhere(plaidItemId, transaction.transaction_id);
       const existing = existingByTransactionId.get(transaction.transaction_id);
       const previous = existing ? readLearningTransaction(existing.payload) : null;
-      const payload = mergeLearningTransactionPayload(previous, normalizePlaidLearningTransaction(transaction));
+      const pendingRecord = transaction.pending_transaction_id
+        ? existingByTransactionId.get(transaction.pending_transaction_id)
+        : null;
+      const pendingPredecessor = pendingRecord ? readLearningTransaction(pendingRecord.payload) : null;
+      const payload = mergeLearningTransactionPayload(
+        previous,
+        normalizePlaidLearningTransaction(transaction),
+        pendingPredecessor,
+      );
 
       operations.push(prisma.learningRecord.upsert({
         where,
@@ -173,6 +185,10 @@ export const syncLearningTransactionsForWorkspace = async (workspaceId: string) 
       accessTokenCiphertext: true,
       id: true,
       institutionName: true,
+      remoteAccounts: {
+        where: LEARNING_LIQUIDITY_ACCOUNT_WHERE,
+        select: { plaidAccountId: true },
+      },
     },
   });
 
@@ -184,7 +200,7 @@ export const syncLearningTransactionsForWorkspace = async (workspaceId: string) 
   }> = [];
 
   for (const item of items) {
-    if (!item.accessTokenCiphertext) continue;
+    if (!item.accessTokenCiphertext || item.remoteAccounts.length === 0) continue;
 
     const syncRecord = await prisma.learningRecord.findUnique({
       where: {
@@ -203,7 +219,13 @@ export const syncLearningTransactionsForWorkspace = async (workspaceId: string) 
         decryptPlaidAccessToken(item.accessTokenCiphertext),
         syncState?.cursor ?? null,
       );
-      const counts = await persistPlaidSyncBatch({ batch, plaidItemId: item.id, workspaceId });
+      const accountIds = new Set(item.remoteAccounts.map((account) => account.plaidAccountId));
+      const liquidityBatch = {
+        ...batch,
+        added: batch.added.filter((transaction) => accountIds.has(transaction.account_id)),
+        modified: batch.modified.filter((transaction) => accountIds.has(transaction.account_id)),
+      };
+      const counts = await persistPlaidSyncBatch({ batch: liquidityBatch, plaidItemId: item.id, workspaceId });
       results.push({
         ...counts,
         institutionName,

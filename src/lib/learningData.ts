@@ -3,6 +3,7 @@ import "server-only";
 import { LearningRecordKind, type Template } from "@prisma/client";
 import { addDays } from "date-fns";
 import { getCalendarDateKey, parseDateOnlyString } from "@/lib/calendarDate";
+import { LEARNING_LIQUIDITY_ACCOUNT_WHERE } from "@/lib/learningAccountPolicy";
 import {
   buildLearningSuggestion,
   normalizeLearningText,
@@ -69,18 +70,25 @@ const getConfirmationSignals = (transactions: LearningTransactionPayload[]): Lea
   });
 
 export const refreshLearningSuggestionsForWorkspace = async (workspaceId: string) => {
-  const [records, templates] = await Promise.all([
+  const [records, templates, liquidityAccounts] = await Promise.all([
     prisma.learningRecord.findMany({
       where: { kind: LearningRecordKind.TRANSACTION, workspaceId },
       orderBy: { createdAt: "asc" },
     }),
     prisma.template.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
+    prisma.plaidRemoteAccount.findMany({
+      where: { ...LEARNING_LIQUIDITY_ACCOUNT_WHERE, workspaceId },
+      select: { plaidAccountId: true },
+    }),
   ]);
+  const liquidityAccountIds = new Set(liquidityAccounts.map((account) => account.plaidAccountId));
   const transactions = records.flatMap((record) => {
     const transaction = readLearningTransaction(record.payload);
-    return transaction ? [{ record, transaction }] : [];
+    return transaction && liquidityAccountIds.has(transaction.accountId) ? [{ record, transaction }] : [];
   });
-  const confirmations = getConfirmationSignals(transactions.map(({ transaction }) => transaction));
+  const confirmations = getConfirmationSignals(
+    transactions.flatMap(({ transaction }) => transaction.removedAt ? [] : [transaction]),
+  );
 
   const updates = transactions
     .filter(({ transaction }) => !transaction.review)
@@ -119,7 +127,7 @@ export const loadLearningPageData = async (workspaceId: string, requestedWeek?: 
     }),
     prisma.template.findMany({ where: { workspaceId }, orderBy: { name: "asc" } }),
     prisma.plaidRemoteAccount.findMany({
-      where: { workspaceId },
+      where: { ...LEARNING_LIQUIDITY_ACCOUNT_WHERE, workspaceId },
       select: { name: true, plaidAccountId: true },
     }),
   ]);
@@ -134,6 +142,7 @@ export const loadLearningPageData = async (workspaceId: string, requestedWeek?: 
     if (record.kind !== LearningRecordKind.TRANSACTION) return [];
     const transaction = readLearningTransaction(record.payload);
     if (!transaction || transaction.removedAt || transaction.amountCents <= 0) return [];
+    if (!accountNames.has(transaction.accountId)) return [];
 
     const transactionDate = transaction.authorizedDate ?? transaction.date;
     if (transactionDate < getCalendarDateKey(weekStart) || transactionDate > getCalendarDateKey(weekEnd)) return [];

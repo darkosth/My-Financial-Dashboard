@@ -4,9 +4,11 @@ import { LearningRecordKind } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { parseRequiredText, type ActionResult } from "@/lib/actions/validation";
 import { assertCurrentFeatureAccess } from "@/lib/featureAccess";
+import { LEARNING_LIQUIDITY_ACCOUNT_WHERE } from "@/lib/learningAccountPolicy";
 import { getLearningExpenseCandidates, refreshLearningSuggestionsForWorkspace } from "@/lib/learningData";
 import { learningTransactionWhere, readLearningTransaction, toLearningJson } from "@/lib/learningStore";
 import { syncLearningTransactionsForWorkspace } from "@/lib/learningSync";
+import { isLearningTransactionReviewable } from "@/lib/learningSyncPolicy";
 import prisma from "@/lib/prisma";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 
@@ -71,9 +73,18 @@ export async function reviewLearningTransactionAction({
     if (!record || record.workspaceId !== activeWorkspace.id || record.kind !== LearningRecordKind.TRANSACTION || !transaction) {
       throw new Error("Learning transaction not found");
     }
-    if (transaction.pending || transaction.removedAt || transaction.amountCents <= 0) {
+    if (!isLearningTransactionReviewable(transaction)) {
       throw new Error("Learning transaction is not reviewable");
     }
+    const liquidityAccount = await prisma.plaidRemoteAccount.findFirst({
+      where: {
+        ...LEARNING_LIQUIDITY_ACCOUNT_WHERE,
+        plaidAccountId: transaction.accountId,
+        workspaceId: activeWorkspace.id,
+      },
+      select: { id: true },
+    });
+    if (!liquidityAccount) throw new Error("Learning transaction is outside the liquidity account scope");
 
     const reviewedAt = new Date().toISOString();
     if (!selectedTemplateId) {
