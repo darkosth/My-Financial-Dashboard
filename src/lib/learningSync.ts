@@ -1,4 +1,4 @@
-import { LearningRecordKind, PlaidItemStatus } from "@prisma/client";
+import { LearningRecordKind, PlaidItemStatus, Prisma } from "@prisma/client";
 import type { RemovedTransaction, Transaction } from "plaid";
 import { decryptPlaidAccessToken, getPlaidClient } from "@/lib/plaid";
 import prisma from "@/lib/prisma";
@@ -78,15 +78,29 @@ const persistPlaidSyncBatch = async ({
   workspaceId: string;
 }) => {
   const syncedAt = new Date().toISOString();
+  const changedTransactions = new Map(
+    [...batch.added, ...batch.modified].map((transaction) => [transaction.transaction_id, transaction]),
+  );
+  const externalKeys = [...new Set([...changedTransactions.keys(), ...batch.removed.map((item) => item.transaction_id)])];
+  const existingRecords = externalKeys.length > 0
+    ? await prisma.learningRecord.findMany({
+        where: {
+          externalKey: { in: externalKeys },
+          kind: LearningRecordKind.TRANSACTION,
+          plaidItemId,
+        },
+      })
+    : [];
+  const existingByTransactionId = new Map(existingRecords.map((record) => [record.externalKey, record]));
+  const operations: Prisma.PrismaPromise<unknown>[] = [];
 
-  await prisma.$transaction(async (tx) => {
-    for (const transaction of [...batch.added, ...batch.modified]) {
+  for (const transaction of changedTransactions.values()) {
       const where = learningTransactionWhere(plaidItemId, transaction.transaction_id);
-      const existing = await tx.learningRecord.findUnique({ where });
+      const existing = existingByTransactionId.get(transaction.transaction_id);
       const previous = existing ? readLearningTransaction(existing.payload) : null;
       const payload = mergeLearningTransactionPayload(previous, normalizePlaidLearningTransaction(transaction));
 
-      await tx.learningRecord.upsert({
+      operations.push(prisma.learningRecord.upsert({
         where,
         create: {
           externalKey: transaction.transaction_id,
@@ -99,26 +113,25 @@ const persistPlaidSyncBatch = async ({
           payload: toLearningJson(payload),
           workspaceId,
         },
-      });
-    }
+      }));
+  }
 
-    for (const removed of batch.removed) {
-      const where = learningTransactionWhere(plaidItemId, removed.transaction_id);
-      const existing = await tx.learningRecord.findUnique({ where });
+  for (const removed of batch.removed) {
+      const existing = existingByTransactionId.get(removed.transaction_id);
       const payload = existing ? readLearningTransaction(existing.payload) : null;
 
-      if (payload) {
-        await tx.learningRecord.update({
-          where,
+      if (existing && payload) {
+        operations.push(prisma.learningRecord.update({
+          where: { id: existing.id },
           data: {
             payload: toLearningJson(markLearningTransactionRemoved(payload, syncedAt)),
           },
-        });
+        }));
       }
-    }
+  }
 
-    const syncPayload = toLearningJson({ cursor: batch.cursor || null, lastSyncedAt: syncedAt });
-    await tx.learningRecord.upsert({
+  const syncPayload = toLearningJson({ cursor: batch.cursor || null, lastSyncedAt: syncedAt });
+  operations.push(prisma.learningRecord.upsert({
       where: {
         plaidItemId_kind_externalKey: {
           externalKey: LEARNING_SYNC_STATE_KEY,
@@ -137,8 +150,9 @@ const persistPlaidSyncBatch = async ({
         payload: syncPayload,
         workspaceId,
       },
-    });
-  });
+    }));
+
+  await prisma.$transaction(operations);
 
   return {
     added: batch.added.length,

@@ -32,6 +32,15 @@ const getReviewLabel = (outcome: string) => {
   return "Ignorada";
 };
 
+const reasonLabels: Record<string, string> = {
+  AMOUNT: "importe",
+  CATEGORY: "categoría",
+  DATE: "fecha",
+  LEARNED_ACCOUNT: "cuenta aprendida",
+  LEARNED_MERCHANT: "comercio aprendido",
+  NAME: "nombre",
+};
+
 export default function LearningWorkbench({ data }: { data: LearningPageData }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -41,8 +50,8 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
 
   const getSelection = (transaction: LearningPageData["transactions"][number]) => {
     if (selections[transaction.transactionId] !== undefined) return selections[transaction.transactionId];
-    const templateId = transaction.review?.selectedTemplateId ?? transaction.suggestion?.templateId;
-    const cycleReference = transaction.review?.selectedCycleReference ?? transaction.suggestion?.cycleReference;
+    const templateId = transaction.review ? transaction.review.selectedTemplateId : transaction.suggestion?.templateId;
+    const cycleReference = transaction.review ? transaction.review.selectedCycleReference : transaction.suggestion?.cycleReference;
     return templateId && cycleReference ? buildSelectionValue(templateId, cycleReference) : "";
   };
 
@@ -101,17 +110,17 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
+            <Button variant="outline" size="icon" className="size-10" asChild>
               <Link href={`/learning?week=${data.previousWeek}`} aria-label="Semana anterior">
                 <ChevronLeft className="size-4" />
               </Link>
             </Button>
-            <Button variant="outline" size="icon" asChild>
+            <Button variant="outline" size="icon" className="size-10" asChild>
               <Link href={`/learning?week=${data.nextWeek}`} aria-label="Semana siguiente">
                 <ChevronRight className="size-4" />
               </Link>
             </Button>
-            <Button onClick={sync} disabled={isPending} className="gap-2">
+            <Button onClick={sync} disabled={isPending} className="h-10 gap-2">
               <RefreshCw className={`size-4 ${activeTransactionId === "sync" ? "animate-spin" : ""}`} />
               Sincronizar
             </Button>
@@ -129,7 +138,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
       </header>
 
       {error ? (
-        <div role="alert" className="mt-5 flex items-center justify-between gap-3 border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200">
+        <div role="alert" className="fixed bottom-4 left-1/2 z-50 flex w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 items-center justify-between gap-3 border border-red-300 border-l-4 border-l-red-500 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-lg dark:border-red-900 dark:border-l-red-500 dark:bg-red-950 dark:text-red-200">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} aria-label="Cerrar error">
             <X className="size-4" />
@@ -156,7 +165,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
                 const rowPending = isPending && activeTransactionId === transaction.transactionId;
 
                 return (
-                  <article key={`${transaction.plaidItemId}:${transaction.transactionId}`} className="border-b border-border py-5">
+                  <article key={`${transaction.plaidItemId}:${transaction.transactionId}`} aria-busy={rowPending} className="border-b border-border py-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -170,7 +179,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
                             </span>
                           ) : transaction.suggestion ? (
                             <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-950/60 dark:text-blue-200">
-                              Sugerido · score {transaction.suggestion.score}
+                              Sugerido · score {transaction.suggestion.score} · {transaction.suggestion.reasons.map((reason) => reasonLabels[reason.code] ?? reason.code.toLowerCase()).join(", ")}
                             </span>
                           ) : null}
                         </div>
@@ -189,7 +198,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
                         <select
                           value={selectedValue}
                           onChange={(event) => setSelections((current) => ({ ...current, [transaction.transactionId]: event.target.value }))}
-                          disabled={transaction.pending || rowPending}
+                          disabled={transaction.pending || isPending}
                           className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition-shadow focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <option value="">Seleccionar gasto…</option>
@@ -205,18 +214,18 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
                         <Button
                           size="sm"
                           onClick={() => review(transaction)}
-                          disabled={transaction.pending || rowPending || !selectedValue}
-                          className="flex-1 gap-2 sm:flex-none"
+                          disabled={transaction.pending || isPending || !selectedValue}
+                          className="h-10 flex-1 gap-2 sm:flex-none"
                         >
-                          <Check className="size-4" />
-                          {reviewed ? "Actualizar" : "Confirmar"}
+                          {rowPending ? <RefreshCw className="size-4 animate-spin" /> : <Check className="size-4" />}
+                          {rowPending ? "Guardando…" : reviewed ? "Actualizar" : "Confirmar"}
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => review(transaction, true)}
-                          disabled={transaction.pending || rowPending}
-                          className="flex-1 sm:flex-none"
+                          disabled={transaction.pending || isPending}
+                          className="h-10 flex-1 sm:flex-none"
                         >
                           Ignorar
                         </Button>

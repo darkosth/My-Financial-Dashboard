@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const navLinks: Array<{ href: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+const navLinks: Array<{ href: string; label: string; icon: React.ComponentType<{ className?: string }>; requiresPlaid?: boolean }> = [
   {
     href: "/dashboard",
     label: "Dashboard",
@@ -42,6 +42,7 @@ const navLinks: Array<{ href: string; label: string; icon: React.ComponentType<{
     href: "/learning",
     label: "Learning",
     icon: BrainCircuit,
+    requiresPlaid: true,
   },
 ];
 
@@ -53,27 +54,30 @@ const getLinkClassName = (isActive: boolean) =>
   }`;
 
 const mobileMenuContentClassName =
-  "w-64 max-sm:w-[min(22rem,calc(100vw-1rem))] max-sm:p-2 max-sm:duration-200 max-sm:ease-out max-sm:data-open:slide-in-from-right-8 max-sm:data-closed:slide-out-to-right-8";
+  "w-64 max-md:w-[min(22rem,calc(100vw-1rem))] max-md:p-2 max-md:duration-200 max-md:ease-out max-md:data-open:slide-in-from-right-8 max-md:data-closed:slide-out-to-right-8";
 
 const mobileMenuItemClassName =
-  "max-sm:min-h-14 max-sm:gap-3 max-sm:px-4 max-sm:py-3 max-sm:text-lg";
+  "max-md:min-h-14 max-md:gap-3 max-md:px-4 max-md:py-3 max-md:text-lg";
 
-const mobileMenuIconClassName = "h-4 w-4 max-sm:h-6 max-sm:w-6";
+const mobileMenuIconClassName = "h-4 w-4 max-md:h-6 max-md:w-6";
 
 export default function AuthenticatedNavbar({
   userName,
   workspaceName,
   buildCommitLabel,
   buildCommitSha,
+  hasPlaidAccess,
   isSuperAdmin,
 }: {
   userName: string;
   workspaceName: string;
   buildCommitLabel?: string | null;
   buildCommitSha?: string | null;
+  hasPlaidAccess: boolean;
   isSuperAdmin: boolean;
 }) {
   const pathname = usePathname();
+  const visibleNavLinks = navLinks.filter((link) => !link.requiresPlaid || hasPlaidAccess);
 
   const handleLogout = async () => {
     await signOut({ callbackUrl: "/" });
@@ -102,8 +106,8 @@ export default function AuthenticatedNavbar({
           </Link>
 
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="hidden items-center gap-1 sm:flex">
-              {navLinks.map((link) => {
+            <div className="hidden items-center gap-1 md:flex">
+              {visibleNavLinks.map((link) => {
                 const Icon = link.icon;
                 const isActive = pathname === link.href;
 
@@ -127,20 +131,20 @@ export default function AuthenticatedNavbar({
               </DropdownMenuTrigger>
 
               <DropdownMenuContent align="end" className={mobileMenuContentClassName}>
-                <DropdownMenuLabel className="space-y-1 max-sm:px-4 max-sm:py-3">
-                  <div className="text-sm font-semibold text-foreground max-sm:text-lg">{userName}</div>
-                  <div className="text-xs text-muted-foreground max-sm:text-sm">{workspaceName}</div>
+                <DropdownMenuLabel className="space-y-1 max-md:px-4 max-md:py-3">
+                  <div className="text-sm font-semibold text-foreground max-md:text-lg">{userName}</div>
+                  <div className="text-xs text-muted-foreground max-md:text-sm">{workspaceName}</div>
                 </DropdownMenuLabel>
 
                 <DropdownMenuSeparator />
 
-                <div className="sm:hidden">
-                  {navLinks.map((link) => {
+                <div className="md:hidden">
+                  {visibleNavLinks.map((link) => {
                     const Icon = link.icon;
 
                     return (
                       <DropdownMenuItem key={link.href} asChild className={mobileMenuItemClassName}>
-                        <Link href={link.href} className="flex items-center gap-2 max-sm:gap-3">
+                        <Link href={link.href} className="flex items-center gap-2 max-md:gap-3">
                           <Icon className={mobileMenuIconClassName} />
                           <span>{link.label}</span>
                         </Link>
@@ -153,7 +157,7 @@ export default function AuthenticatedNavbar({
 
                 {/* ENLACE AL CENTRO DE MANDO (SETTINGS) */}
                 <DropdownMenuItem asChild className={mobileMenuItemClassName}>
-                  <Link href="/settings" className="flex items-center gap-2 font-medium text-foreground max-sm:gap-3">
+                  <Link href="/settings" className="flex items-center gap-2 font-medium text-foreground max-md:gap-3">
                     <Settings className={mobileMenuIconClassName} />
                     <span>Workspace Settings</span>
                   </Link>
@@ -162,14 +166,14 @@ export default function AuthenticatedNavbar({
                 <DropdownMenuSeparator />
 
                 <DropdownMenuItem asChild className={mobileMenuItemClassName}>
-                  <Link href="/templates" className="flex items-center gap-2 max-sm:gap-3">
+                  <Link href="/templates" className="flex items-center gap-2 max-md:gap-3">
                     <Settings2 className={mobileMenuIconClassName} />
                     <span>Templates</span>
                   </Link>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem asChild className={mobileMenuItemClassName}>
-                  <Link href="/unique-expenses" className="flex items-center gap-2 max-sm:gap-3">
+                  <Link href="/unique-expenses" className="flex items-center gap-2 max-md:gap-3">
                     <ReceiptText className={mobileMenuIconClassName} />
                     <span>Unique Expenses</span>
                   </Link>
@@ -180,7 +184,7 @@ export default function AuthenticatedNavbar({
                 {isSuperAdmin ? (
                   <>
                     <DropdownMenuItem asChild className={mobileMenuItemClassName}>
-                      <Link href="/admin/access" className="flex items-center gap-2 font-medium text-emerald-700 max-sm:gap-3 dark:text-emerald-300">
+                      <Link href="/admin/access" className="flex items-center gap-2 font-medium text-emerald-700 max-md:gap-3 dark:text-emerald-300">
                         <ShieldCheck className={mobileMenuIconClassName} />
                         <span>Premium Access</span>
                       </Link>
