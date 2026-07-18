@@ -1,11 +1,12 @@
 import "server-only";
 
-import { LearningRecordKind, type Template } from "@prisma/client";
+import { LearningRecordKind } from "@prisma/client";
 import { addDays } from "date-fns";
 import { getCalendarDateKey, parseDateOnlyString } from "@/lib/calendarDate";
 import { LEARNING_LIQUIDITY_ACCOUNT_WHERE } from "@/lib/learningAccountPolicy";
 import {
   buildLearningSuggestion,
+  getLearningExpenseCandidates,
   normalizeLearningText,
   type LearningConfirmationSignal,
   type LearningExpenseCandidate,
@@ -14,47 +15,12 @@ import { readLearningSyncState, readLearningTransaction, toLearningJson } from "
 import type { LearningTransactionPayload } from "@/lib/learningTypes";
 import prisma from "@/lib/prisma";
 import {
-  getProjectionWeekInterval,
   getProjectionWeekStart,
-  getTemplateCycleReference,
-  getTemplateOccurrenceInInterval,
 } from "@/lib/waterfallCalculations";
-
-const toScheduledPayment = (template: Template) => ({
-  amount: template.amountCents / 100,
-  category: template.category,
-  dayOfMonth: template.dayOfMonth,
-  frequency: template.frequency,
-  id: template.id,
-  lastPaidAt: template.lastPaidAt,
-  name: template.name,
-});
 
 export const resolveLearningWeekStart = (value?: string | null) => {
   const requestedDate = parseDateOnlyString(value);
   return getProjectionWeekStart(requestedDate ?? new Date());
-};
-
-export const getLearningExpenseCandidates = (
-  templates: Template[],
-  referenceDate: Date | string,
-): LearningExpenseCandidate[] => {
-  const interval = getProjectionWeekInterval(referenceDate);
-
-  return templates.flatMap((template) => {
-    const scheduled = toScheduledPayment(template);
-    const occurrenceDate = getTemplateOccurrenceInInterval(scheduled, interval);
-    if (!occurrenceDate) return [];
-
-    return [{
-      amountCents: template.amountCents,
-      category: template.category,
-      cycleReference: getCalendarDateKey(getTemplateCycleReference(scheduled, occurrenceDate)),
-      name: template.name,
-      occurrenceDate: getCalendarDateKey(occurrenceDate),
-      templateId: template.id,
-    }];
-  });
 };
 
 const getConfirmationSignals = (transactions: LearningTransactionPayload[]): LearningConfirmationSignal[] =>
@@ -70,12 +36,13 @@ const getConfirmationSignals = (transactions: LearningTransactionPayload[]): Lea
   });
 
 export const refreshLearningSuggestionsForWorkspace = async (workspaceId: string) => {
-  const [records, templates, liquidityAccounts] = await Promise.all([
+  const [records, templates, creditCards, liquidityAccounts] = await Promise.all([
     prisma.learningRecord.findMany({
       where: { kind: LearningRecordKind.TRANSACTION, workspaceId },
       orderBy: { createdAt: "asc" },
     }),
     prisma.template.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
+    prisma.creditCard.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
     prisma.plaidRemoteAccount.findMany({
       where: { ...LEARNING_LIQUIDITY_ACCOUNT_WHERE, workspaceId },
       select: { plaidAccountId: true },
@@ -94,7 +61,7 @@ export const refreshLearningSuggestionsForWorkspace = async (workspaceId: string
     .filter(({ transaction }) => !transaction.review)
     .map(({ record, transaction }) => {
         const candidates = getLearningExpenseCandidates(
-          templates,
+          { creditCards, templates },
           parseDateOnlyString(transaction.authorizedDate ?? transaction.date) ?? new Date(),
         );
         const suggestion = buildLearningSuggestion({ candidates, confirmations, transaction });
@@ -117,7 +84,7 @@ export type LearningPageData = Awaited<ReturnType<typeof loadLearningPageData>>;
 export const loadLearningPageData = async (workspaceId: string, requestedWeek?: string | null) => {
   const weekStart = resolveLearningWeekStart(requestedWeek);
   const weekEnd = addDays(weekStart, 6);
-  const [records, templates, remoteAccounts] = await Promise.all([
+  const [records, templates, creditCards, remoteAccounts] = await Promise.all([
     prisma.learningRecord.findMany({
       where: { workspaceId },
       include: {
@@ -126,13 +93,14 @@ export const loadLearningPageData = async (workspaceId: string, requestedWeek?: 
       orderBy: { updatedAt: "desc" },
     }),
     prisma.template.findMany({ where: { workspaceId }, orderBy: { name: "asc" } }),
+    prisma.creditCard.findMany({ where: { workspaceId }, orderBy: { name: "asc" } }),
     prisma.plaidRemoteAccount.findMany({
       where: { ...LEARNING_LIQUIDITY_ACCOUNT_WHERE, workspaceId },
       select: { name: true, plaidAccountId: true },
     }),
   ]);
   const accountNames = new Map(remoteAccounts.map((account) => [account.plaidAccountId, account.name]));
-  const expenses = getLearningExpenseCandidates(templates, weekStart);
+  const expenses = getLearningExpenseCandidates({ creditCards, templates }, weekStart);
   const syncStates = records.flatMap((record) => {
     if (record.kind !== LearningRecordKind.SYNC_STATE) return [];
     const state = readLearningSyncState(record.payload);

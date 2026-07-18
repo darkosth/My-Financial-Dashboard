@@ -13,7 +13,7 @@ test("adds a credit card payment candidate in the week containing its due date",
       name: "Capital One Venture",
     }],
     templates: [],
-  }, "2026-07-13");
+  }, "2026-07-16");
 
   assert.deepEqual(candidates, [{
     amountCents: 3_500,
@@ -47,7 +47,7 @@ test("excludes credit cards that cannot produce a scheduled payment", () => {
       },
     ],
     templates: [],
-  }, "2026-07-13");
+  }, "2026-07-16");
 
   assert.deepEqual(candidates, []);
 });

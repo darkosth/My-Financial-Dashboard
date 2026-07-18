@@ -1,4 +1,11 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
+import { getCalendarDateKey } from "@/lib/calendarDate";
+import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
+import {
+  getProjectionWeekInterval,
+  getTemplateCycleReference,
+  getTemplateOccurrenceInInterval,
+} from "@/lib/waterfallCalculations";
 import type { LearningSuggestion, LearningSuggestionReasonCode, LearningTransactionPayload } from "./learningTypes.ts";
 
 export const LEARNING_HEURISTIC_VERSION = "learning-v1";
@@ -9,9 +16,94 @@ export type LearningExpenseCandidate = {
   amountCents: number;
   category: string;
   cycleReference: string;
+  kind?: "credit-card" | "template";
   name: string;
   occurrenceDate: string;
   templateId: string;
+};
+
+type LearningTemplateCandidateSource = {
+  amountCents: number;
+  category: string;
+  dayOfMonth: number | null;
+  frequency: string;
+  id: string;
+  lastPaidAt: Date | string | null;
+  name: string;
+};
+
+type LearningCreditCardCandidateSource = {
+  balanceCents: number;
+  dueDate: number | null;
+  id: string;
+  minimumPaymentCents: number;
+  minimumPaymentPercentage: number | null;
+  name: string;
+};
+
+export const getLearningExpenseCandidates = ({
+  creditCards,
+  templates,
+}: {
+  creditCards: LearningCreditCardCandidateSource[];
+  templates: LearningTemplateCandidateSource[];
+}, referenceDate: Date | string): LearningExpenseCandidate[] => {
+  const interval = getProjectionWeekInterval(referenceDate);
+  const templateCandidates = templates.flatMap((template) => {
+    const scheduled = {
+      amount: template.amountCents / 100,
+      category: template.category,
+      dayOfMonth: template.dayOfMonth,
+      frequency: template.frequency,
+      id: template.id,
+      lastPaidAt: template.lastPaidAt,
+      name: template.name,
+    };
+    const occurrenceDate = getTemplateOccurrenceInInterval(scheduled, interval);
+    if (!occurrenceDate) return [];
+
+    return [{
+      amountCents: template.amountCents,
+      category: template.category,
+      cycleReference: getCalendarDateKey(getTemplateCycleReference(scheduled, occurrenceDate)),
+      kind: "template" as const,
+      name: template.name,
+      occurrenceDate: getCalendarDateKey(occurrenceDate),
+      templateId: template.id,
+    }];
+  });
+  const creditCardCandidates = creditCards.flatMap((card) => {
+    const minimumPayment = getCreditCardEffectiveMinimumPayment({
+      balance: card.balanceCents / 100,
+      minimumPayment: card.minimumPaymentCents / 100,
+      minimumPaymentPercentage: card.minimumPaymentPercentage,
+    });
+    if (!card.dueDate || card.balanceCents <= 0 || minimumPayment <= 0) return [];
+
+    const scheduled = {
+      amount: minimumPayment,
+      category: "DEBT",
+      dayOfMonth: card.dueDate,
+      frequency: "MONTHLY",
+      id: `credit-card:${card.id}`,
+      kind: "credit-card",
+      name: card.name,
+    };
+    const occurrenceDate = getTemplateOccurrenceInInterval(scheduled, interval);
+    if (!occurrenceDate) return [];
+
+    return [{
+      amountCents: Math.round(minimumPayment * 100),
+      category: "DEBT",
+      cycleReference: getCalendarDateKey(getTemplateCycleReference(scheduled, occurrenceDate)),
+      kind: "credit-card" as const,
+      name: card.name,
+      occurrenceDate: getCalendarDateKey(occurrenceDate),
+      templateId: scheduled.id,
+    }];
+  });
+
+  return [...templateCandidates, ...creditCardCandidates];
 };
 
 export type LearningConfirmationSignal = {
@@ -64,9 +156,11 @@ const categoryMap: Record<string, string[]> = {
   ENTERTAINMENT: ["ENTERTAINMENT"],
   FOOD_AND_DRINK: ["FOOD"],
   GENERAL_MERCHANDISE: ["PERSONAL", "OTHER"],
+  LOAN_PAYMENTS: ["DEBT"],
   MEDICAL: ["MEDICAL"],
   RENT_AND_UTILITIES: ["HOUSING", "UTILITIES"],
   TRANSPORTATION: ["TRANSPORTATION"],
+  TRANSFER_OUT: ["DEBT"],
 };
 
 const addReason = (

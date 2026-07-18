@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { parseRequiredText, type ActionResult } from "@/lib/actions/validation";
 import { assertCurrentFeatureAccess } from "@/lib/featureAccess";
 import { LEARNING_LIQUIDITY_ACCOUNT_WHERE } from "@/lib/learningAccountPolicy";
-import { getLearningExpenseCandidates, refreshLearningSuggestionsForWorkspace } from "@/lib/learningData";
+import { refreshLearningSuggestionsForWorkspace } from "@/lib/learningData";
+import { getLearningExpenseCandidates } from "@/lib/learningMatcher";
 import { learningTransactionWhere, readLearningTransaction, toLearningJson } from "@/lib/learningStore";
 import { syncLearningTransactionsForWorkspace } from "@/lib/learningSync";
 import { isLearningTransactionReviewable } from "@/lib/learningSyncPolicy";
@@ -106,10 +107,21 @@ export async function reviewLearningTransactionAction({
     } else {
       const templateId = parseRequiredText(selectedTemplateId, "Template id");
       const cycleReference = parseRequiredText(selectedCycleReference, "Cycle reference");
-      const templates = await prisma.template.findMany({
-        where: { id: templateId, workspaceId: activeWorkspace.id },
-      });
-      const candidates = getLearningExpenseCandidates(templates, transaction.authorizedDate ?? transaction.date);
+      const creditCardId = templateId.startsWith("credit-card:")
+        ? templateId.slice("credit-card:".length)
+        : null;
+      const [templates, creditCards] = await Promise.all([
+        prisma.template.findMany({
+          where: { id: templateId, workspaceId: activeWorkspace.id },
+        }),
+        prisma.creditCard.findMany({
+          where: { id: creditCardId ?? "", workspaceId: activeWorkspace.id },
+        }),
+      ]);
+      const candidates = getLearningExpenseCandidates(
+        { creditCards, templates },
+        transaction.authorizedDate ?? transaction.date,
+      );
       const selectedCandidate = candidates.find(
         (candidate) => candidate.templateId === templateId && candidate.cycleReference === cycleReference,
       );

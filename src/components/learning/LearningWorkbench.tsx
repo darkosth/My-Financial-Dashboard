@@ -153,7 +153,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
         <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <span><strong className="text-foreground">{data.transactions.length}</strong> transacciones</span>
           <span><strong className="text-foreground">{data.liquidityAccountCount}</strong> cuentas de liquidez</span>
-          <span><strong className="text-foreground">{data.expenses.length}</strong> gastos</span>
+          <span><strong className="text-foreground">{data.expenses.length}</strong> pagos agendados</span>
           <span><strong className="text-foreground">{data.reviewedCount}</strong> revisadas</span>
           <span className="text-muted-foreground">
             {data.lastSyncedAt ? `Actualizado ${new Intl.DateTimeFormat("es-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(data.lastSyncedAt))}` : "Sin sincronización"}
@@ -237,7 +237,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
                           <option value="">Seleccionar gasto…</option>
                           {data.expenses.map((candidate) => (
                             <option key={`${candidate.templateId}:${candidate.cycleReference}`} value={buildSelectionValue(candidate.templateId, candidate.cycleReference)}>
-                              {candidate.name} · {formatMoney(candidate.amountCents)}
+                              {candidate.kind === "credit-card" ? "Tarjeta · " : ""}{candidate.name} · {formatMoney(candidate.amountCents)}
                             </option>
                           ))}
                         </select>
@@ -272,14 +272,14 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
         </section>
 
         <aside aria-labelledby="expenses-heading" className="lg:sticky lg:top-24 lg:self-start">
-          <h2 id="expenses-heading" className="mb-3 text-lg font-semibold">Gastos de la semana</h2>
+          <h2 id="expenses-heading" className="mb-3 text-lg font-semibold">Pagos de la semana</h2>
           <div className="border-y border-border">
             {data.expenses.length === 0 ? (
               <p className="py-10 text-sm text-muted-foreground">No hay gastos agendados.</p>
             ) : data.expenses.map((expense) => (
               <div key={`${expense.templateId}:${expense.cycleReference}`} className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{expense.name}</div>
+                  <div className="truncate text-sm font-medium">{expense.kind === "credit-card" ? "Tarjeta · " : ""}{expense.name}</div>
                   <div className="text-xs text-muted-foreground">
                     {formatCalendarDateLabel(expense.occurrenceDate, { day: "numeric", month: "short" })}
                   </div>
