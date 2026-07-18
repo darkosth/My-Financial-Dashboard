@@ -18,7 +18,26 @@ type ReviewLearningInput = {
 };
 
 const logLearningError = (action: string, error: unknown) => {
-  console.error(action, error instanceof Error ? error.message : String(error));
+  const response = typeof error === "object" && error !== null && "response" in error
+    ? (error as {
+        response?: {
+          data?: {
+            error_code?: unknown;
+            error_type?: unknown;
+            request_id?: unknown;
+          };
+          status?: unknown;
+        };
+      }).response
+    : null;
+
+  console.error(action, {
+    errorCode: typeof response?.data?.error_code === "string" ? response.data.error_code : null,
+    errorType: typeof response?.data?.error_type === "string" ? response.data.error_type : null,
+    message: error instanceof Error ? error.message : String(error),
+    requestId: typeof response?.data?.request_id === "string" ? response.data.request_id : null,
+    status: typeof response?.status === "number" ? response.status : null,
+  });
 };
 
 export async function syncLearningTransactionsAction(): Promise<ActionResult<Awaited<ReturnType<typeof syncLearningTransactionsForWorkspace>>>> {
