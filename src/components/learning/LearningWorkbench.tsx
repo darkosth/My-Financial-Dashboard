@@ -15,6 +15,9 @@ const formatMoney = (amountCents: number, currencyCode: string | null = "USD") =
     style: "currency",
   }).format(amountCents / 100);
 
+const getExpenseLabel = (candidate: LearningPageData["expenses"][number]) =>
+  `${candidate.kind === "credit-card" ? "Tarjeta · Pago mínimo · " : ""}${candidate.name} · ${formatMoney(candidate.amountCents)}`;
+
 const buildSelectionValue = (templateId: string, cycleReference: string) => `${templateId}::${cycleReference}`;
 
 const parseSelectionValue = (value: string) => {
@@ -94,7 +97,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
   const review = (transaction: LearningPageData["transactions"][number], ignore = false) => {
     const selected = ignore ? null : parseSelectionValue(getSelection(transaction));
     if (!ignore && !selected) {
-      setError("Selecciona un gasto para confirmar.");
+      setError("Selecciona un pago agendado para confirmar.");
       return;
     }
 
@@ -227,17 +230,17 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
 
                     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                       <label className="min-w-0 flex-1">
-                        <span className="sr-only">Gasto correspondiente</span>
+                        <span className="sr-only">Pago agendado correspondiente</span>
                         <select
                           value={selectedValue}
                           onChange={(event) => setSelections((current) => ({ ...current, [transaction.transactionId]: event.target.value }))}
                           disabled={isPending}
                           className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition-shadow focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <option value="">Seleccionar gasto…</option>
+                          <option value="">Seleccionar pago…</option>
                           {data.expenses.map((candidate) => (
                             <option key={`${candidate.templateId}:${candidate.cycleReference}`} value={buildSelectionValue(candidate.templateId, candidate.cycleReference)}>
-                              {candidate.kind === "credit-card" ? "Tarjeta · " : ""}{candidate.name} · {formatMoney(candidate.amountCents)}
+                              {getExpenseLabel(candidate)}
                             </option>
                           ))}
                         </select>
@@ -275,11 +278,13 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
           <h2 id="expenses-heading" className="mb-3 text-lg font-semibold">Pagos de la semana</h2>
           <div className="border-y border-border">
             {data.expenses.length === 0 ? (
-              <p className="py-10 text-sm text-muted-foreground">No hay gastos agendados.</p>
+              <p className="py-10 text-sm text-muted-foreground">No hay pagos agendados.</p>
             ) : data.expenses.map((expense) => (
               <div key={`${expense.templateId}:${expense.cycleReference}`} className="flex items-center justify-between gap-3 border-b border-border py-3 last:border-b-0">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{expense.kind === "credit-card" ? "Tarjeta · " : ""}{expense.name}</div>
+                  <div className="truncate text-sm font-medium" title={expense.kind === "credit-card" ? `Tarjeta · Pago mínimo · ${expense.name}` : expense.name}>
+                    {expense.kind === "credit-card" ? "Tarjeta · Mínimo · " : ""}{expense.name}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {formatCalendarDateLabel(expense.occurrenceDate, { day: "numeric", month: "short" })}
                   </div>
