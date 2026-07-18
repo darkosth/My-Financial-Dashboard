@@ -67,10 +67,15 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
         setError(result.error);
         return;
       }
-      if (result.data.failures.length > 0) {
-        const changed = result.data.total.added + result.data.total.modified + result.data.total.removed;
-        const reconnectCount = result.data.failures.filter((failure) => failure.requiresReconnect).length;
-        const skippedCount = result.data.failures.length - reconnectCount;
+      const syncResult = result.data;
+      if (!syncResult) {
+        setError("La sincronización no devolvió resultados.");
+        return;
+      }
+      if (syncResult.failures.length > 0) {
+        const changed = syncResult.total.added + syncResult.total.modified + syncResult.total.removed;
+        const reconnectCount = syncResult.failures.filter((failure) => failure.requiresReconnect).length;
+        const skippedCount = syncResult.failures.length - reconnectCount;
         const parts = [
           changed > 0 ? `${changed} cambios guardados` : null,
           reconnectCount > 0
