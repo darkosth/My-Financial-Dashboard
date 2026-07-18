@@ -13,6 +13,7 @@ import {
   markLearningTransactionRemoved,
   mergeLearningTransactionPayload,
   normalizePlaidLearningTransaction,
+  readPlaidLearningSyncFailure,
 } from "@/lib/learningSyncPolicy";
 
 const MAX_PAGINATION_ATTEMPTS = 3;
@@ -176,6 +177,11 @@ export const syncLearningTransactionsForWorkspace = async (workspaceId: string) 
   });
 
   const results: Array<{ added: number; institutionName: string; modified: number; removed: number }> = [];
+  const failures: Array<{
+    errorCode: string;
+    institutionName: string;
+    requiresReconnect: boolean;
+  }> = [];
 
   for (const item of items) {
     if (!item.accessTokenCiphertext) continue;
@@ -190,18 +196,32 @@ export const syncLearningTransactionsForWorkspace = async (workspaceId: string) 
       },
     });
     const syncState = syncRecord ? readLearningSyncState(syncRecord.payload) : null;
-    const batch = await fetchPlaidSyncBatch(
-      decryptPlaidAccessToken(item.accessTokenCiphertext),
-      syncState?.cursor ?? null,
-    );
-    const counts = await persistPlaidSyncBatch({ batch, plaidItemId: item.id, workspaceId });
-    results.push({
-      ...counts,
-      institutionName: item.institutionName ?? "Bank",
-    });
+    const institutionName = item.institutionName ?? "Bank";
+
+    try {
+      const batch = await fetchPlaidSyncBatch(
+        decryptPlaidAccessToken(item.accessTokenCiphertext),
+        syncState?.cursor ?? null,
+      );
+      const counts = await persistPlaidSyncBatch({ batch, plaidItemId: item.id, workspaceId });
+      results.push({
+        ...counts,
+        institutionName,
+      });
+    } catch (error) {
+      const plaidFailure = readPlaidLearningSyncFailure(error);
+      if (!plaidFailure) throw error;
+
+      failures.push({
+        errorCode: plaidFailure.errorCode,
+        institutionName,
+        requiresReconnect: plaidFailure.requiresReconnect,
+      });
+    }
   }
 
   return {
+    failures,
     items: results,
     total: results.reduce(
       (summary, item) => ({

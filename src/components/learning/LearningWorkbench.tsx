@@ -46,6 +46,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
   const [isPending, startTransition] = useTransition();
   const [activeTransactionId, setActiveTransactionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [selections, setSelections] = useState<Record<string, string>>({});
 
   const getSelection = (transaction: LearningPageData["transactions"][number]) => {
@@ -57,6 +58,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
 
   const sync = () => {
     setError(null);
+    setNotice(null);
     setActiveTransactionId("sync");
     startTransition(async () => {
       const result = await syncLearningTransactionsAction();
@@ -64,6 +66,21 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
       if (!result.success) {
         setError(result.error);
         return;
+      }
+      if (result.data.failures.length > 0) {
+        const changed = result.data.total.added + result.data.total.modified + result.data.total.removed;
+        const reconnectCount = result.data.failures.filter((failure) => failure.requiresReconnect).length;
+        const skippedCount = result.data.failures.length - reconnectCount;
+        const parts = [
+          changed > 0 ? `${changed} cambios guardados` : null,
+          reconnectCount > 0
+            ? `${reconnectCount} ${reconnectCount === 1 ? "conexión bancaria requiere" : "conexiones bancarias requieren"} reconexión`
+            : null,
+          skippedCount > 0
+            ? `${skippedCount} ${skippedCount === 1 ? "conexión no pudo" : "conexiones no pudieron"} sincronizarse`
+            : null,
+        ].filter(Boolean);
+        setNotice(`Sincronización parcial: ${parts.join("; ")}.`);
       }
       router.refresh();
     });
@@ -141,6 +158,15 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
         <div role="alert" className="fixed bottom-4 left-1/2 z-50 flex w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 items-center justify-between gap-3 border border-red-300 border-l-4 border-l-red-500 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-lg dark:border-red-900 dark:border-l-red-500 dark:bg-red-950 dark:text-red-200">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} aria-label="Cerrar error">
+            <X className="size-4" />
+          </button>
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div role="status" className="fixed bottom-4 left-1/2 z-50 flex w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 items-center justify-between gap-3 border border-amber-300 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-lg dark:border-amber-900 dark:border-l-amber-500 dark:bg-amber-950 dark:text-amber-100">
+          <span>{notice}</span>
+          <button type="button" onClick={() => setNotice(null)} aria-label="Cerrar aviso">
             <X className="size-4" />
           </button>
         </div>

@@ -18,6 +18,35 @@ type PlaidLearningTransaction = {
   transaction_id: string;
 };
 
+export type PlaidLearningSyncFailure = {
+  errorCode: string;
+  errorType: string | null;
+  requiresReconnect: boolean;
+  status: number | null;
+};
+
+const PLAID_RECONNECT_ERROR_CODES = new Set(["INVALID_ACCESS_TOKEN", "ITEM_LOGIN_REQUIRED"]);
+
+export const readPlaidLearningSyncFailure = (error: unknown): PlaidLearningSyncFailure | null => {
+  if (typeof error !== "object" || error === null || !("response" in error)) return null;
+
+  const response = (error as {
+    response?: {
+      data?: { error_code?: unknown; error_type?: unknown };
+      status?: unknown;
+    };
+  }).response;
+  const errorCode = response?.data?.error_code;
+  if (typeof errorCode !== "string") return null;
+
+  return {
+    errorCode,
+    errorType: typeof response?.data?.error_type === "string" ? response.data.error_type : null,
+    requiresReconnect: PLAID_RECONNECT_ERROR_CODES.has(errorCode),
+    status: typeof response?.status === "number" ? response.status : null,
+  };
+};
+
 export const normalizePlaidLearningTransaction = (
   transaction: PlaidLearningTransaction,
 ): LearningTransactionPayload => ({
