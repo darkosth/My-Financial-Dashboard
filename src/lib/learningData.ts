@@ -163,6 +163,7 @@ export const loadLearningPageData = async (workspaceId: string, requestedWeek?: 
       .filter((value): value is string => !!value)
       .sort()
       .at(-1) ?? null,
+    liquidityAccountCount: remoteAccounts.length,
     nextWeek: getCalendarDateKey(addDays(weekStart, 7)),
     previousWeek: getCalendarDateKey(addDays(weekStart, -7)),
     reviewedCount,

@@ -99,6 +99,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
     }
 
     setError(null);
+    setNotice(null);
     setActiveTransactionId(transaction.transactionId);
     startTransition(async () => {
       const result = await reviewLearningTransactionAction({
@@ -151,6 +152,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
 
         <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <span><strong className="text-foreground">{data.transactions.length}</strong> transacciones</span>
+          <span><strong className="text-foreground">{data.liquidityAccountCount}</strong> cuentas de liquidez</span>
           <span><strong className="text-foreground">{data.expenses.length}</strong> gastos</span>
           <span><strong className="text-foreground">{data.reviewedCount}</strong> revisadas</span>
           <span className="text-muted-foreground">
@@ -202,7 +204,7 @@ export default function LearningWorkbench({ data }: { data: LearningPageData }) 
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="truncate font-semibold">{transaction.merchantName || transaction.name}</h3>
                           {transaction.pending ? (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/60 dark:text-amber-200">Pendiente</span>
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/60 dark:text-amber-200">Pendiente · revisión provisional</span>
                           ) : null}
                           {transaction.review ? (
                             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
