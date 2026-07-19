@@ -6,7 +6,7 @@ import { parseRequiredText, type ActionResult } from "@/lib/actions/validation";
 import { assertCurrentFeatureAccess } from "@/lib/featureAccess";
 import { LEARNING_LIQUIDITY_ACCOUNT_WHERE } from "@/lib/learningAccountPolicy";
 import { refreshLearningSuggestionsForWorkspace } from "@/lib/learningData";
-import { getLearningExpenseCandidates } from "@/lib/learningMatcher";
+import { getLearningCandidateForTransaction, getLearningPaymentCatalog } from "@/lib/learningMatcher";
 import { learningTransactionWhere, readLearningTransaction, toLearningJson } from "@/lib/learningStore";
 import { syncLearningTransactionsForWorkspace } from "@/lib/learningSync";
 import { isLearningTransactionReviewable } from "@/lib/learningSyncPolicy";
@@ -49,6 +49,7 @@ export async function syncLearningTransactionsAction(): Promise<ActionResult<Awa
     const { activeWorkspace } = await getCurrentUserContext();
     const result = await syncLearningTransactionsForWorkspace(activeWorkspace.id);
     await refreshLearningSuggestionsForWorkspace(activeWorkspace.id);
+    revalidatePath("/dashboard");
     revalidatePath("/learning");
     return { success: true, data: result };
   } catch (error) {
@@ -59,7 +60,6 @@ export async function syncLearningTransactionsAction(): Promise<ActionResult<Awa
 
 export async function reviewLearningTransactionAction({
   plaidItemId,
-  selectedCycleReference,
   selectedTemplateId,
   transactionId,
 }: ReviewLearningInput): Promise<ActionResult> {
@@ -106,7 +106,6 @@ export async function reviewLearningTransactionAction({
       });
     } else {
       const templateId = parseRequiredText(selectedTemplateId, "Template id");
-      const cycleReference = parseRequiredText(selectedCycleReference, "Cycle reference");
       const creditCardId = templateId.startsWith("credit-card:")
         ? templateId.slice("credit-card:".length)
         : null;
@@ -118,18 +117,16 @@ export async function reviewLearningTransactionAction({
           where: { id: creditCardId ?? "", workspaceId: activeWorkspace.id },
         }),
       ]);
-      const candidates = getLearningExpenseCandidates(
-        { creditCards, templates },
+      const selectedItem = getLearningPaymentCatalog({ creditCards, templates })
+        .find((item) => item.targetId === templateId);
+      if (!selectedItem) throw new Error("Learning payment option not found");
+      const selectedCandidate = getLearningCandidateForTransaction(
+        selectedItem,
         transaction.authorizedDate ?? transaction.date,
       );
-      const selectedCandidate = candidates.find(
-        (candidate) => candidate.templateId === templateId && candidate.cycleReference === cycleReference,
-      );
-      if (!selectedCandidate) throw new Error("Learning expense candidate not found");
+      const cycleReference = selectedCandidate?.cycleReference ?? null;
 
-      const confirmedSuggestion =
-        transaction.suggestion?.templateId === templateId &&
-        transaction.suggestion.cycleReference === cycleReference;
+      const confirmedSuggestion = transaction.suggestion?.templateId === templateId;
 
       await prisma.learningRecord.update({
         where: { id: record.id },
@@ -149,10 +146,53 @@ export async function reviewLearningTransactionAction({
     }
 
     await refreshLearningSuggestionsForWorkspace(activeWorkspace.id);
+    revalidatePath("/dashboard");
     revalidatePath("/learning");
     return { success: true };
   } catch (error) {
     logLearningError("Failed to review learning transaction:", error);
     return { success: false, error: "No se pudo guardar la revisión." };
+  }
+}
+
+export async function undoLearningTransactionReviewAction({
+  plaidItemId,
+  transactionId,
+}: {
+  plaidItemId: string;
+  transactionId: string;
+}): Promise<ActionResult> {
+  try {
+    await assertCurrentFeatureAccess("PLAID");
+    const { activeWorkspace } = await getCurrentUserContext();
+    const validatedPlaidItemId = parseRequiredText(plaidItemId, "Plaid item id");
+    const validatedTransactionId = parseRequiredText(transactionId, "Transaction id");
+    const where = learningTransactionWhere(validatedPlaidItemId, validatedTransactionId);
+    const record = await prisma.learningRecord.findUnique({ where });
+    const transaction = record ? readLearningTransaction(record.payload) : null;
+    if (!record || record.workspaceId !== activeWorkspace.id || record.kind !== LearningRecordKind.TRANSACTION || !transaction) {
+      throw new Error("Learning transaction not found");
+    }
+    const liquidityAccount = await prisma.plaidRemoteAccount.findFirst({
+      where: {
+        ...LEARNING_LIQUIDITY_ACCOUNT_WHERE,
+        plaidAccountId: transaction.accountId,
+        workspaceId: activeWorkspace.id,
+      },
+      select: { id: true },
+    });
+    if (!liquidityAccount) throw new Error("Learning transaction is outside the liquidity account scope");
+
+    await prisma.learningRecord.update({
+      where: { id: record.id },
+      data: { payload: toLearningJson({ ...transaction, review: null }) },
+    });
+    await refreshLearningSuggestionsForWorkspace(activeWorkspace.id);
+    revalidatePath("/dashboard");
+    revalidatePath("/learning");
+    return { success: true };
+  } catch (error) {
+    logLearningError("Failed to undo learning review:", error);
+    return { success: false, error: "No se pudo deshacer la revisión." };
   }
 }

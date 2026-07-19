@@ -5,11 +5,13 @@ import { addDays } from "date-fns";
 import { getCalendarDateKey, parseDateOnlyString } from "@/lib/calendarDate";
 import { LEARNING_LIQUIDITY_ACCOUNT_WHERE } from "@/lib/learningAccountPolicy";
 import {
-  buildLearningSuggestion,
+  buildLearningPrediction,
+  getLearningCandidateForTransaction,
   getLearningExpenseCandidates,
+  getLearningPaymentCatalog,
   normalizeLearningText,
   type LearningConfirmationSignal,
-  type LearningExpenseCandidate,
+  type LearningRejectionSignal,
 } from "@/lib/learningMatcher";
 import { readLearningSyncState, readLearningTransaction, toLearningJson } from "@/lib/learningStore";
 import type { LearningTransactionPayload } from "@/lib/learningTypes";
@@ -35,6 +37,19 @@ const getConfirmationSignals = (transactions: LearningTransactionPayload[]): Lea
     }];
   });
 
+const getRejectionSignals = (transactions: LearningTransactionPayload[]): LearningRejectionSignal[] =>
+  transactions.flatMap((transaction) => {
+    const rejectedTargetId = transaction.review?.outcome === "IGNORED"
+      ? transaction.suggestion?.templateId
+      : null;
+    if (!rejectedTargetId) return [];
+
+    return [{
+      merchantKey: normalizeLearningText(transaction.merchantName || transaction.name),
+      templateId: rejectedTargetId,
+    }];
+  });
+
 export const refreshLearningSuggestionsForWorkspace = async (workspaceId: string) => {
   const [records, templates, creditCards, liquidityAccounts] = await Promise.all([
     prisma.learningRecord.findMany({
@@ -56,15 +71,20 @@ export const refreshLearningSuggestionsForWorkspace = async (workspaceId: string
   const confirmations = getConfirmationSignals(
     transactions.flatMap(({ transaction }) => transaction.removedAt ? [] : [transaction]),
   );
+  const rejections = getRejectionSignals(
+    transactions.flatMap(({ transaction }) => transaction.removedAt ? [] : [transaction]),
+  );
+  const catalog = getLearningPaymentCatalog({ creditCards, templates });
 
   const updates = transactions
     .filter(({ transaction }) => !transaction.review)
     .map(({ record, transaction }) => {
-        const candidates = getLearningExpenseCandidates(
-          { creditCards, templates },
-          parseDateOnlyString(transaction.authorizedDate ?? transaction.date) ?? new Date(),
-        );
-        const suggestion = buildLearningSuggestion({ candidates, confirmations, transaction });
+        const transactionDate = transaction.authorizedDate ?? transaction.date;
+        const candidates = catalog.flatMap((item) => {
+          const candidate = getLearningCandidateForTransaction(item, transactionDate);
+          return candidate ? [candidate] : [];
+        });
+        const { suggestion } = buildLearningPrediction({ candidates, confirmations, rejections, transaction });
 
         return prisma.learningRecord.update({
           where: { id: record.id },
@@ -77,6 +97,79 @@ export const refreshLearningSuggestionsForWorkspace = async (workspaceId: string
   if (updates.length > 0) {
     await prisma.$transaction(updates);
   }
+};
+
+export type LearningQueueData = Awaited<ReturnType<typeof loadLearningQueueData>>;
+
+export const loadLearningQueueData = async (workspaceId: string) => {
+  const [records, templates, creditCards, remoteAccounts] = await Promise.all([
+    prisma.learningRecord.findMany({
+      where: { workspaceId },
+      include: { plaidItem: { select: { institutionName: true } } },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.template.findMany({ where: { workspaceId }, orderBy: { name: "asc" } }),
+    prisma.creditCard.findMany({ where: { workspaceId }, orderBy: { name: "asc" } }),
+    prisma.plaidRemoteAccount.findMany({
+      where: { ...LEARNING_LIQUIDITY_ACCOUNT_WHERE, workspaceId },
+      select: { name: true, plaidAccountId: true },
+    }),
+  ]);
+  const accountNames = new Map(remoteAccounts.map((account) => [account.plaidAccountId, account.name]));
+  const allTransactions = records.flatMap((record) => {
+    if (record.kind !== LearningRecordKind.TRANSACTION) return [];
+    const transaction = readLearningTransaction(record.payload);
+    if (!transaction || transaction.removedAt || transaction.amountCents <= 0 || !accountNames.has(transaction.accountId)) {
+      return [];
+    }
+    return [{ record, transaction }];
+  });
+  const confirmations = getConfirmationSignals(allTransactions.map(({ transaction }) => transaction));
+  const rejections = getRejectionSignals(allTransactions.map(({ transaction }) => transaction));
+  const catalog = getLearningPaymentCatalog({ creditCards, templates });
+  const transactions = allTransactions.flatMap(({ record, transaction }) => {
+    if (transaction.review) return [];
+    const transactionDate = transaction.authorizedDate ?? transaction.date;
+    const candidates = catalog.flatMap((item) => {
+      const candidate = getLearningCandidateForTransaction(item, transactionDate);
+      return candidate ? [candidate] : [];
+    });
+    const prediction = buildLearningPrediction({ candidates, confirmations, rejections, transaction });
+
+    return [{
+      ...transaction,
+      accountName: accountNames.get(transaction.accountId) ?? "Cuenta bancaria",
+      institutionName: record.plaidItem.institutionName ?? "Banco",
+      plaidItemId: record.plaidItemId,
+      prediction,
+    }];
+  }).sort((left, right) =>
+    (right.authorizedDate ?? right.date).localeCompare(left.authorizedDate ?? left.date) ||
+    left.name.localeCompare(right.name)
+  );
+  const syncStates = records.flatMap((record) => {
+    if (record.kind !== LearningRecordKind.SYNC_STATE) return [];
+    const state = readLearningSyncState(record.payload);
+    return state ? [state] : [];
+  });
+
+  return {
+    lastSyncedAt: syncStates
+      .map((state) => state.lastSyncedAt)
+      .filter((value): value is string => !!value)
+      .sort()
+      .at(-1) ?? null,
+    liquidityAccountCount: remoteAccounts.length,
+    paymentOptions: catalog.map((item) => ({
+      amountCents: item.amountCents,
+      category: item.category,
+      kind: item.kind,
+      name: item.name,
+      targetId: item.targetId,
+    })),
+    transactions,
+    unresolvedCount: transactions.length,
+  };
 };
 
 export type LearningPageData = Awaited<ReturnType<typeof loadLearningPageData>>;
