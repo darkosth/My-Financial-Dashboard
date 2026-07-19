@@ -93,7 +93,16 @@ export default function TransactionReviewRow({
             {confidenceLabels[prediction.confidence]}
           </Badge>
         </div>
-        <p className="mt-1 truncate font-medium">{predictedOption?.name ?? "Sin pago sugerido"}</p>
+        <p className="mt-1 truncate font-medium">
+          {predictedOption ? (
+            <>
+              {predictedOption.name}{" · "}
+              <span className="tabular-nums">
+                {predictedOption.amountCents > 0 ? formatMoney(predictedOption.amountCents, "USD") : "sin monto actual"}
+              </span>
+            </>
+          ) : "Sin pago sugerido"}
+        </p>
         {evidence.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">{evidence.join(" · ")}</p> : null}
         {hasManualSelection ? (
           <p className="mt-2 text-xs text-muted-foreground">
