@@ -6,6 +6,7 @@ export type LearningSuggestionReasonCode =
   | "DATE"
   | "LEARNED_ACCOUNT"
   | "LEARNED_MERCHANT"
+  | "LEARNED_REJECTION"
   | "NAME";
 
 export type LearningSuggestion = {

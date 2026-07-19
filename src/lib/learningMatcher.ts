@@ -206,6 +206,11 @@ export type LearningConfirmationSignal = {
   templateId: string;
 };
 
+export type LearningRejectionSignal = {
+  merchantKey: string;
+  templateId: string;
+};
+
 export const normalizeLearningText = (value: string | null | undefined) =>
   value
     ?.normalize("NFKD")
@@ -262,7 +267,7 @@ const addReason = (
   code: LearningSuggestionReasonCode,
   points: number,
 ) => {
-  if (points > 0) reasons.push({ code, points });
+  if (points !== 0) reasons.push({ code, points });
   return points;
 };
 
@@ -270,11 +275,13 @@ const scoreCandidate = ({
   candidate,
   confirmations,
   merchantKey,
+  rejections,
   transaction,
 }: {
   candidate: LearningExpenseCandidate;
   confirmations: LearningConfirmationSignal[];
   merchantKey: string;
+  rejections: LearningRejectionSignal[];
   transaction: LearningTransactionPayload;
 }): LearningSuggestion => {
   const reasons: LearningSuggestion["reasons"] = [];
@@ -299,6 +306,16 @@ const scoreCandidate = ({
     "LEARNED_ACCOUNT",
     learnedSignals.some((confirmation) => confirmation.accountId === transaction.accountId) ? 8 : 0,
   );
+  const learnedRejectionPoints = addReason(
+    reasons,
+    "LEARNED_REJECTION",
+    -Math.min(
+      rejections.filter(
+        (rejection) => rejection.templateId === candidate.templateId && rejection.merchantKey === merchantKey,
+      ).length * 15,
+      30,
+    ),
+  );
 
   return {
     cycleReference: candidate.cycleReference,
@@ -316,7 +333,7 @@ const scoreCandidate = ({
     },
     heuristicVersion: LEARNING_HEURISTIC_VERSION,
     reasons,
-    score: amountPoints + datePoints + namePoints + categoryPoints + learnedMerchantPoints + learnedAccountPoints,
+    score: amountPoints + datePoints + namePoints + categoryPoints + learnedMerchantPoints + learnedAccountPoints + learnedRejectionPoints,
     templateId: candidate.templateId,
   };
 };
@@ -324,14 +341,16 @@ const scoreCandidate = ({
 export const buildLearningSuggestion = ({
   candidates,
   confirmations,
+  rejections = [],
   transaction,
 }: {
   candidates: LearningExpenseCandidate[];
   confirmations: LearningConfirmationSignal[];
+  rejections?: LearningRejectionSignal[];
   transaction: LearningTransactionPayload;
 }): LearningSuggestion | null => {
   if (transaction.pending) return null;
-  const prediction = buildLearningPrediction({ candidates, confirmations, transaction });
+  const prediction = buildLearningPrediction({ candidates, confirmations, rejections, transaction });
   return prediction.confidence === "HIGH" || prediction.confidence === "MEDIUM"
     ? prediction.suggestion
     : null;
@@ -348,10 +367,12 @@ export type LearningPrediction = {
 export const buildLearningPrediction = ({
   candidates,
   confirmations,
+  rejections = [],
   transaction,
 }: {
   candidates: LearningExpenseCandidate[];
   confirmations: LearningConfirmationSignal[];
+  rejections?: LearningRejectionSignal[];
   transaction: LearningTransactionPayload;
 }): LearningPrediction => {
   if (transaction.removedAt || transaction.amountCents <= 0) {
@@ -360,7 +381,7 @@ export const buildLearningPrediction = ({
 
   const merchantKey = getMerchantKey(transaction);
   const ranked = candidates
-    .map((candidate) => scoreCandidate({ candidate, confirmations, merchantKey, transaction }))
+    .map((candidate) => scoreCandidate({ candidate, confirmations, merchantKey, rejections, transaction }))
     .sort((left, right) => right.score - left.score || left.templateId.localeCompare(right.templateId));
   const first = ranked[0];
   const second = ranked[1];
