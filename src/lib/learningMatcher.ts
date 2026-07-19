@@ -1,8 +1,9 @@
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import { differenceInCalendarDays, parseISO, subDays, subMonths, subYears } from "date-fns";
 import { getCalendarDateKey } from "@/lib/calendarDate";
 import { getCreditCardEffectiveMinimumPayment } from "@/lib/creditCardReview";
 import {
   getProjectionWeekInterval,
+  getNextTemplateOccurrence,
   getTemplateCycleReference,
   getTemplateOccurrenceInInterval,
 } from "@/lib/waterfallCalculations";
@@ -22,6 +23,17 @@ export type LearningExpenseCandidate = {
   templateId: string;
 };
 
+export type LearningPaymentCatalogItem = {
+  amountCents: number;
+  category: string;
+  dayOfMonth: number | null;
+  frequency: string;
+  kind: "credit-card" | "template";
+  lastPaidAt: Date | string | null;
+  name: string;
+  targetId: string;
+};
+
 type LearningTemplateCandidateSource = {
   amountCents: number;
   category: string;
@@ -39,6 +51,88 @@ type LearningCreditCardCandidateSource = {
   minimumPaymentCents: number;
   minimumPaymentPercentage: number | null;
   name: string;
+};
+
+export const getLearningPaymentCatalog = ({
+  creditCards,
+  templates,
+}: {
+  creditCards: LearningCreditCardCandidateSource[];
+  templates: LearningTemplateCandidateSource[];
+}): LearningPaymentCatalogItem[] => [
+  ...templates.map((template) => ({
+    amountCents: template.amountCents,
+    category: template.category,
+    dayOfMonth: template.dayOfMonth,
+    frequency: template.frequency,
+    kind: "template" as const,
+    lastPaidAt: template.lastPaidAt,
+    name: template.name,
+    targetId: template.id,
+  })),
+  ...creditCards.flatMap((card) => {
+    if (!card.dueDate) return [];
+
+    const minimumPayment = getCreditCardEffectiveMinimumPayment({
+      balance: card.balanceCents / 100,
+      minimumPayment: card.minimumPaymentCents / 100,
+      minimumPaymentPercentage: card.minimumPaymentPercentage,
+    });
+
+    return [{
+      amountCents: Math.round(minimumPayment * 100),
+      category: "DEBT",
+      dayOfMonth: card.dueDate,
+      frequency: "MONTHLY",
+      kind: "credit-card" as const,
+      lastPaidAt: null,
+      name: card.name,
+      targetId: `credit-card:${card.id}`,
+    }];
+  }),
+];
+
+const getPreviousOccurrenceSeed = (item: LearningPaymentCatalogItem, referenceDate: Date | string) => {
+  const parsedReference = typeof referenceDate === "string" ? parseISO(referenceDate) : referenceDate;
+  if (item.frequency === "MONTHLY") return subMonths(parsedReference, 1);
+  if (item.frequency === "YEARLY") return subYears(parsedReference, 1);
+  if (item.frequency === "BIWEEKLY") return subDays(parsedReference, 14);
+  return subDays(parsedReference, 7);
+};
+
+export const getLearningCandidateForTransaction = (
+  item: LearningPaymentCatalogItem,
+  transactionDate: Date | string,
+): LearningExpenseCandidate | null => {
+  const scheduled = {
+    amount: item.amountCents / 100,
+    category: item.category,
+    dayOfMonth: item.dayOfMonth,
+    frequency: item.frequency,
+    id: item.targetId,
+    kind: item.kind,
+    lastPaidAt: item.lastPaidAt,
+    name: item.name,
+  };
+  const transactionDay = typeof transactionDate === "string" ? parseISO(transactionDate) : transactionDate;
+  const occurrences = [
+    getNextTemplateOccurrence(scheduled, transactionDay),
+    getNextTemplateOccurrence(scheduled, getPreviousOccurrenceSeed(item, transactionDay)),
+  ].filter((value): value is Date => value !== null);
+  const occurrenceDate = occurrences.sort((left, right) =>
+    Math.abs(differenceInCalendarDays(left, transactionDay)) - Math.abs(differenceInCalendarDays(right, transactionDay))
+  )[0];
+  if (!occurrenceDate) return null;
+
+  return {
+    amountCents: item.amountCents,
+    category: item.category,
+    cycleReference: getCalendarDateKey(getTemplateCycleReference(scheduled, occurrenceDate)),
+    kind: item.kind,
+    name: item.name,
+    occurrenceDate: getCalendarDateKey(occurrenceDate),
+    templateId: item.targetId,
+  };
 };
 
 export const getLearningExpenseCandidates = ({
@@ -236,7 +330,33 @@ export const buildLearningSuggestion = ({
   confirmations: LearningConfirmationSignal[];
   transaction: LearningTransactionPayload;
 }): LearningSuggestion | null => {
-  if (transaction.pending || transaction.removedAt || transaction.amountCents <= 0) return null;
+  if (transaction.pending) return null;
+  const prediction = buildLearningPrediction({ candidates, confirmations, transaction });
+  return prediction.confidence === "HIGH" || prediction.confidence === "MEDIUM"
+    ? prediction.suggestion
+    : null;
+};
+
+export type LearningPredictionConfidence = "HIGH" | "MEDIUM" | "LOW" | "NONE";
+
+export type LearningPrediction = {
+  confidence: LearningPredictionConfidence;
+  margin: number | null;
+  suggestion: LearningSuggestion | null;
+};
+
+export const buildLearningPrediction = ({
+  candidates,
+  confirmations,
+  transaction,
+}: {
+  candidates: LearningExpenseCandidate[];
+  confirmations: LearningConfirmationSignal[];
+  transaction: LearningTransactionPayload;
+}): LearningPrediction => {
+  if (transaction.removedAt || transaction.amountCents <= 0) {
+    return { confidence: "NONE", margin: null, suggestion: null };
+  }
 
   const merchantKey = getMerchantKey(transaction);
   const ranked = candidates
@@ -245,7 +365,12 @@ export const buildLearningSuggestion = ({
   const first = ranked[0];
   const second = ranked[1];
 
-  if (!first || first.score < MINIMUM_SCORE) return null;
-  if (second && first.score - second.score < MINIMUM_MARGIN) return null;
-  return first;
+  if (!first || first.score <= 0) return { confidence: "NONE", margin: null, suggestion: null };
+
+  const margin = second ? first.score - second.score : first.score;
+  if (first.score >= 80 && margin >= 15) return { confidence: "HIGH", margin, suggestion: first };
+  if (first.score >= MINIMUM_SCORE && margin >= MINIMUM_MARGIN) {
+    return { confidence: "MEDIUM", margin, suggestion: first };
+  }
+  return { confidence: "LOW", margin, suggestion: first };
 };
