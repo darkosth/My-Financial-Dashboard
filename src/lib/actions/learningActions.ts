@@ -15,6 +15,7 @@ import { getCurrentUserContext } from "@/lib/workspaceContext";
 
 type ReviewLearningInput = {
   plaidItemId: string;
+  predictedTemplateId?: string | null;
   selectedCycleReference?: string | null;
   selectedTemplateId?: string | null;
   transactionId: string;
@@ -60,6 +61,7 @@ export async function syncLearningTransactionsAction(): Promise<ActionResult<Awa
 
 export async function reviewLearningTransactionAction({
   plaidItemId,
+  predictedTemplateId,
   selectedTemplateId,
   transactionId,
 }: ReviewLearningInput): Promise<ActionResult> {
@@ -86,6 +88,24 @@ export async function reviewLearningTransactionAction({
       select: { id: true },
     });
     if (!liquidityAccount) throw new Error("Learning transaction is outside the liquidity account scope");
+    const predictedTargetId = predictedTemplateId
+      ? parseRequiredText(predictedTemplateId, "Predicted template id")
+      : null;
+    if (predictedTargetId) {
+      const predictedCreditCardId = predictedTargetId.startsWith("credit-card:")
+        ? predictedTargetId.slice("credit-card:".length)
+        : null;
+      const predictedTarget = predictedCreditCardId
+        ? await prisma.creditCard.findFirst({
+            where: { dueDate: { not: null }, id: predictedCreditCardId, workspaceId: activeWorkspace.id },
+            select: { id: true },
+          })
+        : await prisma.template.findFirst({
+            where: { id: predictedTargetId, workspaceId: activeWorkspace.id },
+            select: { id: true },
+          });
+      if (!predictedTarget) throw new Error("Learning prediction target not found");
+    }
 
     const reviewedAt = new Date().toISOString();
     if (!selectedTemplateId) {
@@ -96,6 +116,7 @@ export async function reviewLearningTransactionAction({
             ...transaction,
             review: {
               outcome: "IGNORED",
+              rejectedTemplateId: predictedTargetId,
               reviewedAt,
               reviewedByUserId: user.id,
               selectedCycleReference: null,
@@ -126,7 +147,7 @@ export async function reviewLearningTransactionAction({
       );
       const cycleReference = selectedCandidate?.cycleReference ?? null;
 
-      const confirmedSuggestion = transaction.suggestion?.templateId === templateId;
+      const confirmedSuggestion = predictedTargetId === templateId;
 
       await prisma.learningRecord.update({
         where: { id: record.id },
@@ -135,6 +156,7 @@ export async function reviewLearningTransactionAction({
             ...transaction,
             review: {
               outcome: confirmedSuggestion ? "CONFIRMED_SUGGESTION" : "MANUAL_SELECTION",
+              rejectedTemplateId: null,
               reviewedAt,
               reviewedByUserId: user.id,
               selectedCycleReference: cycleReference,

@@ -9,6 +9,8 @@ import UpcomingCard from "@/components/dashboard/UpcomingCard";
 import WaterfallCard from "@/components/dashboard/WaterfallCard";
 import QuickExpenseButton from "@/app/dashboard/QuickExpenseButton";
 import { userHasFeatureAccess } from "@/lib/featureAccess";
+import DashboardReconciliationSection from "@/components/reconciliation/DashboardReconciliationSection";
+import { Suspense } from "react";
 
 export default async function DashboardPage({
   searchParams,
@@ -80,6 +82,15 @@ export default async function DashboardPage({
           upcomingPayments={snapshot.upcomingPayments}
           totalUpcomingExpenses={snapshot.totalUpcomingExpenses}
         />
+
+        {snapshot.context?.activeWorkspace?.id ? (
+          <Suspense fallback={<div aria-label="Cargando conciliación bancaria" className="min-h-40 rounded-xl bg-card ring-1 ring-foreground/10" />}>
+            <DashboardReconciliationSection
+              enabled={hasPlaidAccess}
+              workspaceId={snapshot.context.activeWorkspace.id}
+            />
+          </Suspense>
+        ) : null}
       </div>
     </main>
   );

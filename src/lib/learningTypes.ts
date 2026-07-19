@@ -23,6 +23,7 @@ export type LearningSuggestion = {
 
 export type LearningReview = {
   outcome: LearningReviewOutcome;
+  rejectedTemplateId?: string | null;
   reviewedAt: string;
   reviewedByUserId: string;
   selectedCycleReference: string | null;

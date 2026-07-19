@@ -40,7 +40,7 @@ const getConfirmationSignals = (transactions: LearningTransactionPayload[]): Lea
 const getRejectionSignals = (transactions: LearningTransactionPayload[]): LearningRejectionSignal[] =>
   transactions.flatMap((transaction) => {
     const rejectedTargetId = transaction.review?.outcome === "IGNORED"
-      ? transaction.suggestion?.templateId
+      ? transaction.review.rejectedTemplateId ?? transaction.suggestion?.templateId
       : null;
     if (!rejectedTargetId) return [];
 

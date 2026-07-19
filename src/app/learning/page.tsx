@@ -1,28 +1,23 @@
 import { auth } from "@/auth";
-import LearningWorkbench from "@/components/learning/LearningWorkbench";
+import LearningReconciliationCard from "@/components/reconciliation/LearningReconciliationCard";
 import { currentUserHasFeatureAccess } from "@/lib/featureAccess";
-import { loadLearningPageData } from "@/lib/learningData";
+import { loadLearningQueueData } from "@/lib/learningData";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 import { redirect } from "next/navigation";
 
-type LearningPageProps = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
-
-const getSingleParam = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
-
-export default async function LearningPage({ searchParams }: LearningPageProps) {
+export default async function LearningPage() {
   const session = await auth();
   if (!session?.user) redirect("/");
   if (!(await currentUserHasFeatureAccess("PLAID"))) redirect("/dashboard?premium=plaid");
 
   const { activeWorkspace } = await getCurrentUserContext();
-  const resolvedParams = (await searchParams) ?? {};
-  const data = await loadLearningPageData(activeWorkspace.id, getSingleParam(resolvedParams.week));
+  const data = await loadLearningQueueData(activeWorkspace.id);
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <LearningWorkbench data={data} />
+    <main className="min-h-screen bg-background p-6 text-foreground md:p-10">
+      <div className="mx-auto max-w-5xl">
+        <LearningReconciliationCard data={data} />
+      </div>
     </main>
   );
 }
