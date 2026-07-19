@@ -104,3 +104,34 @@ test("predicts pending transactions for review and exposes a confidence band", (
   assert.equal(prediction.suggestion?.templateId, "credit-card:card-1");
   assert.notEqual(prediction.confidence, "NONE");
 });
+
+test("uses ignored predictions as a negative learning signal", () => {
+  const [item] = getLearningPaymentCatalog({
+    creditCards: [{
+      balanceCents: 100_000,
+      dueDate: 18,
+      id: "card-1",
+      minimumPaymentCents: 3_500,
+      minimumPaymentPercentage: null,
+      name: "Capital One",
+    }],
+    templates: [],
+  });
+  const candidate = getLearningCandidateForTransaction(item, "2026-07-22");
+  assert.ok(candidate);
+
+  const withoutRejection = buildLearningPrediction({
+    candidates: [candidate],
+    confirmations: [],
+    transaction: transaction(),
+  });
+  const withRejection = buildLearningPrediction({
+    candidates: [candidate],
+    confirmations: [],
+    rejections: [{ merchantKey: "capital one", templateId: "credit-card:card-1" }],
+    transaction: transaction(),
+  });
+
+  assert.ok((withRejection.suggestion?.score ?? 0) < (withoutRejection.suggestion?.score ?? 0));
+  assert.ok(withRejection.suggestion?.reasons.some((reason) => reason.code === "LEARNED_REJECTION"));
+});
