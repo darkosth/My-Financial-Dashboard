@@ -79,6 +79,7 @@ export default function ReconciliationQueue({ data }: { data: LearningQueueData 
     setUndoTarget(null);
     const result = await undoLearningTransactionReviewAction(target);
     if (!result.success) {
+      setNotice(null);
       setError(result.error);
       return;
     }
@@ -119,7 +120,7 @@ export default function ReconciliationQueue({ data }: { data: LearningQueueData 
               : "Sin sincronización"}
           </span>
         </div>
-        <Button type="button" variant="outline" onClick={sync} disabled={syncing}>
+        <Button type="button" variant="outline" onClick={sync} disabled={syncing || busyIds.size > 0}>
           <RefreshCw className={syncing ? "animate-spin motion-reduce:animate-none" : ""} />
           {syncing ? "Sincronizando" : "Sincronizar"}
         </Button>
@@ -134,7 +135,7 @@ export default function ReconciliationQueue({ data }: { data: LearningQueueData 
           {visibleTransactions.map((transaction) => (
             <TransactionReviewRow
               key={`${transaction.plaidItemId}:${transaction.transactionId}`}
-              busy={busyIds.has(getTransactionKey(transaction))}
+              busy={syncing || busyIds.has(getTransactionKey(transaction))}
               onConfirm={() => review(transaction, getSelectedTarget(transaction))}
               onIgnore={() => review(transaction, null)}
               onSelect={(targetId) => setSelectedTargets((current) => ({ ...current, [getTransactionKey(transaction)]: targetId }))}
@@ -157,7 +158,7 @@ export default function ReconciliationQueue({ data }: { data: LearningQueueData 
       {error ? (
         <div role="alert" className="fixed bottom-4 left-1/2 z-50 flex w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 items-center justify-between gap-3 border border-red-300 border-l-4 border-l-red-500 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-lg dark:border-red-900 dark:border-l-red-500 dark:bg-red-950 dark:text-red-200">
           <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} aria-label="Cerrar error"><X className="size-4" /></button>
+          <Button type="button" size="icon-sm" variant="ghost" onClick={() => setError(null)} aria-label="Cerrar error"><X className="size-4" /></Button>
         </div>
       ) : null}
       {notice ? (
@@ -165,7 +166,7 @@ export default function ReconciliationQueue({ data }: { data: LearningQueueData 
           <span>{notice}</span>
           <div className="flex items-center gap-1">
             {undoTarget ? <Button type="button" size="sm" variant="ghost" onClick={undo}><RotateCcw />Deshacer</Button> : null}
-          <button type="button" onClick={() => { setNotice(null); setUndoTarget(null); }} aria-label="Cerrar aviso"><X className="size-4" /></button>
+            <Button type="button" size="icon-sm" variant="ghost" onClick={() => { setNotice(null); setUndoTarget(null); }} aria-label="Cerrar aviso"><X className="size-4" /></Button>
           </div>
         </div>
       ) : null}

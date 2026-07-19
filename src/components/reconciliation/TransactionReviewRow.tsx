@@ -59,6 +59,7 @@ export default function TransactionReviewRow({
   const prediction = transaction.prediction;
   const predictedOption = options.find((option) => option.targetId === prediction.suggestion?.templateId);
   const selectedOption = options.find((option) => option.targetId === selectedTargetId);
+  const hasManualSelection = !!selectedOption && selectedOption.targetId !== predictedOption?.targetId;
   const evidence = prediction.suggestion?.reasons
     .slice()
     .sort((left, right) => Math.abs(right.points) - Math.abs(left.points))
@@ -72,7 +73,7 @@ export default function TransactionReviewRow({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="truncate font-semibold">{transaction.merchantName || transaction.name}</h3>
-              {transaction.pending ? <Badge variant="outline" className="border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300">Pendiente</Badge> : null}
+              {transaction.pending ? <Badge variant="outline" className="border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300">Pendiente · provisional</Badge> : null}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {formatCalendarDateLabel(transaction.authorizedDate ?? transaction.date, { day: "numeric", month: "short", year: "numeric" })}
@@ -92,12 +93,16 @@ export default function TransactionReviewRow({
             {confidenceLabels[prediction.confidence]}
           </Badge>
         </div>
-        <p className="mt-1 truncate font-medium">
-          {selectedOption?.targetId !== predictedOption?.targetId && selectedOption
-            ? selectedOption.name
-            : predictedOption?.name ?? "Selecciona un pago"}
-        </p>
+        <p className="mt-1 truncate font-medium">{predictedOption?.name ?? "Sin pago sugerido"}</p>
         {evidence.length > 0 ? <p className="mt-1 text-xs text-muted-foreground">{evidence.join(" · ")}</p> : null}
+        {hasManualSelection ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">Selección:</span>{" "}
+            {selectedOption.kind === "credit-card" ? "Tarjeta · " : "Gasto · "}
+            {selectedOption.name}{" · "}
+            {selectedOption.amountCents > 0 ? formatMoney(selectedOption.amountCents, "USD") : "sin monto actual"}
+          </p>
+        ) : null}
 
         <div className="mt-3 flex flex-wrap gap-2">
           <Button type="button" size="sm" onClick={onConfirm} disabled={busy || !selectedTargetId}>
