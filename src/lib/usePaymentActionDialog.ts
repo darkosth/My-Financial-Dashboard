@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { applyPaymentAction, type ApplyPaymentActionInput } from "@/lib/actions/paymentActions";
 import { getSettlementDate, type SettlementDateCandidate } from "@/lib/paymentResolution";
+import { getCalendarDateKey } from "@/lib/calendarDate";
+import type { ActionResult } from "@/lib/actions/validation";
 import type { PaymentAction, PaymentItem } from "@/components/payments/PaymentActionDialog";
 
 export type PaymentDialogItem = PaymentItem &
@@ -11,6 +13,7 @@ export type PaymentDialogItem = PaymentItem &
   kind?: PaymentItem["kind"] | ApplyPaymentActionInput["kind"];
   templateId: string;
   carryoverId?: string | null;
+  cycleReference?: Date | string | null;
 };
 
 export function usePaymentActionDialog() {
@@ -33,7 +36,7 @@ export function usePaymentActionDialog() {
   }: {
     action: PaymentAction | ApplyPaymentActionInput["action"];
     amountPaid?: ApplyPaymentActionInput["amountPaid"];
-  }) => {
+  }): Promise<ActionResult> => {
     if (!selectedItem || isSubmitting) {
       return { success: false, error: "No item selected" };
     }
@@ -41,6 +44,26 @@ export function usePaymentActionDialog() {
     setIsSubmitting(true);
 
     try {
+      if (action !== "move") {
+        const cycleReference = getCalendarDateKey(
+          selectedItem.sourceCycleReference ??
+            selectedItem.cycleReference ??
+            getSettlementDate(selectedItem),
+        );
+        if (!cycleReference) {
+          return { success: false, error: "No se encontró la semana de este gasto." };
+        }
+        const params = new URLSearchParams({
+          manual: "1",
+          target: selectedItem.templateId,
+          cycle: cycleReference,
+          amount: String(amountPaid ?? selectedItem.amount),
+        });
+        setSelectedItem(null);
+        router.push(`/movements?${params.toString()}`);
+        return { success: true };
+      }
+
       const result = await applyPaymentAction({
         kind: selectedItem.kind ?? "template",
         templateId: selectedItem.templateId,

@@ -375,14 +375,7 @@ export const buildLearningPrediction = ({
   rejections?: LearningRejectionSignal[];
   transaction: LearningTransactionPayload;
 }): LearningPrediction => {
-  if (transaction.removedAt || transaction.amountCents <= 0) {
-    return { confidence: "NONE", margin: null, suggestion: null };
-  }
-
-  const merchantKey = getMerchantKey(transaction);
-  const ranked = candidates
-    .map((candidate) => scoreCandidate({ candidate, confirmations, merchantKey, rejections, transaction }))
-    .sort((left, right) => right.score - left.score || left.templateId.localeCompare(right.templateId));
+  const ranked = buildRankedLearningSuggestions({ candidates, confirmations, rejections, transaction });
   const first = ranked[0];
   const second = ranked[1];
 
@@ -394,4 +387,35 @@ export const buildLearningPrediction = ({
     return { confidence: "MEDIUM", margin, suggestion: first };
   }
   return { confidence: "LOW", margin, suggestion: first };
+};
+
+/** Hard eligibility boundary. Learned signals never override amount mismatches. */
+export const isLearningAmountEligible = (actualCents: number, expectedCents: number): boolean => {
+  if (!Number.isSafeInteger(actualCents) || !Number.isSafeInteger(expectedCents)
+    || actualCents <= 0 || expectedCents <= 0) return false;
+  const actual = BigInt(actualCents);
+  const expected = BigInt(expectedCents);
+  const delta = actual >= expected ? actual - expected : expected - actual;
+  return delta * BigInt(100) <= expected * BigInt(15);
+};
+
+export const buildRankedLearningSuggestions = ({
+  candidates,
+  confirmations,
+  rejections = [],
+  transaction,
+}: {
+  candidates: LearningExpenseCandidate[];
+  confirmations: LearningConfirmationSignal[];
+  rejections?: LearningRejectionSignal[];
+  transaction: LearningTransactionPayload;
+}): LearningSuggestion[] => {
+  // The payment catalog is denominated in USD; never rank cross-currency amounts.
+  if (transaction.removedAt || (transaction.isoCurrencyCode && transaction.isoCurrencyCode !== "USD")) return [];
+  const merchantKey = getMerchantKey(transaction);
+  return candidates
+    .filter((candidate) => isLearningAmountEligible(transaction.amountCents, candidate.amountCents))
+    .map((candidate) => scoreCandidate({ candidate, confirmations, merchantKey, rejections, transaction }))
+    .filter((suggestion) => suggestion.score > 0)
+    .sort((left, right) => right.score - left.score || left.templateId.localeCompare(right.templateId));
 };

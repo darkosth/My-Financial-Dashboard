@@ -11,6 +11,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
+import { getProjectedOccurrence, type FinanceOccurrenceState } from "./financeProjection.ts";
 import { getCalendarDateKey, normalizeCalendarDate } from "@/lib/calendarDate";
 import type { CreditCardHistoryRecordLike, HistoryRecordLike, PaymentCarryoverLike, ScheduledPayment } from "@/lib/financeEngine";
 
@@ -241,6 +242,7 @@ export const isTemplatePaidForOccurrence = (
 
 export type UpcomingPayment = ScheduledPayment & {
   occurrenceDate: Date;
+  cycleReference?: DateLike;
   carryoverId?: string;
   isCarryover?: boolean;
   sourceCycleReference?: DateLike | null;
@@ -253,6 +255,7 @@ export const getUpcomingPendingPayments = ({
   carryovers = [],
   today,
   weeksAhead = 2,
+  occurrences = [],
 }: {
   templates: ScheduledPayment[];
   historyRecords?: HistoryRecordLike[];
@@ -260,6 +263,7 @@ export const getUpcomingPendingPayments = ({
   carryovers?: PaymentCarryoverLike[];
   today: DateLike;
   weeksAhead?: number;
+  occurrences?: FinanceOccurrenceState[];
 }) => {
   const paymentSummaryMap = getCombinedPaymentSummaryMap(historyRecords, creditCardHistoryRecords);
   const { byOriginCycle, byTargetWeek } = getCarryoverMaps(carryovers);
@@ -280,13 +284,15 @@ export const getUpcomingPendingPayments = ({
         continue;
       }
 
-      const pendingAmount = Math.max(item.amount - paidAmount, 0);
+      const state = getProjectedOccurrence(item.id, cycleReference, item.amount, paidAmount, occurrences);
+      const pendingAmount = state.pendingAmount;
 
       if (pendingAmount > 0) {
         upcomingPayments.push({
           ...item,
           kind: getItemKind(item),
           occurrenceDate,
+          cycleReference,
           amount: pendingAmount,
         });
       }
@@ -307,7 +313,8 @@ export const getUpcomingPendingPayments = ({
       if (!item) return;
       const originCycleKey = `${getPaymentOwnerKey(item)}:${getCycleKey(carryover.originCycleReference)}`;
       const originPaidAmount = paymentSummaryMap.get(originCycleKey) ?? 0;
-      const effectiveRemaining = Math.min(Math.max(carryover.remainingAmount ?? 0, 0), Math.max(item.amount - originPaidAmount, 0));
+      const state = getProjectedOccurrence(item.id, carryover.originCycleReference, item.amount, originPaidAmount, occurrences);
+      const effectiveRemaining = Math.min(Math.max(carryover.remainingAmount ?? 0, 0), state.pendingAmount);
       if (effectiveRemaining <= 0) return;
 
       upcomingPayments.push({
@@ -316,6 +323,7 @@ export const getUpcomingPendingPayments = ({
         carryoverId: carryover.id,
         amount: effectiveRemaining,
         occurrenceDate: targetWeekStart,
+        cycleReference: carryover.originCycleReference,
         isCarryover: true,
         sourceCycleReference: carryover.originCycleReference,
       });
@@ -345,6 +353,8 @@ export type WaterfallDetail = {
   carryoverId?: string;
   isCarryover?: boolean;
   sourceCycleReference?: DateLike | null;
+  excessAmount?: number;
+  needsManualClose?: boolean;
 };
 
 export type WaterfallWeek = {
@@ -363,6 +373,7 @@ export const calculateWaterfall = ({
   carryovers = [],
   today,
   standardWeeklyIncome,
+  occurrences = [],
 }: {
   totalLiquidity: number;
   templates: ScheduledPayment[];
@@ -371,6 +382,7 @@ export const calculateWaterfall = ({
   carryovers?: PaymentCarryoverLike[];
   today: DateLike;
   standardWeeklyIncome: number;
+  occurrences?: FinanceOccurrenceState[];
 }): WaterfallWeek[] => {
   const paymentSummaryMap = getCombinedPaymentSummaryMap(historyRecords, creditCardHistoryRecords);
   const { byOriginCycle, byTargetWeek } = getCarryoverMaps(carryovers);
@@ -398,9 +410,10 @@ export const calculateWaterfall = ({
         return;
       }
 
-      const pendingAmount = Math.max(item.amount - paidAmount, 0);
-      const isFullyPaid = paidAmount >= item.amount;
-      const shouldShowOriginalDetail = pendingAmount > 0 || isFullyPaid;
+      const state = getProjectedOccurrence(item.id, cycleReference, item.amount, paidAmount, occurrences);
+      const pendingAmount = state.pendingAmount;
+      const isFullyPaid = state.closed;
+      const shouldShowOriginalDetail = pendingAmount > 0 || isFullyPaid || state.needsManualClose;
 
       if (shouldShowOriginalDetail && (weekNumber === 1 || occurrenceDate >= toStartOfDay(today))) {
         if (pendingAmount > 0) {
@@ -411,11 +424,13 @@ export const calculateWaterfall = ({
           kind: getItemKind(item),
           templateId: item.id,
           name: item.name,
-          amount: pendingAmount > 0 ? pendingAmount : item.amount,
+          amount: pendingAmount > 0 ? pendingAmount : state.expectedAmount,
           isPaid: isFullyPaid,
           isDeferred: false,
           isMovedWithoutPayment: false,
-          paidAmount,
+          paidAmount: state.paidAmount,
+          excessAmount: state.excessAmount,
+          needsManualClose: state.needsManualClose,
           occurrenceDate,
           cycleReference,
         });
@@ -428,7 +443,8 @@ export const calculateWaterfall = ({
       if (!item) return;
       const originCycleKey = `${getPaymentOwnerKey(item)}:${getCycleKey(carryover.originCycleReference)}`;
       const originPaidAmount = paymentSummaryMap.get(originCycleKey) ?? 0;
-      const effectiveRemaining = Math.min(Math.max(carryover.remainingAmount ?? 0, 0), Math.max(item.amount - originPaidAmount, 0));
+      const state = getProjectedOccurrence(item.id, carryover.originCycleReference, item.amount, originPaidAmount, occurrences);
+      const effectiveRemaining = Math.min(Math.max(carryover.remainingAmount ?? 0, 0), state.pendingAmount);
       if (effectiveRemaining <= 0) return;
       const carryoverLabel = originPaidAmount > 0 ? "restante" : "pendiente";
 

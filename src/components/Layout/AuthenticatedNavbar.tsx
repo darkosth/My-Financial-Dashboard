@@ -33,6 +33,7 @@ const navLinks: Array<{ href: string; label: string; icon: React.ComponentType<{
     label: "Dashboard",
     icon: LayoutDashboard,
   },
+  { href: "/movements", label: "Movimientos", icon: ReceiptText },
   {
     href: "/calendar",
     label: "Calendar",
@@ -106,7 +107,7 @@ export default function AuthenticatedNavbar({
           </Link>
 
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="hidden items-center gap-1 md:flex">
+            <div className="hidden items-center gap-1 lg:flex">
               {visibleNavLinks.map((link) => {
                 const Icon = link.icon;
                 const isActive = pathname === link.href;
@@ -138,7 +139,7 @@ export default function AuthenticatedNavbar({
 
                 <DropdownMenuSeparator />
 
-                <div className="md:hidden">
+                <div className="lg:hidden">
                   {visibleNavLinks.map((link) => {
                     const Icon = link.icon;
 

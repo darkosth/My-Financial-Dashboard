@@ -11,6 +11,8 @@ import QuickExpenseButton from "@/app/dashboard/QuickExpenseButton";
 import { userHasFeatureAccess } from "@/lib/featureAccess";
 import DashboardReconciliationSection from "@/components/reconciliation/DashboardReconciliationSection";
 import { Suspense } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default async function DashboardPage({
   searchParams,
@@ -56,6 +58,13 @@ export default async function DashboardPage({
         <div className="flex justify-start">
           <QuickExpenseButton hasAccounts={snapshot.accounts.length > 0} />
         </div>
+
+        {snapshot.cashBalance > 0 ? (
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-5 py-4">
+            <div><h2 className="font-medium">Efectivo</h2><p className="text-sm tabular-nums text-muted-foreground">${snapshot.cashBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p></div>
+            <Button asChild variant="outline"><Link href="/movements?source=CASH">Ver movimientos</Link></Button>
+          </section>
+        ) : null}
 
         <AccountsCard
           accounts={snapshot.accounts}

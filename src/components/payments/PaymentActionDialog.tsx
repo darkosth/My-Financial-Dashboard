@@ -17,6 +17,8 @@ export type PaymentItem = {
   name: string;
   amount: number;
   occurrenceDate: Date | string;
+  cycleReference?: Date | string | null;
+  sourceCycleReference?: Date | string | null;
 };
 
 const formatCurrency = (value: number) =>
@@ -30,14 +32,14 @@ const ACTION_LABELS = {
 };
 
 const ACTION_DESCRIPTIONS = {
-  full: "Cubre este gasto por completo y lo quita de pendientes.",
-  partial_stay: "Registra una parte del pago y deja el resto pendiente en esta misma semana.",
+  full: "Abre el registro para elegir el medio de pago y la categoría.",
+  partial_stay: "Registra un abono y deja el restante pendiente.",
   partial_move: "Registra una parte del pago y mueve el restante a la siguiente semana.",
   move: "Reprograma el gasto completo para la siguiente semana sin registrar pago.",
 };
 
 const CONFIRM_LABELS = {
-  full: "Confirmar pago",
+  full: "Continuar al registro",
   partial_stay: "Registrar abono",
   partial_move: "Mover restante",
   move: "Reprogramar gasto",
@@ -50,7 +52,7 @@ const getAvailableActions = (item: PaymentItem | null | undefined): PaymentActio
     return ["full"];
   }
 
-  return ["full", "partial_stay", "partial_move", "move"];
+  return ["full", "partial_stay", "move"];
 };
 
 const getDefaultAction = (item: PaymentItem | null | undefined): PaymentAction => getAvailableActions(item)[0] ?? "full";
@@ -84,6 +86,12 @@ export default function PaymentActionDialog({
   const availableActions = React.useMemo(() => getAvailableActions(item), [item]);
   const shouldEnableAmountInput = isAmountEditable(action);
   const amountValue = getComputedAmountValue(item, action, amount);
+
+  React.useEffect(() => {
+    if (!open || !item) return;
+    setAction(getDefaultAction(item));
+    setAmount(item.amount.toString());
+  }, [open, item]);
 
   React.useEffect(() => {
     if (!open || !item) return;

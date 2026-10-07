@@ -6,6 +6,7 @@ import { getCalendarDateKey, parseDateOnlyString } from "@/lib/calendarDate";
 import { LEARNING_LIQUIDITY_ACCOUNT_WHERE } from "@/lib/learningAccountPolicy";
 import {
   buildLearningPrediction,
+  buildRankedLearningSuggestions,
   getLearningCandidateForTransaction,
   getLearningExpenseCandidates,
   getLearningPaymentCatalog,
@@ -135,6 +136,7 @@ export const loadLearningQueueData = async (workspaceId: string) => {
       return candidate ? [candidate] : [];
     });
     const prediction = buildLearningPrediction({ candidates, confirmations, rejections, transaction });
+    const rankedCandidates = buildRankedLearningSuggestions({ candidates, confirmations, rejections, transaction });
 
     return [{
       ...transaction,
@@ -142,6 +144,7 @@ export const loadLearningQueueData = async (workspaceId: string) => {
       institutionName: record.plaidItem.institutionName ?? "Banco",
       plaidItemId: record.plaidItemId,
       prediction,
+      rankedCandidates,
     }];
   }).sort((left, right) =>
     (right.authorizedDate ?? right.date).localeCompare(left.authorizedDate ?? left.date) ||

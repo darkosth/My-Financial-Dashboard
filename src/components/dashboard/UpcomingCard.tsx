@@ -24,6 +24,7 @@ type UpcomingPaymentRow = {
   carryoverId?: string | null;
   templateId?: string;
   sourceCycleReference?: Date | string | null;
+  cycleReference?: Date | string | null;
 };
 
 type UpcomingCardProps = {

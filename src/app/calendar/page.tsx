@@ -23,6 +23,7 @@ export default async function CalendarPage() {
         upcomingPayments={snapshot.upcomingPayments}
         totalUpcomingExpenses={snapshot.totalUpcomingExpenses}
         today={snapshot.today}
+        occurrences={snapshot.occurrences}
       />
     </main>
   );

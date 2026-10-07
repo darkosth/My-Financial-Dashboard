@@ -1,3 +1,4 @@
+import { getProjectedOccurrence, type FinanceOccurrenceState } from "./financeProjection.ts";
 import { startOfDay } from "date-fns";
 import {
   calculateWaterfall,
@@ -108,6 +109,8 @@ export type FinanceSnapshotInput = {
   carryovers?: PaymentCarryoverLike[];
   pendingExpenses?: PendingExpenseLike[];
   appSettings?: (AppSettingsLike & Record<string, unknown>) | null;
+  occurrences?: FinanceOccurrenceState[];
+  cashBalanceCents?: number;
 };
 
 export const DEFAULT_WEEKLY_INCOME = 1000;
@@ -156,7 +159,11 @@ export const buildFinanceSnapshot = (data: FinanceSnapshotInput, todayInput: Dat
   const historyRecords = data.historyRecords ?? [];
   const creditCardHistoryRecords = data.creditCardHistoryRecords ?? [];
   const carryovers = data.carryovers ?? [];
-  const pendingExpenses = data.pendingExpenses ?? [];
+  const occurrences = data.occurrences ?? [];
+  const pendingExpenses = (data.pendingExpenses ?? []).map((expense) => {
+    const occurrence = occurrences.find((entry) => entry.targetId === `pending:${expense.id}`);
+    return occurrence ? { ...expense, amount: occurrence.closure === "OPEN" ? Math.max(occurrence.expectedCents - occurrence.paidCents, 0) / 100 : 0 } : expense;
+  }).filter((expense) => expense.amount > 0);
   const rawAppSettings = data.appSettings ?? undefined;
   const weeklyIncome = rawAppSettings?.weeklyIncome ?? DEFAULT_WEEKLY_INCOME;
   const appSettings = {
@@ -165,7 +172,8 @@ export const buildFinanceSnapshot = (data: FinanceSnapshotInput, todayInput: Dat
   };
 
   const scheduledPayments = getScheduledPayments({ templates, creditCards });
-  const totalAccountBalances = accounts.reduce((acc, account) => acc + account.balance, 0);
+  const cashBalance = (data.cashBalanceCents ?? 0) / 100;
+  const totalAccountBalances = accounts.reduce((acc, account) => acc + account.balance, 0) + cashBalance;
   const pendingExpensesTotal = pendingExpenses.reduce((acc, expense) => acc + expense.amount, 0);
   const totalLiquidity = totalAccountBalances - pendingExpensesTotal;
   const totalDebt = creditCards.reduce((acc, card) => acc + card.balance, 0);
@@ -180,6 +188,7 @@ export const buildFinanceSnapshot = (data: FinanceSnapshotInput, todayInput: Dat
     carryovers,
     today,
     standardWeeklyIncome: appSettings.weeklyIncome,
+    occurrences,
   });
 
   const upcomingPayments = getUpcomingPendingPayments({
@@ -189,6 +198,7 @@ export const buildFinanceSnapshot = (data: FinanceSnapshotInput, todayInput: Dat
     carryovers,
     today,
     weeksAhead: 2,
+    occurrences,
   });
 
   const totalUpcomingExpenses = upcomingPayments.reduce((acc: number, payment: { amount: number }) => acc + payment.amount, 0);
@@ -207,6 +217,8 @@ export const buildFinanceSnapshot = (data: FinanceSnapshotInput, todayInput: Dat
     carryovers,
     pendingExpenses,
     totalAccountBalances,
+    cashBalance,
+    occurrences,
     pendingExpensesTotal,
     totalLiquidity,
     totalDebt,
@@ -257,6 +269,7 @@ export const getCalendarEventsForDay = ({
   creditCardHistoryRecords = [],
   carryovers = [],
   pendingExpenses = [],
+  occurrences = [],
   today = new Date(),
   targetDate,
 }: {
@@ -267,6 +280,7 @@ export const getCalendarEventsForDay = ({
   pendingExpenses?: PendingExpenseLike[];
   today?: Date;
   targetDate: Date;
+  occurrences?: FinanceOccurrenceState[];
 }): CalendarEvent[] => {
   const normalizedToday = startOfDay(normalizeCalendarDate(today) ?? today);
   const day = startOfDay(normalizeCalendarDate(targetDate) ?? targetDate);
@@ -330,10 +344,8 @@ export const getCalendarEventsForDay = ({
           getDayKey(record.cycleReference) === getDayKey(carryover.originCycleReference),
       )
       .reduce((acc, record) => acc + (record.amountPaid ?? 0), 0);
-    const effectiveRemaining = Math.min(
-      Math.max(carryover.remainingAmount ?? 0, 0),
-      Math.max(template.amount - paidAmount, 0),
-    );
+    const state = getProjectedOccurrence(template.id, carryover.originCycleReference, template.amount, paidAmount, occurrences);
+    const effectiveRemaining = Math.min(Math.max(carryover.remainingAmount ?? 0, 0), state.pendingAmount);
     if (effectiveRemaining <= 0) return;
     const carryoverLabel = paidAmount > 0 ? "restante" : "pendiente";
     const cycleKey = `${carryover.templateId}:${getDayKey(carryover.originCycleReference)}`;
@@ -360,7 +372,9 @@ export const getCalendarEventsForDay = ({
       return;
     }
 
-    if (isTemplatePaidForOccurrence(item, occurrenceDate, historyRecords, creditCardHistoryRecords)) {
+    const reference = getTemplateCycleReference(item, occurrenceDate);
+    const explicit = occurrences.find((entry) => entry.targetId === item.id && entry.cycleReference === getDayKey(reference));
+    if (explicit ? explicit.closure !== "OPEN" || explicit.paidCents >= explicit.expectedCents : isTemplatePaidForOccurrence(item, occurrenceDate, historyRecords, creditCardHistoryRecords)) {
       return;
     }
 
@@ -374,7 +388,7 @@ export const getCalendarEventsForDay = ({
       templateId: item.id,
       kind: item.kind ?? "template",
       name: item.name,
-      amount: item.amount,
+      amount: explicit ? Math.max(explicit.expectedCents - explicit.paidCents, 0) / 100 : item.amount,
       occurrenceDate,
       cycleReference: getTemplateCycleReference(item, occurrenceDate),
       isPast: false,

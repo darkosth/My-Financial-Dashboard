@@ -13,6 +13,7 @@ type WaterfallPaymentItem = {
   carryoverId?: string | null;
   occurrenceDate: Date | string;
   sourceCycleReference?: Date | string | null;
+  cycleReference?: Date | string | null;
   name: string;
   amount: number;
   isPaid?: boolean;

@@ -24,11 +24,13 @@ export default function PaymentCandidatePicker({
   onSelect,
   options,
   selectedTargetId,
+  rankedTargetIds = [],
 }: {
   disabled: boolean;
   onSelect: (targetId: string) => void;
   options: PaymentOption[];
   selectedTargetId: string | null;
+  rankedTargetIds?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -37,11 +39,13 @@ export default function PaymentCandidatePicker({
     const filtered = normalizedQuery
       ? options.filter((option) => normalizeSearch(`${option.name} ${option.category}`).includes(normalizedQuery))
       : options;
+    const rankedIds = new Set(rankedTargetIds);
+    const byId = new Map(filtered.map((option) => [option.targetId, option]));
     return {
-      cards: filtered.filter((option) => option.kind === "credit-card"),
-      templates: filtered.filter((option) => option.kind === "template"),
+      probable: [...rankedIds].flatMap((id) => byId.has(id) ? [byId.get(id)!] : []),
+      remaining: filtered.filter((option) => !rankedIds.has(option.targetId)),
     };
-  }, [options, query]);
+  }, [options, query, rankedTargetIds]);
 
   const choose = (targetId: string) => {
     onSelect(targetId);
@@ -50,16 +54,16 @@ export default function PaymentCandidatePicker({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog modal open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setQuery(""); }}>
       <DialogTrigger asChild>
         <Button type="button" size="sm" variant="outline" disabled={disabled}>
           {selectedTargetId ? "Cambiar" : "Seleccionar"}
         </Button>
       </DialogTrigger>
-      <AppDialogContent size="wide">
+      <AppDialogContent size="wide" onPointerDownOutside={(event) => event.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Seleccionar pago</DialogTitle>
-          <DialogDescription>Gastos agendados y tarjetas con fecha de pago.</DialogDescription>
+          <DialogDescription className="sr-only">Seleccionar el gasto para este movimiento.</DialogDescription>
         </DialogHeader>
 
         <label className="relative block">
@@ -74,14 +78,14 @@ export default function PaymentCandidatePicker({
           />
         </label>
 
-        <div className="max-h-[50dvh] overflow-y-auto border-y border-border">
-          {grouped.templates.length > 0 ? (
-            <OptionGroup label="Gastos" onSelect={choose} options={grouped.templates} selectedTargetId={selectedTargetId} />
+        <div className="max-h-[50dvh] overflow-y-auto overscroll-contain border-y border-border">
+          {grouped.probable.length > 0 ? (
+            <OptionGroup label="Más probables" onSelect={choose} options={grouped.probable} selectedTargetId={selectedTargetId} />
           ) : null}
-          {grouped.cards.length > 0 ? (
-            <OptionGroup label="Tarjetas" onSelect={choose} options={grouped.cards} selectedTargetId={selectedTargetId} />
+          {grouped.remaining.length > 0 ? (
+            <OptionGroup label={grouped.probable.length ? "Otros gastos" : "Todos los gastos"} onSelect={choose} options={grouped.remaining} selectedTargetId={selectedTargetId} />
           ) : null}
-          {grouped.templates.length === 0 && grouped.cards.length === 0 ? (
+          {grouped.probable.length === 0 && grouped.remaining.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">No hay coincidencias.</p>
           ) : null}
         </div>

@@ -114,7 +114,7 @@ export default function TransactionReviewRow({
         ) : null}
 
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button type="button" size="sm" onClick={onConfirm} disabled={busy || !selectedTargetId}>
+          <Button type="button" size="sm" onClick={onConfirm} disabled={busy || !selectedTargetId || transaction.pending}>
             {busy ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : <Check />}
             Confirmar
           </Button>
@@ -122,6 +122,7 @@ export default function TransactionReviewRow({
             disabled={busy}
             onSelect={onSelect}
             options={options}
+            rankedTargetIds={transaction.rankedCandidates.map((candidate) => candidate.templateId)}
             selectedTargetId={selectedTargetId}
           />
           <Button type="button" size="sm" variant="ghost" onClick={onIgnore} disabled={busy}>

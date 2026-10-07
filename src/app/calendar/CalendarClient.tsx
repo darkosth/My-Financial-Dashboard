@@ -33,6 +33,8 @@ import {
 import type { UpcomingPayment } from "@/lib/waterfallCalculations";
 import { usePaymentActionDialog } from "@/lib/usePaymentActionDialog";
 
+import type { FinanceOccurrenceState } from "@/lib/financeProjection";
+
 const CALENDAR_WEEK_STARTS_ON = 0;
 const weekDaysHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const formatCurrency = (value: number) =>
@@ -52,6 +54,7 @@ type CalendarClientProps = {
   upcomingPayments: UpcomingPayment[];
   totalUpcomingExpenses: number;
   today: Date | string;
+  occurrences?: FinanceOccurrenceState[];
 };
 
 export default function CalendarClient({
@@ -63,6 +66,7 @@ export default function CalendarClient({
   upcomingPayments,
   totalUpcomingExpenses,
   today,
+  occurrences = [],
 }: CalendarClientProps) {
   const normalizedToday = startOfDay(normalizeCalendarDate(today) ?? new Date(today));
   const [currentDate, setCurrentDate] = React.useState(normalizedToday);
@@ -110,6 +114,7 @@ export default function CalendarClient({
       pendingExpenses,
       today: normalizedToday,
       targetDate: day,
+      occurrences,
     });
 
   const openExpenseDetails = (expense: CalendarEvent) => {

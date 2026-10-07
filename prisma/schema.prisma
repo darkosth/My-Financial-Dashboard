@@ -431,3 +431,104 @@ model WorkspaceInvite {
 
   @@map("workspace_invites")
 }
+
+model FinanceCategory {
+  id String @id @default(cuid())
+  workspaceId String
+  name String
+  nameKey String
+  archived Boolean @default(false)
+  subcategories FinanceSubcategory[]
+  @@unique([workspaceId, nameKey])
+}
+model FinanceSubcategory {
+  id String @id @default(cuid())
+  categoryId String
+  name String
+  nameKey String
+  archived Boolean @default(false)
+  category FinanceCategory @relation(fields:[categoryId], references:[id], onDelete:Restrict)
+  @@unique([categoryId,nameKey])
+}
+model FinanceCash {
+  workspaceId String @id
+  balanceCents Int @default(0)
+  currency String @default("USD")
+  updatedAt DateTime @updatedAt
+}
+model FinancialMovement {
+  id String @id @default(cuid())
+  workspaceId String
+  externalKey String?
+  requestId String?
+  source String
+  kind String
+  status String @default("POSTED")
+  name String
+  amountCents Int
+  currency String @default("USD")
+  date DateTime @db.Date
+  accountId String?
+  categoryId String?
+  subcategoryId String?
+  needsReview Boolean @default(false)
+  reversedAt DateTime?
+  bankPayload Json?
+  refundOfId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reconciliations FinanceReconciliation[]
+  @@unique([workspaceId,externalKey])
+  @@unique([workspaceId,requestId])
+  @@index([workspaceId,date])
+}
+model FinanceOccurrence {
+  id String @id @default(cuid())
+  workspaceId String
+  targetId String
+  name String
+  cycleReference DateTime @db.Date
+  weekStart DateTime @db.Date
+  expectedCents Int
+  currency String @default("USD")
+  closure String @default("OPEN")
+  createdAt DateTime @default(now())
+  reconciliations FinanceReconciliation[]
+  @@unique([workspaceId,targetId,cycleReference])
+}
+model FinanceReconciliation {
+  id String @id @default(cuid())
+  workspaceId String
+  movementId String
+  activeMovementId String? @unique
+  occurrenceId String
+  amountCents Int
+  historyId String
+  historyKind String
+  ownsHistory Boolean @default(true)
+  previousLastPaidAt DateTime?
+  reversedAt DateTime?
+  createdAt DateTime @default(now())
+  movement FinancialMovement @relation(fields:[movementId], references:[id], onDelete:Restrict)
+  occurrence FinanceOccurrence @relation(fields:[occurrenceId], references:[id], onDelete:Restrict)
+  @@index([workspaceId,occurrenceId])
+}
+model FinanceTransfer {
+  id String @id @default(cuid())
+  workspaceId String
+  outgoingId String @unique
+  incomingId String? @unique
+  cashDeltaCents Int @default(0)
+  previousState Json?
+  createdAt DateTime @default(now())
+}
+model FinanceEvent {
+  id String @id @default(cuid())
+  workspaceId String
+  userId String
+  action String
+  movementId String?
+  payload Json
+  createdAt DateTime @default(now())
+  @@index([workspaceId,createdAt])
+}

@@ -2,6 +2,7 @@ import "server-only";
 
 import prisma from "@/lib/prisma";
 import { buildFinanceSnapshot } from "@/lib/financeEngine";
+import { getFinanceCompatibility } from "@/lib/finance/data";
 import { getCurrentUserContext } from "@/lib/workspaceContext";
 import {
   serializeAccount,
@@ -81,5 +82,6 @@ export async function loadFinanceData() {
 
 export async function loadFinanceSnapshot(today: Date = new Date()) {
   const data = await loadFinanceData();
-  return buildFinanceSnapshot(data, today);
+  const compatibility = data.context?.activeWorkspace?.id ? await getFinanceCompatibility(data.context.activeWorkspace.id) : { occurrences: [], cashBalanceCents: 0 };
+  return buildFinanceSnapshot({ ...data, ...compatibility }, today);
 }

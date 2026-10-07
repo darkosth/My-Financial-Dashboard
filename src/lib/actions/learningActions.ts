@@ -146,6 +146,18 @@ export async function reviewLearningTransactionAction({
         transaction.authorizedDate ?? transaction.date,
       );
       const cycleReference = selectedCandidate?.cycleReference ?? null;
+      if (!cycleReference) throw new Error("No se encontró un período para este gasto");
+      const externalKey = `${validatedPlaidItemId}:${transaction.transactionId}`;
+      const movement = await prisma.financialMovement.findUnique({
+        where: { workspaceId_externalKey: { workspaceId: activeWorkspace.id, externalKey } },
+      });
+      if (!movement) throw new Error("Sincroniza los movimientos antes de confirmar el pago.");
+      const { reconcileMovement } = await import("@/lib/finance/reconciliation");
+      await reconcileMovement(activeWorkspace.id, user.id, {
+        movementId: movement.id,
+        targetId: templateId,
+        cycleReference,
+      });
 
       const confirmedSuggestion = predictedTargetId === templateId;
 
@@ -216,5 +228,34 @@ export async function undoLearningTransactionReviewAction({
   } catch (error) {
     logLearningError("Failed to undo learning review:", error);
     return { success: false, error: "No se pudo deshacer la revisión." };
+  }
+}
+
+
+export async function undoConfirmedLearningPaymentAction({ plaidItemId, transactionId }: { plaidItemId: string; transactionId: string }): Promise<ActionResult> {
+  try {
+    await assertCurrentFeatureAccess("PLAID");
+    const { activeWorkspace, user } = await getCurrentUserContext();
+    const validatedPlaidItemId = parseRequiredText(plaidItemId, "Plaid item id");
+    const validatedTransactionId = parseRequiredText(transactionId, "Transaction id");
+    const where = learningTransactionWhere(validatedPlaidItemId, validatedTransactionId);
+    const record = await prisma.learningRecord.findUnique({ where });
+    const transaction = record ? readLearningTransaction(record.payload) : null;
+    if (!record || record.workspaceId !== activeWorkspace.id || record.kind !== LearningRecordKind.TRANSACTION || !transaction) throw new Error("Learning transaction not found");
+    const movement = await prisma.financialMovement.findUnique({
+      where: { workspaceId_externalKey: { workspaceId: activeWorkspace.id, externalKey: `${validatedPlaidItemId}:${validatedTransactionId}` } },
+    });
+    if (movement) {
+      const { undoReconciliation } = await import("@/lib/finance/reconciliation");
+      await undoReconciliation(activeWorkspace.id, user.id, movement.id);
+    }
+    await prisma.learningRecord.update({ where: { id: record.id }, data: { payload: toLearningJson({ ...transaction, review: null }) } });
+    await refreshLearningSuggestionsForWorkspace(activeWorkspace.id);
+    revalidatePath("/dashboard");
+    revalidatePath("/learning");
+    return { success: true };
+  } catch (error) {
+    logLearningError("Failed to undo confirmed learning payment:", error);
+    return { success: false, error: "No se pudo deshacer el pago confirmado." };
   }
 }

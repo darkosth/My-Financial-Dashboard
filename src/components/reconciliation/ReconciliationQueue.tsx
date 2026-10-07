@@ -8,7 +8,7 @@ import TransactionReviewRow from "@/components/reconciliation/TransactionReviewR
 import {
   reviewLearningTransactionAction,
   syncLearningTransactionsAction,
-  undoLearningTransactionReviewAction,
+  undoConfirmedLearningPaymentAction,
 } from "@/lib/actions/learningActions";
 import type { LearningQueueData } from "@/lib/learningData";
 
@@ -69,7 +69,7 @@ export default function ReconciliationQueue({ data }: { data: LearningQueueData 
     }
 
     setUndoTarget({ plaidItemId: transaction.plaidItemId, transactionId: transaction.transactionId });
-    setNotice(selectedTemplateId ? "Confirmación guardada." : "Transacción ignorada.");
+    setNotice(selectedTemplateId ? "Pago registrado y conciliado." : "Transacción ignorada.");
     router.refresh();
   };
 
@@ -77,7 +77,7 @@ export default function ReconciliationQueue({ data }: { data: LearningQueueData 
     if (!undoTarget) return;
     const target = undoTarget;
     setUndoTarget(null);
-    const result = await undoLearningTransactionReviewAction(target);
+    const result = await undoConfirmedLearningPaymentAction(target);
     if (!result.success) {
       setNotice(null);
       setError(result.error);
