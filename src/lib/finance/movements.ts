@@ -5,7 +5,7 @@ import { reconcileInTx, undoInTx } from './reconciliation';
 
 export type ManualInput = {
   requestId: string; name: string; amountCents: number; date: string;
-  source: 'CASH' | 'CREDIT'; kind?: 'EXPENSE' | 'INCOME' | 'CARD_PAYMENT';
+  source: 'CASH' | 'CREDIT' | 'DEBIT'; accountId?: string | null; kind?: 'EXPENSE' | 'INCOME' | 'CARD_PAYMENT';
   categoryId?: string | null; subcategoryId?: string | null;
   targetId?: string; cycleReference?: string;
 };
@@ -15,10 +15,11 @@ export async function createManualMovement(workspaceId: string, userId: string, 
   const cardTarget = input.targetId?.startsWith('credit-card:') ?? false;
   const kind = cardTarget ? 'CARD_PAYMENT' : input.kind ?? 'EXPENSE';
   if (
-    !['CASH', 'CREDIT'].includes(input.source) ||
+    !['CASH', 'CREDIT', 'DEBIT'].includes(input.source) ||
     !['EXPENSE', 'INCOME', 'CARD_PAYMENT'].includes(kind) ||
     (input.source === 'CREDIT' && kind !== 'EXPENSE') ||
-    (kind === 'CARD_PAYMENT' && (input.source !== 'CASH' || !cardTarget))
+    (input.source === 'DEBIT' && !['EXPENSE', 'CARD_PAYMENT'].includes(kind)) ||
+    (kind === 'CARD_PAYMENT' && (!['CASH', 'DEBIT'].includes(input.source) || !cardTarget))
   ) {
     throw new ValidationError('Medio o tipo de pago inválido.');
   }
@@ -28,11 +29,14 @@ export async function createManualMovement(workspaceId: string, userId: string, 
   return atomic(workspaceId, async tx => {
     const existing = await tx.financialMovement.findUnique({ where: { workspaceId_requestId: { workspaceId, requestId } } });
     if (existing) return { id: existing.id };
+    if (input.accountId && !(await tx.account.findFirst({ where: { id: input.accountId, workspaceId } })))
+      throw new ValidationError('La cuenta bancaria no está disponible.');
     await categoryFor(tx, workspaceId, input.categoryId, input.subcategoryId);
     const amountCents = kind === 'INCOME' ? -input.amountCents : input.amountCents;
     if (input.source === 'CASH') await cashDelta(tx, workspaceId, -amountCents);
     const row = await tx.financialMovement.create({ data: {
       workspaceId, requestId, name, amountCents, date, source: input.source, kind,
+      accountId: input.source === 'DEBIT' ? input.accountId ?? null : null,
       categoryId: input.categoryId ?? null, subcategoryId: input.subcategoryId ?? null,
     } });
     if (input.targetId) {

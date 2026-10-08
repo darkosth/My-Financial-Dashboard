@@ -5,7 +5,7 @@ export type Movement = {
   currency: string;
   date: string;
   status: "PENDING" | "POSTED" | "REMOVED";
-  source: "BANK" | "CASH" | "CREDIT" | "ADJUSTMENT";
+  source: "BANK" | "CASH" | "CREDIT" | "DEBIT" | "ADJUSTMENT";
   kind: "EXPENSE" | "INCOME" | "TRANSFER" | "ADJUSTMENT" | "CARD_PAYMENT" | "REFUND";
   categoryId: string | null;
   subcategoryId: string | null;

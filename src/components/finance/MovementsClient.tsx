@@ -19,6 +19,7 @@ const sourceNames = {
   BANK: "Banco",
   CASH: "Efectivo",
   CREDIT: "Tarjeta de crédito",
+  DEBIT: "Tarjeta de débito",
   ADJUSTMENT: "Ajuste",
 };
 const kindNames = {

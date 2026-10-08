@@ -195,7 +195,8 @@ export function ManualPaymentForm({
   done: () => void;
 }) {
   const today = new Date().toLocaleDateString("en-CA");
-  const [source, setSource] = useState<"" | "CASH" | "CREDIT">("");
+  const [source, setSource] = useState<"" | "CASH" | "CREDIT" | "DEBIT">("");
+  const [accountId, setAccountId] = useState("");
   const [kind, setKind] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   const [category, setCategory] = useState("");
   const [subcategory, setSubcategory] = useState("");
@@ -232,6 +233,7 @@ export function ManualPaymentForm({
               amountCents: Math.round(Number(amount) * 100),
               date: String(f.get("date")),
               source,
+              accountId: source === "DEBIT" ? accountId || undefined : undefined,
               kind: occurrence?.targetId.startsWith("credit-card:")
                 ? "CARD_PAYMENT"
                 : kind,
@@ -289,8 +291,9 @@ export function ManualPaymentForm({
           className={fieldClass}
           value={source}
           onChange={(e) => {
-            const nextSource = e.target.value as "" | "CASH" | "CREDIT";
+            const nextSource = e.target.value as "" | "CASH" | "CREDIT" | "DEBIT";
             setSource(nextSource);
+            if (nextSource !== "DEBIT") setAccountId("");
             if (
               nextSource === "CREDIT" &&
               occurrence?.targetId.startsWith("credit-card:")
@@ -305,15 +308,40 @@ export function ManualPaymentForm({
             Efectivo · {money(data.cash.balanceCents)}
           </option>
           <option value="CREDIT">Tarjeta de crédito</option>
+          <option value="DEBIT">Tarjeta de débito</option>
         </select>
       </label>
+      {source === "DEBIT" && data.accounts.length > 0 && (
+        <label className="block space-y-1">
+          <span>Cuenta bancaria</span>
+          <select
+            className={fieldClass}
+            value={accountId}
+            disabled={busy}
+            onChange={(e) => setAccountId(e.target.value)}
+          >
+            <option value="">Sin cuenta vinculada</option>
+            {data.accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {source === "CREDIT" && (
         <p className="text-sm text-muted-foreground">
           La deuda de esta tarjeta no está incluida en la proyección.
         </p>
       )}
-      {source === "CASH" && (
-        occurrence?.targetId.startsWith("credit-card:") ? (
+      {(source === "CASH" || source === "DEBIT") && (
+        source === "DEBIT" ? (
+          <p className="text-sm text-muted-foreground">
+            {occurrence?.targetId.startsWith("credit-card:")
+              ? "Pago de tarjeta desde cuenta bancaria"
+              : "Pago desde cuenta bancaria"}
+          </p>
+        ) : occurrence?.targetId.startsWith("credit-card:") ? (
           <p className="text-sm text-muted-foreground">Pago de tarjeta</p>
         ) : (
           <label className="block space-y-1">
@@ -357,7 +385,10 @@ export function ManualPaymentForm({
               const nextOccurrence = data.occurrences.find(
                 (item) => item.id === e.target.value,
               );
-              if (nextOccurrence?.targetId.startsWith("credit-card:")) {
+              if (
+                nextOccurrence?.targetId.startsWith("credit-card:") &&
+                source !== "DEBIT"
+              ) {
                 setSource("CASH");
                 setKind("EXPENSE");
               }

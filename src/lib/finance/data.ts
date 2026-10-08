@@ -172,7 +172,11 @@ export async function loadFinanceWorkspace(
       accountId: row.accountId,
       accountName:
         accounts.find((a) => a.id === row.accountId)?.name ??
-        (row.source === "CREDIT" ? "Tarjeta de crédito" : "Efectivo"),
+        (row.source === "CREDIT"
+          ? "Tarjeta de crédito"
+          : row.source === "DEBIT"
+            ? "Tarjeta de débito"
+            : "Efectivo"),
       needsReview: row.needsReview,
       reversedAt: row.reversedAt?.toISOString() ?? null,
       transferId:

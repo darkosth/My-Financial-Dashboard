@@ -209,7 +209,7 @@ export async function reconcileInTx(
     if (previous) {
       if (
         movement.source !== "BANK" ||
-        !["CASH", "CREDIT"].includes(previous.movement.source) ||
+        !["CASH", "CREDIT", "DEBIT"].includes(previous.movement.source) ||
         previous.movement.reversedAt ||
         previous.movement.currency !== movement.currency
       )
