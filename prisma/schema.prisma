@@ -475,6 +475,8 @@ model FinancialMovement {
   reversedAt DateTime?
   bankPayload Json?
   refundOfId String?
+  balanceImpactCents Int @default(0)
+  replacedManualState Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   reconciliations FinanceReconciliation[]

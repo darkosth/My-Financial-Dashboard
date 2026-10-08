@@ -113,10 +113,11 @@ export default function TransactionReviewRow({
           </p>
         ) : null}
 
+        {transaction.pending && <p className="mt-2 text-sm text-muted-foreground">El banco aún no confirmó este cargo. Podrás conciliarlo cuando esté contabilizado.</p>}
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button type="button" size="sm" onClick={onConfirm} disabled={busy || !selectedTargetId || transaction.pending}>
+          <Button type="button" size="sm" onClick={onConfirm} disabled={busy || transaction.pending}>
             {busy ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : <Check />}
-            Confirmar
+            Revisar y conciliar
           </Button>
           <PaymentCandidatePicker
             disabled={busy}

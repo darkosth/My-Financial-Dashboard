@@ -20,7 +20,7 @@ export function weekLabel(date: string) {
       year: "numeric",
       timeZone: "UTC",
     });
-  return `${format(start)} – ${format(end)}`;
+  return `Semana ${Math.floor((start.getUTCDate() - 1) / 7) + 1} · ${format(start)} – ${format(end)}`;
 }
 export function buildAnalytics(
   data: FinanceWorkspaceData,

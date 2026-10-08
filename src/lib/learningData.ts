@@ -26,7 +26,7 @@ export const resolveLearningWeekStart = (value?: string | null) => {
   return getProjectionWeekStart(requestedDate ?? new Date());
 };
 
-const getConfirmationSignals = (transactions: LearningTransactionPayload[]): LearningConfirmationSignal[] =>
+export const getConfirmationSignals = (transactions: LearningTransactionPayload[]): LearningConfirmationSignal[] =>
   transactions.flatMap((transaction) => {
     const review = transaction.review;
     if (!review?.selectedTemplateId || review.outcome === "IGNORED") return [];
@@ -38,7 +38,7 @@ const getConfirmationSignals = (transactions: LearningTransactionPayload[]): Lea
     }];
   });
 
-const getRejectionSignals = (transactions: LearningTransactionPayload[]): LearningRejectionSignal[] =>
+export const getRejectionSignals = (transactions: LearningTransactionPayload[]): LearningRejectionSignal[] =>
   transactions.flatMap((transaction) => {
     const rejectedTargetId = transaction.review?.outcome === "IGNORED"
       ? transaction.review.rejectedTemplateId ?? transaction.suggestion?.templateId

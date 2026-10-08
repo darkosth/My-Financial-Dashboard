@@ -2,7 +2,7 @@
 
 import { LearningRecordKind } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { parseRequiredText, type ActionResult } from "@/lib/actions/validation";
+import { ValidationError, parseRequiredText, type ActionResult } from "@/lib/actions/validation";
 import { assertCurrentFeatureAccess } from "@/lib/featureAccess";
 import { LEARNING_LIQUIDITY_ACCOUNT_WHERE } from "@/lib/learningAccountPolicy";
 import { refreshLearningSuggestionsForWorkspace } from "@/lib/learningData";
@@ -52,6 +52,8 @@ export async function syncLearningTransactionsAction(): Promise<ActionResult<Awa
     await refreshLearningSuggestionsForWorkspace(activeWorkspace.id);
     revalidatePath("/dashboard");
     revalidatePath("/learning");
+    revalidatePath("/movements");
+    revalidatePath("/calendar");
     return { success: true, data: result };
   } catch (error) {
     logLearningError("Failed to sync learning transactions:", error);
@@ -63,6 +65,7 @@ export async function reviewLearningTransactionAction({
   plaidItemId,
   predictedTemplateId,
   selectedTemplateId,
+  selectedCycleReference,
   transactionId,
 }: ReviewLearningInput): Promise<ActionResult> {
   try {
@@ -145,7 +148,7 @@ export async function reviewLearningTransactionAction({
         selectedItem,
         transaction.authorizedDate ?? transaction.date,
       );
-      const cycleReference = selectedCandidate?.cycleReference ?? null;
+      const cycleReference = selectedCycleReference ?? selectedCandidate?.cycleReference ?? null;
       if (!cycleReference) throw new Error("No se encontró un período para este gasto");
       const externalKey = `${validatedPlaidItemId}:${transaction.transactionId}`;
       const movement = await prisma.financialMovement.findUnique({
@@ -159,78 +162,22 @@ export async function reviewLearningTransactionAction({
         cycleReference,
       });
 
-      const confirmedSuggestion = predictedTargetId === templateId;
 
-      await prisma.learningRecord.update({
-        where: { id: record.id },
-        data: {
-          payload: toLearningJson({
-            ...transaction,
-            review: {
-              outcome: confirmedSuggestion ? "CONFIRMED_SUGGESTION" : "MANUAL_SELECTION",
-              rejectedTemplateId: null,
-              reviewedAt,
-              reviewedByUserId: user.id,
-              selectedCycleReference: cycleReference,
-              selectedTemplateId: templateId,
-            },
-          }),
-        },
-      });
     }
 
     await refreshLearningSuggestionsForWorkspace(activeWorkspace.id);
     revalidatePath("/dashboard");
     revalidatePath("/learning");
+    revalidatePath("/movements");
+    revalidatePath("/calendar");
     return { success: true };
   } catch (error) {
     logLearningError("Failed to review learning transaction:", error);
-    return { success: false, error: "No se pudo guardar la revisión." };
+    return { success: false, error: error instanceof ValidationError ? error.message : "No se pudo guardar la revisión." };
   }
 }
 
-export async function undoLearningTransactionReviewAction({
-  plaidItemId,
-  transactionId,
-}: {
-  plaidItemId: string;
-  transactionId: string;
-}): Promise<ActionResult> {
-  try {
-    await assertCurrentFeatureAccess("PLAID");
-    const { activeWorkspace } = await getCurrentUserContext();
-    const validatedPlaidItemId = parseRequiredText(plaidItemId, "Plaid item id");
-    const validatedTransactionId = parseRequiredText(transactionId, "Transaction id");
-    const where = learningTransactionWhere(validatedPlaidItemId, validatedTransactionId);
-    const record = await prisma.learningRecord.findUnique({ where });
-    const transaction = record ? readLearningTransaction(record.payload) : null;
-    if (!record || record.workspaceId !== activeWorkspace.id || record.kind !== LearningRecordKind.TRANSACTION || !transaction) {
-      throw new Error("Learning transaction not found");
-    }
-    const liquidityAccount = await prisma.plaidRemoteAccount.findFirst({
-      where: {
-        ...LEARNING_LIQUIDITY_ACCOUNT_WHERE,
-        plaidAccountId: transaction.accountId,
-        workspaceId: activeWorkspace.id,
-      },
-      select: { id: true },
-    });
-    if (!liquidityAccount) throw new Error("Learning transaction is outside the liquidity account scope");
-
-    await prisma.learningRecord.update({
-      where: { id: record.id },
-      data: { payload: toLearningJson({ ...transaction, review: null }) },
-    });
-    await refreshLearningSuggestionsForWorkspace(activeWorkspace.id);
-    revalidatePath("/dashboard");
-    revalidatePath("/learning");
-    return { success: true };
-  } catch (error) {
-    logLearningError("Failed to undo learning review:", error);
-    return { success: false, error: "No se pudo deshacer la revisión." };
-  }
-}
-
+export async function undoLearningTransactionReviewAction(input: {plaidItemId:string;transactionId:string}): Promise<ActionResult> { return undoConfirmedLearningPaymentAction(input); }
 
 export async function undoConfirmedLearningPaymentAction({ plaidItemId, transactionId }: { plaidItemId: string; transactionId: string }): Promise<ActionResult> {
   try {
@@ -248,11 +195,14 @@ export async function undoConfirmedLearningPaymentAction({ plaidItemId, transact
     if (movement) {
       const { undoReconciliation } = await import("@/lib/finance/reconciliation");
       await undoReconciliation(activeWorkspace.id, user.id, movement.id);
+    } else {
+      await prisma.learningRecord.update({ where: { id: record.id }, data: { payload: toLearningJson({ ...transaction, review: null }) } });
     }
-    await prisma.learningRecord.update({ where: { id: record.id }, data: { payload: toLearningJson({ ...transaction, review: null }) } });
     await refreshLearningSuggestionsForWorkspace(activeWorkspace.id);
     revalidatePath("/dashboard");
     revalidatePath("/learning");
+    revalidatePath("/movements");
+    revalidatePath("/calendar");
     return { success: true };
   } catch (error) {
     logLearningError("Failed to undo confirmed learning payment:", error);

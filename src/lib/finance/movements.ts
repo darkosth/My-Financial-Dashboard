@@ -1,13 +1,13 @@
 import { ValidationError, parseRequiredText } from '@/lib/actions/validation';
 import { readLearningTransaction, toLearningJson } from '@/lib/learningStore';
-import { atomic, audit, categoryFor, cashDelta, cents, dateOnly, movementFor } from './core';
+import { atomic, audit, categoryFor, cashDelta, cents, dateOnly, movementFor, manualBalanceDelta } from './core';
 import { reconcileInTx, undoInTx } from './reconciliation';
 
 export type ManualInput = {
   requestId: string; name: string; amountCents: number; date: string;
   source: 'CASH' | 'CREDIT' | 'DEBIT'; accountId?: string | null; kind?: 'EXPENSE' | 'INCOME' | 'CARD_PAYMENT';
   categoryId?: string | null; subcategoryId?: string | null;
-  targetId?: string; cycleReference?: string;
+  targetId?: string; cycleReference?: string; confirmSeparatePayment?: boolean;
 };
 
 export async function createManualMovement(workspaceId: string, userId: string, input: ManualInput) {
@@ -29,13 +29,25 @@ export async function createManualMovement(workspaceId: string, userId: string, 
   return atomic(workspaceId, async tx => {
     const existing = await tx.financialMovement.findUnique({ where: { workspaceId_requestId: { workspaceId, requestId } } });
     if (existing) return { id: existing.id };
-    if (input.accountId && !(await tx.account.findFirst({ where: { id: input.accountId, workspaceId } })))
-      throw new ValidationError('La cuenta bancaria no está disponible.');
+    const account = input.source === 'DEBIT' && input.accountId ? await tx.account.findFirst({ where: { id: input.accountId, workspaceId } }) : null;
+    if (input.source === 'DEBIT' && !account) throw new ValidationError('Selecciona una cuenta bancaria disponible.');
+    if (!input.categoryId) throw new ValidationError('Selecciona una categoría.');
     await categoryFor(tx, workspaceId, input.categoryId, input.subcategoryId);
     const amountCents = kind === 'INCOME' ? -input.amountCents : input.amountCents;
-    if (input.source === 'CASH') await cashDelta(tx, workspaceId, -amountCents);
+    if (amountCents > 0 && !input.confirmSeparatePayment) {
+      const start = new Date(date); start.setUTCDate(start.getUTCDate() - 7);
+      const end = new Date(date); end.setUTCDate(end.getUTCDate() + 7);
+      const bank = await tx.financialMovement.findFirst({ where: {
+        workspaceId, source: 'BANK', status: 'POSTED', reversedAt: null, amountCents, kind: { in: ['EXPENSE', 'CARD_PAYMENT'] },
+        currency: 'USD', date: { gte: start, lte: end },
+        ...(account ? { accountId: account.id } : {}),
+      } });
+      if (bank) throw new ValidationError('Ya existe un cargo bancario compatible. Vincúlalo desde Movimientos o confirma que este es otro pago.');
+    }
+    const balanceImpactCents = input.source === 'DEBIT' && account?.source === 'MANUAL' ? -amountCents : 0;
+    await manualBalanceDelta(tx, workspaceId, { source: input.source, accountId: account?.id ?? null, amountCents, balanceImpactCents }, 1);
     const row = await tx.financialMovement.create({ data: {
-      workspaceId, requestId, name, amountCents, date, source: input.source, kind,
+      workspaceId, requestId, name, amountCents, date, source: input.source, kind, balanceImpactCents,
       accountId: input.source === 'DEBIT' ? input.accountId ?? null : null,
       categoryId: input.categoryId ?? null, subcategoryId: input.subcategoryId ?? null,
     } });
@@ -66,6 +78,7 @@ export async function adjustCash(workspaceId: string, userId: string, input: { r
 export async function classifyMovement(workspaceId: string, userId: string, input: { movementId: string; categoryId: string | null; subcategoryId: string | null }) {
   return atomic(workspaceId, async tx => {
     const row = await movementFor(tx, workspaceId, input.movementId);
+    if (row.kind === 'TRANSFER') throw new ValidationError('Las transferencias conservan su categoría propia.');
     await categoryFor(tx, workspaceId, input.categoryId, input.subcategoryId);
     await tx.financialMovement.update({ where: { id: row.id }, data: { categoryId: input.categoryId, subcategoryId: input.subcategoryId } });
     await audit(tx, workspaceId, userId, 'CLASSIFIED', row.id, { before: { categoryId: row.categoryId, subcategoryId: row.subcategoryId }, after: input });
@@ -79,7 +92,7 @@ export async function reverseManualMovement(workspaceId: string, userId: string,
     if (row.reversedAt) return;
     if (row.source === 'BANK' || row.kind === 'TRANSFER') throw new ValidationError('Este movimiento no puede anularse como pago manual.');
     await undoInTx(tx, workspaceId, userId, row.id);
-    if (row.source === 'CASH' || row.source === 'ADJUSTMENT') await cashDelta(tx, workspaceId, row.amountCents);
+    await manualBalanceDelta(tx, workspaceId, row, -1);
     await tx.financialMovement.update({ where: { id: row.id }, data: { reversedAt: new Date() } });
     await audit(tx, workspaceId, userId, 'MANUAL_PAYMENT_REVERSED', row.id);
   });
@@ -89,7 +102,7 @@ export async function resolveBankChange(workspaceId: string, userId: string, mov
   return atomic(workspaceId, async tx => {
     const row = await movementFor(tx, workspaceId, movementId);
     if (row.source !== 'BANK') throw new ValidationError('Selecciona un movimiento bancario.');
-    if (await tx.financeReconciliation.findFirst({ where: { workspaceId, activeMovementId: row.id } }) || await tx.financeTransfer.findFirst({ where: { workspaceId, OR: [{ outgoingId: row.id }, { incomingId: row.id }] } })) {
+    if (row.replacedManualState || await tx.financeReconciliation.findFirst({ where: { workspaceId, activeMovementId: row.id } }) || await tx.financeTransfer.findFirst({ where: { workspaceId, OR: [{ outgoingId: row.id }, { incomingId: row.id }] } })) {
       throw new ValidationError('Deshaz la conciliación o transferencia antes de aceptar el cambio.');
     }
     await tx.financialMovement.update({ where: { id: row.id }, data: { needsReview: false } });
@@ -103,7 +116,7 @@ export async function setMovementTreatment(workspaceId: string, userId: string, 
     if (row.source !== 'BANK' || row.status !== 'POSTED' || row.needsReview) throw new ValidationError('Selecciona un movimiento bancario contabilizado sin revisión pendiente.');
     if (!['EXPENSE', 'INCOME', 'CARD_PAYMENT', 'REFUND'].includes(input.treatment)) throw new ValidationError('Tipo de movimiento inválido.');
     if ((['EXPENSE', 'CARD_PAYMENT'].includes(input.treatment) && row.amountCents <= 0) || (['INCOME', 'REFUND'].includes(input.treatment) && row.amountCents >= 0)) throw new ValidationError('El tipo no corresponde al sentido del movimiento.');
-    if (await tx.financeReconciliation.findFirst({ where: { workspaceId, activeMovementId: row.id } }) || await tx.financeTransfer.findFirst({ where: { workspaceId, OR: [{ outgoingId: row.id }, { incomingId: row.id }] } })) throw new ValidationError('Deshaz la vinculación antes de cambiar el tipo.');
+    if (row.replacedManualState || await tx.financeReconciliation.findFirst({ where: { workspaceId, activeMovementId: row.id } }) || await tx.financeTransfer.findFirst({ where: { workspaceId, OR: [{ outgoingId: row.id }, { incomingId: row.id }] } })) throw new ValidationError('Deshaz la vinculación antes de cambiar el tipo.');
     const original = input.treatment === 'REFUND' ? await tx.financialMovement.findFirst({ where: { id: input.refundOfId ?? '', workspaceId, kind: 'EXPENSE', reversedAt: null, status: 'POSTED', currency: row.currency, amountCents: { gt: 0 } } }) : null;
     if (input.treatment === 'REFUND' && !original) throw new ValidationError('Selecciona el gasto original de la devolución.');
     if (original) {
@@ -138,7 +151,7 @@ export async function ingestLearningRecordsForWorkspace(workspaceId: string) {
       const transfer = previous ? await tx.financeTransfer.findFirst({ where: { workspaceId, OR: [{ outgoingId: previous.id }, { incomingId: previous.id }] } }) : null;
       const currency = payload.isoCurrencyCode ?? 'USD';
       const status = payload.removedAt || superseded.has(externalKey) ? 'REMOVED' : payload.pending ? 'PENDING' : 'POSTED';
-      const changed = !!previous && (!!previous.reconciliations.length || !!transfer) && (
+      const changed = !!previous && (!!previous.reconciliations.length || !!transfer || !!previous.replacedManualState) && (
         previous.amountCents !== payload.amountCents || previous.currency !== currency ||
         previous.date.toISOString().slice(0, 10) !== payload.date || previous.status !== status
       );

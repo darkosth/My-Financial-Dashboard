@@ -133,3 +133,13 @@ export function dayRange(date: Date) {
   lt.setUTCDate(lt.getUTCDate() + 1);
   return { gte, lt };
 }
+
+/** Replay only the balance effect actually applied at registration. */
+export async function manualBalanceDelta(tx: Tx, workspaceId: string, movement: { source: string; accountId: string | null; amountCents: number; balanceImpactCents: number }, direction: 1 | -1) {
+  if (movement.source === 'CASH' || movement.source === 'ADJUSTMENT') {
+    await cashDelta(tx, workspaceId, -movement.amountCents * direction);
+  } else if (movement.source === 'DEBIT' && movement.balanceImpactCents !== 0) {
+    const changed = await tx.account.updateMany({ where: { id: movement.accountId ?? '', workspaceId }, data: { balanceCents: { increment: movement.balanceImpactCents * direction } } });
+    if (changed.count !== 1) throw new ValidationError('La cuenta del pago ya no está disponible.');
+  }
+}

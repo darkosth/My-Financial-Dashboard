@@ -6,7 +6,7 @@ import MovementsClient from "@/components/finance/MovementsClient";
 export default async function MovementsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ manual?: string; target?: string; cycle?: string; date?: string; amount?: string; source?: string }>;
+  searchParams: Promise<{ manual?: string; target?: string; cycle?: string; date?: string; amount?: string; source?: string; bank?: string; movement?: string }>;
 }) {
   if (!(await auth())?.user) redirect("/");
   const context = await getCurrentUserContext();
@@ -22,6 +22,7 @@ export default async function MovementsPage({
         initialDate={params.date}
         initialAmount={params.amount}
         initialSource={params.source}
+        initialMovementId={data.movements.find(m => m.id === params.movement || (params.bank && m.bankKey === params.bank))?.id}
       />
     </main>
   );

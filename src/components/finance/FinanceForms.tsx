@@ -13,7 +13,8 @@ import type {
   FinanceWorkspaceData,
 } from "@/lib/finance/uiTypes";
 import type { ActionResult } from "@/lib/actions/validation";
-import { money, weekLabel } from "@/lib/finance/analytics";
+import OccurrencePicker from "./OccurrencePicker";
+import { money } from "@/lib/finance/analytics";
 export const fieldClass =
   "w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50";
 export type RunAction = (
@@ -21,6 +22,7 @@ export type RunAction = (
   done?: () => void,
 ) => void;
 export function CategoryFields({
+  required = false,
   categories,
   category,
   subcategory,
@@ -28,6 +30,7 @@ export function CategoryFields({
   run,
   busy,
 }: {
+  required?: boolean;
   categories: FinanceCategory[];
   category: string;
   subcategory: string;
@@ -55,10 +58,11 @@ export function CategoryFields({
         <select
           className={fieldClass}
           value={category}
+          required={required}
           disabled={busy}
           onChange={(e) => onChange(e.target.value, "")}
         >
-          <option value="">Sin clasificar</option>
+          <option value="">{required ? "Seleccionar categoría" : "Sin clasificar"}</option>
           {all
             .filter((c) => !c.archived || c.id === category)
             .map((c) => (
@@ -212,6 +216,11 @@ export function ManualPaymentForm({
     )?.id ?? "",
   );
   const occurrence = data.occurrences.find((o) => o.id === occurrenceId);
+  const [name, setName] = useState(occurrence?.name ?? "");
+  const [date, setDate] = useState(initialDate || today);
+  const [confirmSeparatePayment, setConfirmSeparatePayment] = useState(false);
+  const bankMatches = data.movements.filter(m => m.source === "BANK" && m.status === "POSTED" && !m.reversedAt && ["EXPENSE", "CARD_PAYMENT"].includes(m.kind) && m.currency === "USD" && m.amountCents === Math.round(Number(amount)*100) && Math.abs(Date.parse(m.date)-Date.parse(date)) <= 7*86400000 && (source !== "DEBIT" || !accountId || m.accountId === accountId));
+  const cannotSubmit = !source || !category || (source === "DEBIT" && !accountId) || (bankMatches.length > 0 && kind === "EXPENSE" && !confirmSeparatePayment);
   const [requestId] = useState(() => crypto.randomUUID());
   const [adjusting, setAdjusting] = useState(false);
   const insufficient =
@@ -223,12 +232,13 @@ export function ManualPaymentForm({
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        if (busy || insufficient || !source) return;
+        if (busy || insufficient || cannotSubmit || !source) return;
         const f = new FormData(e.currentTarget);
         run(
           () =>
             createManualMovementAction({
               requestId,
+              confirmSeparatePayment,
               name: String(f.get("name")),
               amountCents: Math.round(Number(amount) * 100),
               date: String(f.get("date")),
@@ -256,7 +266,8 @@ export function ManualPaymentForm({
           name="name"
           required
           maxLength={120}
-          defaultValue={occurrence?.name}
+          value={name}
+          onChange={e => setName(e.target.value)}
           className={fieldClass}
         />
       </label>
@@ -271,7 +282,7 @@ export function ManualPaymentForm({
             step="0.01"
             className={fieldClass}
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => {setAmount(e.target.value);setConfirmSeparatePayment(false);}}
           />
         </label>
         <label className="space-y-1">
@@ -280,7 +291,8 @@ export function ManualPaymentForm({
             name="date"
             type="date"
             required
-            defaultValue={initialDate || today}
+            value={date}
+            onChange={e => {setDate(e.target.value);setConfirmSeparatePayment(false);}}
             className={fieldClass}
           />
         </label>
@@ -293,6 +305,7 @@ export function ManualPaymentForm({
           onChange={(e) => {
             const nextSource = e.target.value as "" | "CASH" | "CREDIT" | "DEBIT";
             setSource(nextSource);
+            setConfirmSeparatePayment(false);
             if (nextSource !== "DEBIT") setAccountId("");
             if (
               nextSource === "CREDIT" &&
@@ -311,16 +324,17 @@ export function ManualPaymentForm({
           <option value="DEBIT">Tarjeta de débito</option>
         </select>
       </label>
-      {source === "DEBIT" && data.accounts.length > 0 && (
+      {source === "DEBIT" && (
         <label className="block space-y-1">
           <span>Cuenta bancaria</span>
           <select
             className={fieldClass}
             value={accountId}
+            required
             disabled={busy}
-            onChange={(e) => setAccountId(e.target.value)}
+            onChange={(e) => {setAccountId(e.target.value);setConfirmSeparatePayment(false);}}
           >
-            <option value="">Sin cuenta vinculada</option>
+            <option value="">Seleccionar cuenta bancaria</option>
             {data.accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
@@ -360,6 +374,7 @@ export function ManualPaymentForm({
         )
       )}
       <CategoryFields
+        required
         categories={data.categories}
         category={category}
         subcategory={subcategory}
@@ -370,40 +385,8 @@ export function ManualPaymentForm({
         run={run}
         busy={busy}
       />
-      {kind === "EXPENSE" && (
-        <label className="block space-y-1">
-          <span>
-            {occurrence?.targetId.startsWith("credit-card:")
-              ? "Pago de tarjeta y semana"
-              : "Gasto y semana"}
-          </span>
-          <select
-            className={fieldClass}
-            value={occurrenceId}
-            onChange={(e) => {
-              setOccurrenceId(e.target.value);
-              const nextOccurrence = data.occurrences.find(
-                (item) => item.id === e.target.value,
-              );
-              if (
-                nextOccurrence?.targetId.startsWith("credit-card:") &&
-                source !== "DEBIT"
-              ) {
-                setSource("CASH");
-                setKind("EXPENSE");
-              }
-            }}
-          >
-            <option value="">Sin gasto planificado</option>
-            {data.occurrences.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name} · {weekLabel(o.weekStart)} ·{" "}
-                {o.closure === "OPEN" ? "Abierto" : "Cerrado"}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      {kind === "EXPENSE" && <OccurrencePicker occurrences={data.occurrences.filter(o => source !== "CREDIT" || !o.targetId.startsWith("credit-card:"))} value={occurrenceId} referenceDate={date} busy={busy} onChange={id => {const next=data.occurrences.find(o=>o.id===id);if(!name.trim() || name === occurrence?.name)setName(next?.name ?? "");setOccurrenceId(id);}} />}
+      {kind === "EXPENSE" && bankMatches.length > 0 && <fieldset className="space-y-2 rounded-md border p-3"><legend className="px-1 font-medium">Cargos bancarios compatibles</legend>{bankMatches.map(m => <a key={m.id} className="block text-sm underline" href={`/movements?movement=${encodeURIComponent(m.id)}&target=${encodeURIComponent(occurrence?.targetId ?? "")}`}>{m.name} · {m.date} · {money(m.amountCents)}</a>)}<label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={confirmSeparatePayment} onChange={e=>setConfirmSeparatePayment(e.target.checked)} /><span>Es otro pago; registrar ambos importes</span></label></fieldset>}
       {insufficient && (
         <div className="space-y-2 rounded-md border border-destructive p-3">
           <p role="alert" className="text-sm text-destructive">
@@ -419,7 +402,7 @@ export function ManualPaymentForm({
           </Button>
         </div>
       )}
-      <Button className="w-full" disabled={busy || insufficient || !source}>
+      <Button className="w-full" disabled={busy || insufficient || cannotSubmit}>
         {busy ? "Guardando…" : "Registrar pago"}
       </Button>
       <Dialog open={adjusting} onOpenChange={setAdjusting}>

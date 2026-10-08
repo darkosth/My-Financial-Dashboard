@@ -7,11 +7,16 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (!specifier.startsWith("@/")) {
+    const relative = specifier.startsWith(".") &&
+      context.parentURL?.startsWith(pathToFileURL(resolve(projectRoot, "src")).href + "/") &&
+      !/\.[cm]?[jt]sx?$/.test(specifier);
+    if (!specifier.startsWith("@/") && !relative) {
       return nextResolve(specifier, context);
     }
 
-    const basePath = resolve(projectRoot, "src", specifier.slice(2));
+    const basePath = relative
+      ? fileURLToPath(new URL(specifier, context.parentURL))
+      : resolve(projectRoot, "src", specifier.slice(2));
     const candidate = [basePath, `${basePath}.ts`, `${basePath}.tsx`, resolve(basePath, "index.ts")]
       .find(existsSync);
 

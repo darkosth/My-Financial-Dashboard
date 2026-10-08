@@ -20,7 +20,7 @@ export default function ReconciliationQueue({ data }: { data: LearningQueueData 
   const router = useRouter();
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
-  const [selectedTargets, setSelectedTargets] = useState<Record<string, string>>({});
+  const [selectedTargets] = useState<Record<string, string>>({});
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -136,9 +136,9 @@ export default function ReconciliationQueue({ data }: { data: LearningQueueData 
             <TransactionReviewRow
               key={`${transaction.plaidItemId}:${transaction.transactionId}`}
               busy={syncing || busyIds.has(getTransactionKey(transaction))}
-              onConfirm={() => review(transaction, getSelectedTarget(transaction))}
+              onConfirm={() => router.push(`/movements?bank=${encodeURIComponent(getTransactionKey(transaction))}&target=${encodeURIComponent(getSelectedTarget(transaction) ?? "")}`)}
               onIgnore={() => review(transaction, null)}
-              onSelect={(targetId) => setSelectedTargets((current) => ({ ...current, [getTransactionKey(transaction)]: targetId }))}
+              onSelect={(targetId) => router.push(`/movements?bank=${encodeURIComponent(getTransactionKey(transaction))}&target=${encodeURIComponent(targetId)}`)}
               options={data.paymentOptions}
               selectedTargetId={getSelectedTarget(transaction)}
               transaction={transaction}

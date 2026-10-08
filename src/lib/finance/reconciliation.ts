@@ -1,5 +1,7 @@
+import { compatibleManualPayments, replaceInTx, replacementState, restoreReplacement } from './replacement';
+import { resolveFinancePeriod } from "./periods";
+import { updateLearningReview } from './learningReview';
 import {
-  getLearningCandidateForTransaction,
   getLearningPaymentCatalog,
 } from "@/lib/learningMatcher";
 import { getCalendarDateKey } from "@/lib/calendarDate";
@@ -12,13 +14,14 @@ import {
   nextClosure,
   thursday,
   dayRange,
-  cashDelta,
   type Tx,
 } from "./core";
 export type ReconcileInput = {
   movementId: string;
   targetId: string;
   cycleReference: string;
+  replacesMovementId?: string;
+  confirmSeparatePayment?: boolean;
 };
 async function target(tx: Tx, workspaceId: string, id: string, cycle: string) {
   const cycleReference = dateOnly(cycle);
@@ -44,7 +47,7 @@ async function target(tx: Tx, workspaceId: string, id: string, cycle: string) {
     : [];
   const item = getLearningPaymentCatalog({ templates, creditCards: cards })[0];
   if (!item) throw new ValidationError("Gasto no encontrado.");
-  const candidate = getLearningCandidateForTransaction(item, cycle);
+  const candidate = resolveFinancePeriod(item, cycle);
   if (!candidate || candidate.cycleReference !== cycle)
     throw new ValidationError(
       "El período no corresponde a una ocurrencia de este gasto.",
@@ -153,6 +156,17 @@ export async function reconcileInTx(
       "Deshaz la conciliación anterior antes de cambiarla.",
     );
   }
+  const compatible = await compatibleManualPayments(tx, workspaceId, movement);
+  if (!input.replacesMovementId && !legacyHistoryId && compatible.length && !input.confirmSeparatePayment)
+    throw new ValidationError('Existe un pago manual compatible. Selecciona el pago que sustituye o confirma que es otro pago.');
+  let replacedPrevious = null;
+  if (input.replacesMovementId) {
+    replacedPrevious = await tx.financeReconciliation.findUnique({ where: { activeMovementId: input.replacesMovementId }, include: { occurrence: true } });
+    if (replacedPrevious && (replacedPrevious.occurrence.targetId !== input.targetId || replacedPrevious.occurrence.cycleReference.toISOString().slice(0, 10) !== input.cycleReference))
+      throw new ValidationError('Selecciona el gasto y período del pago manual que sustituyes.');
+    await replaceInTx(tx, workspaceId, userId, movement, input.replacesMovementId);
+    if (replacedPrevious?.historyId) legacyHistoryId = replacedPrevious.historyId;
+  }
   const { item, occurrence, cycleReference } = await ensureOccurrence(
     tx,
     workspaceId,
@@ -214,25 +228,8 @@ export async function reconcileInTx(
         previous.movement.currency !== movement.currency
       )
         throw new ValidationError("Ese pago ya está vinculado.");
-      if (previous.movement.source === "CASH")
-        await cashDelta(tx, workspaceId, previous.movement.amountCents);
-      await tx.financeReconciliation.update({
-        where: { id: previous.id },
-        data: { activeMovementId: null, reversedAt: new Date() },
-      });
-      await tx.financialMovement.update({
-        where: { id: previous.movementId },
-        data: { reversedAt: new Date() },
-      });
+      await replaceInTx(tx, workspaceId, userId, movement, previous.movementId);
       ownsHistory = previous.ownsHistory;
-      await audit(
-        tx,
-        workspaceId,
-        userId,
-        "MANUAL_PAYMENT_REPLACED",
-        previous.movementId,
-        { bankMovementId: movement.id, historyId: legacyHistoryId },
-      );
     }
   } else if (item.kind === "TEMPLATE") {
     historyId = (
@@ -259,6 +256,7 @@ export async function reconcileInTx(
       })
     ).id;
   }
+  if (replacedPrevious) ownsHistory = replacedPrevious.ownsHistory;
   const row = await tx.financeReconciliation.create({
     data: {
       workspaceId,
@@ -295,6 +293,7 @@ export async function reconcileInTx(
     reconciliationId: row.id,
     occurrenceId: occurrence.id,
   });
+  await updateLearningReview(tx, workspaceId, userId, movement, input);
   return row;
 }
 export async function reconcileMovement(
@@ -312,13 +311,18 @@ export async function undoInTx(
   userId: string,
   movementId: string,
 ) {
-  await movementFor(tx, workspaceId, movementId);
+  const movement = await movementFor(tx, workspaceId, movementId);
   const row = await tx.financeReconciliation.findFirst({
     where: { workspaceId, activeMovementId: movementId },
     include: { occurrence: true },
   });
-  if (!row) return;
-  if (row.ownsHistory && row.historyId) {
+  const replacement = replacementState(movement);
+  if (!row) {
+    await restoreReplacement(tx, workspaceId, userId, movement);
+    await updateLearningReview(tx, workspaceId, userId, movement, null);
+    return;
+  }
+  if (row.ownsHistory && row.historyId && !replacement?.reconciliationId) {
     if (row.historyKind === "CARD")
       await tx.creditCardPaymentHistory.deleteMany({
         where: { id: row.historyId, workspaceId },
@@ -332,6 +336,8 @@ export async function undoInTx(
     where: { id: row.id },
     data: { activeMovementId: null, reversedAt: new Date() },
   });
+  await restoreReplacement(tx, workspaceId, userId, movement);
+  await updateLearningReview(tx, workspaceId, userId, movement, null);
   const paid = await paidFor(tx, workspaceId, row.occurrence);
   await tx.financeOccurrence.update({
     where: { id: row.occurrenceId },
@@ -437,5 +443,16 @@ export async function linkExistingPayment(
       },
       history.id,
     );
+  });
+}
+
+export async function replaceManualMovement(workspaceId: string, userId: string, input: { movementId: string; replacesMovementId: string }) {
+  return atomic(workspaceId, async tx => {
+    const bank = await movementFor(tx, workspaceId, input.movementId);
+    if (await tx.financeReconciliation.findUnique({ where: { activeMovementId: bank.id } })) throw new ValidationError('Deshaz la conciliación bancaria antes de sustituir un pago.');
+    const previous = await tx.financeReconciliation.findUnique({ where: { activeMovementId: input.replacesMovementId }, include: { occurrence: true } });
+    if (previous) return reconcileInTx(tx, workspaceId, userId, { ...input, targetId: previous.occurrence.targetId, cycleReference: previous.occurrence.cycleReference.toISOString().slice(0, 10) });
+    await replaceInTx(tx, workspaceId, userId, bank, input.replacesMovementId);
+    return { id: bank.id };
   });
 }

@@ -1,11 +1,12 @@
 'use server';
+import { loadFinanceEvents, undoClassification, type FinanceEventsInput } from '@/lib/finance/events';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUserContext } from '@/lib/workspaceContext';
 import { ValidationError,type ActionResult } from './validation';
 import { createManualMovement,adjustCash,classifyMovement,reverseManualMovement,resolveBankChange,setMovementTreatment,type ManualInput } from '@/lib/finance/movements';
 import { createCategory,updateCategory } from '@/lib/finance/categories';
 import { transferToCash,pairTransfer,undoTransfer } from '@/lib/finance/transfers';
-import { reconcileMovement,undoReconciliation,setClosure,linkExistingPayment,type ReconcileInput } from '@/lib/finance/reconciliation';
+import { replaceManualMovement,reconcileMovement,undoReconciliation,setClosure,linkExistingPayment,type ReconcileInput } from '@/lib/finance/reconciliation';
 async function run<T>(fn:(workspaceId:string,userId:string)=>Promise<T>):Promise<ActionResult<T>>{try{const{activeWorkspace,user}=await getCurrentUserContext();const data=await fn(activeWorkspace.id,user.id);for(const path of ['/dashboard','/learning','/movements','/calendar'])revalidatePath(path);return{success:true,data};}catch(error){return{success:false,error:error instanceof ValidationError?error.message:'No se pudo guardar la operación. Revisa los datos e inténtalo otra vez.'};}}
 export async function createManualMovementAction(input:ManualInput){return run((w,u)=>createManualMovement(w,u,input));}
 export async function adjustCashAction(input:{requestId:string;amountCents:number;reason:string;date:string}){return run((w,u)=>adjustCash(w,u,input));}
@@ -23,3 +24,8 @@ export async function linkExistingPaymentAction(input:{movementId:string;history
 export async function undoTransferAction(input:{movementId:string}){return run((w,u)=>undoTransfer(w,u,input.movementId));}
 export async function resolveBankChangeAction(input:{movementId:string}){return run((w,u)=>resolveBankChange(w,u,input.movementId));}
 export async function setMovementTreatmentAction(input:{movementId:string;treatment:"EXPENSE"|"INCOME"|"CARD_PAYMENT"|"REFUND";refundOfId?:string}){return run((w,u)=>setMovementTreatment(w,u,input));}
+
+export async function replaceManualMovementAction(input:{movementId:string;replacesMovementId:string}){return run((w,u)=>replaceManualMovement(w,u,input));}
+
+export async function loadFinanceEventsAction(input:FinanceEventsInput){try{const {activeWorkspace}=await getCurrentUserContext();return {success:true as const,data:await loadFinanceEvents(activeWorkspace.id,input)};}catch(error){return {success:false as const,error:error instanceof ValidationError?error.message:'No se pudo cargar el historial.'};}}
+export async function undoClassificationAction(input:{eventId:string}){return run((w,u)=>undoClassification(w,u,input));}

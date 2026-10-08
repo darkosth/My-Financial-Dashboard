@@ -14,6 +14,7 @@ import {
   type RunAction,
 } from "./FinanceForms";
 import MovementEditor from "./MovementEditor";
+import FinanceHistory from "./FinanceHistory";
 import FinanceCharts from "./FinanceCharts";
 const sourceNames = {
   BANK: "Banco",
@@ -30,22 +31,6 @@ const kindNames = {
   CARD_PAYMENT: "Pago de tarjeta",
   REFUND: "Devolución",
 };
-const eventNames: Record<string, string> = {
-  RECONCILED: "Pago confirmado",
-  RECONCILIATION_UNDONE: "Conciliación deshecha",
-  MANUAL_PAYMENT_CREATED: "Pago manual registrado",
-  CASH_ADJUSTED: "Efectivo ajustado",
-  CLOSURE_CHANGED: "Cierre actualizado",
-  CLASSIFIED: "Clasificación guardada",
-  CASH_TRANSFER: "Retiro hacia Efectivo",
-  TRANSFER_PAIRED: "Transferencia vinculada",
-  MANUAL_PAYMENT_REVERSED: "Movimiento anulado",
-  CATEGORY_CREATED: "Categoría creada",
-  CATEGORY_UPDATED: "Categoría actualizada",
-  EXISTING_PAYMENT_LINKED: "Pago existente vinculado",
-  TRANSFER_REVERSED: "Transferencia deshecha",
-  BANK_CHANGE_RESOLVED: "Cambio bancario revisado",
-};
 export default function MovementsClient({
   data,
   initialManual = false,
@@ -54,6 +39,7 @@ export default function MovementsClient({
   initialDate = "",
   initialAmount = "",
   initialSource = "",
+  initialMovementId = "",
 }: {
   data: FinanceWorkspaceData;
   initialManual?: boolean;
@@ -62,15 +48,17 @@ export default function MovementsClient({
   initialDate?: string;
   initialAmount?: string;
   initialSource?: string;
+  initialMovementId?: string;
 }) {
   const router = useRouter();
   const [busy, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [historyRevision, setHistoryRevision] = useState(0);
   const [modal, setModal] = useState<"manual" | "cash" | "categories" | null>(
     initialManual ? "manual" : null,
   );
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialMovementId || null);
   const [search, setSearch] = useState("");
   const today = new Date().toLocaleDateString("en-CA");
   const [from, setFrom] = useState(`${today.slice(0, 7)}-01`);
@@ -95,6 +83,7 @@ export default function MovementsClient({
           return;
         }
         setSuccess("Guardado");
+        setHistoryRevision(n => n + 1);
         done?.();
         router.refresh();
       } catch {
@@ -466,54 +455,9 @@ export default function MovementsClient({
               ))}
           </ul>
         )}
-        {tab === "history" && (
-          <ul className="divide-y">
-            {data.events
-              .filter(
-                (e) =>
-                  validRange &&
-                  e.createdAt.slice(0, 10) >= from &&
-                  e.createdAt.slice(0, 10) <= to,
-              )
-              .map((e) => {
-                const m = data.movements.find((m) => m.id === e.movementId);
-                return (
-                  <li
-                    key={e.id}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3"
-                  >
-                    <div>
-                      <p className="text-sm">
-                        {eventNames[e.action] ?? "Movimiento actualizado"}
-                        {m ? ` · ${m.name}` : ""}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(e.createdAt).toLocaleString("es")}
-                      </p>
-                    </div>
-                    {m && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setError("");
-                          setSelected(m.id);
-                        }}
-                      >
-                        Ver movimiento
-                      </Button>
-                    )}
-                  </li>
-                );
-              })}
-            {data.events.length === 0 && (
-              <li className="py-8 text-sm text-muted-foreground">
-                Todavía no hay operaciones registradas.
-              </li>
-            )}
-          </ul>
-        )}
+        {tab === "history" && validRange && <FinanceHistory key={`${from}:${to}:${historyRevision}`} from={from} to={to} run={run} busy={busy} onSelectMovement={id => {setError("");setSelected(id);}} />}
       </section>
+      {data.movements.some(m => (m.replacementCandidates?.length ?? 0) > 0) && <p role="status" className="my-4 rounded-md border border-amber-500/50 p-3 text-sm">Hay cargos compatibles con pagos manuales. Los totales incluyen ambos hasta que confirmes si corresponden al mismo pago.</p>}
       <FinanceCharts data={data} from={from} to={to} currency={currency} />
       <Dialog
         open={modal !== null}
@@ -566,8 +510,9 @@ export default function MovementsClient({
           {feedback}
           {movement && (
             <MovementEditor
-              key={movement.id}
+              key={`${movement.id}:${movement.reconciliation?.id ?? ""}:${movement.reversedAt ?? ""}`}
               movement={movement}
+              initialTarget={initialTarget}
               data={data}
               run={run}
               busy={busy}

@@ -11,6 +11,10 @@ export type Movement = {
   subcategoryId: string | null;
   accountName: string;
   accountId?: string | null;
+  bankKey?: string | null;
+  rankedOccurrenceIds?: string[];
+  replacementCandidates?: { id: string; name: string; date: string; amountCents: number; targetId?: string; cycleReference?: string }[];
+  replacesManualPayment?: boolean;
   needsReview: boolean;
   reversedAt: string | null;
   transferId: string | null;
@@ -27,6 +31,7 @@ export type Occurrence = {
   targetId: string;
   name: string;
   categoryLabel?: string;
+  occurrenceDate?: string;
   cycleReference: string;
   weekStart: string;
   expectedCents: number;
@@ -52,5 +57,5 @@ export type FinanceWorkspaceData = {
     date: string;
     cycleReference: string;
   }[];
-  accounts: { id: string; name: string }[];
+  accounts: { id: string; name: string; source?: "MANUAL" | "PLAID"; balanceCents?: number }[];
 };

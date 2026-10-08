@@ -1,4 +1,9 @@
 import prisma from "@/lib/prisma";
+import { readLearningTransaction } from "@/lib/learningStore";
+import { getConfirmationSignals, getRejectionSignals } from "@/lib/learningData";
+import { eligibleManualReplacement } from "./replacement";
+import { resolveFinancePeriod } from "./periods";
+import { rankFinanceOccurrences } from "./matching";
 import {
   getLearningCandidateForTransaction,
   getLearningPaymentCatalog,
@@ -37,7 +42,7 @@ export async function loadFinanceWorkspace(
     categories,
     rows,
     cash,
-    events,
+    learningRecords,
     accounts,
     transfers,
     history,
@@ -66,11 +71,7 @@ export async function loadFinanceWorkspace(
       orderBy: { cycleReference: "desc" },
     }),
     prisma.financeCash.findUnique({ where: { workspaceId } }),
-    prisma.financeEvent.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
+    prisma.learningRecord.findMany({ where: { workspaceId, kind: "TRANSACTION" } }),
     prisma.account.findMany({ where: { workspaceId } }),
     prisma.financeTransfer.findMany({ where: { workspaceId } }),
     prisma.history.findMany({
@@ -85,11 +86,17 @@ export async function loadFinanceWorkspace(
     prisma.creditCard.findMany({ where: { workspaceId } }),
     prisma.pendingExpense.findMany({ where: { workspaceId } }),
   ]);
+  const catalog = getLearningPaymentCatalog({ templates, creditCards: cards });
+  const transactions = learningRecords.flatMap(r => { const t = readLearningTransaction(r.payload); return t && !t.removedAt ? [t] : []; });
+  const confirmations = getConfirmationSignals(transactions);
+  const rejections = getRejectionSignals(transactions);
   const occurrences: Occurrence[] = await Promise.all(
     rows.map(async (row) => ({
       id: row.id,
       targetId: row.targetId,
       name: row.name,
+      categoryLabel: catalog.find(item => item.targetId === row.targetId)?.category,
+      occurrenceDate: (() => { const item = catalog.find(item => item.targetId === row.targetId); return item ? resolveFinancePeriod(item, key(row.cycleReference))?.occurrenceDate : key(row.cycleReference); })(),
       cycleReference: key(row.cycleReference),
       weekStart: key(row.weekStart),
       expectedCents: row.expectedCents,
@@ -98,7 +105,6 @@ export async function loadFinanceWorkspace(
       currency: row.currency,
     })),
   );
-  const catalog = getLearningPaymentCatalog({ templates, creditCards: cards });
   for (let offset = -52; offset <= 8; offset++) {
     const date = thursday(new Date());
     date.setUTCDate(date.getUTCDate() + offset * 7);
@@ -125,6 +131,7 @@ export async function loadFinanceWorkspace(
         name: item.name,
         categoryLabel: item.category,
         cycleReference: candidate.cycleReference,
+        occurrenceDate: candidate.occurrenceDate,
         weekStart: key(
           thursday(new Date(candidate.occurrenceDate + "T12:00:00Z")),
         ),
@@ -160,6 +167,10 @@ export async function loadFinanceWorkspace(
   return {
     movements: movements.map((row) => ({
       id: row.id,
+      bankKey: row.externalKey,
+      replacesManualPayment: !!row.replacedManualState,
+      replacementCandidates: row.status === "POSTED" && !row.replacedManualState && !row.reconciliations.length && !row.reversedAt ? movements.filter(manual => eligibleManualReplacement(row, manual)).map(manual => ({ id: manual.id, name: manual.name, amountCents: manual.amountCents, date: key(manual.date), targetId: manual.reconciliations[0]?.occurrence.targetId, cycleReference: manual.reconciliations[0] ? key(manual.reconciliations[0].occurrence.cycleReference) : undefined })) : [],
+      rankedOccurrenceIds: rankFinanceOccurrences(readLearningTransaction(row.bankPayload) ?? { accountId: row.accountId ?? "", amountCents: row.amountCents, authorizedDate: null, categoryDetailed: null, categoryPrimary: null, date: key(row.date), isoCurrencyCode: row.currency, merchantName: null, name: row.name, pending: row.status === "PENDING", pendingTransactionId: null, removedAt: null, transactionId: row.id }, occurrences, confirmations, rejections),
       name: row.name,
       amountCents: row.amountCents,
       currency: row.currency,
@@ -202,13 +213,8 @@ export async function loadFinanceWorkspace(
     })),
     occurrences,
     cash: { balanceCents: cash?.balanceCents ?? 0 },
-    events: events.map((e) => ({
-      id: e.id,
-      action: e.action,
-      createdAt: e.createdAt.toISOString(),
-      movementId: e.movementId,
-    })),
-    accounts: accounts.map((a) => ({ id: a.id, name: a.name })),
+    events: [],
+    accounts: accounts.map((a) => ({ id: a.id, name: a.name, source: a.source, balanceCents: a.balanceCents })),
     legacyPayments: [
       ...history.map((h) => ({
         id: h.id,

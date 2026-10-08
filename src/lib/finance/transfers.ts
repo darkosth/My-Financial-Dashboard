@@ -26,7 +26,7 @@ const previousClassification = (value: Prisma.JsonValue | null, id: string): Cla
 async function available(tx: Tx, workspaceId: string, id: string) {
   const row = await movementFor(tx, workspaceId, id);
   if (row.source !== 'BANK' || row.status !== 'POSTED' || row.needsReview) throw new ValidationError('Selecciona un movimiento bancario contabilizado.');
-  if (await tx.financeReconciliation.findFirst({ where: { workspaceId, activeMovementId: id } })) throw new ValidationError('Deshaz la conciliación antes de transferir.');
+  if (row.replacedManualState || await tx.financeReconciliation.findFirst({ where: { workspaceId, activeMovementId: id } })) throw new ValidationError('Deshaz la conciliación antes de transferir.');
   return row;
 }
 

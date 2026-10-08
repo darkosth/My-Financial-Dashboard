@@ -3,8 +3,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CategoryFields, fieldClass, type RunAction } from "./FinanceForms";
 import type { FinanceWorkspaceData, Movement } from "@/lib/finance/uiTypes";
-import { isLearningAmountEligible } from "@/lib/learningMatcher";
-import { money, weekLabel } from "@/lib/finance/analytics";
+import OccurrencePicker from "./OccurrencePicker";
+import { dateDistance } from "@/lib/finance/matching";
+import { money } from "@/lib/finance/analytics";
 import {
   undoTransferAction,
   resolveBankChangeAction,
@@ -16,15 +17,18 @@ import {
   pairTransferAction,
   reverseManualMovementAction,
   linkExistingPaymentAction,
+  replaceManualMovementAction,
 } from "@/lib/actions/financeActions";
 export default function MovementEditor({
   movement: m,
+  initialTarget = "",
   data,
   run,
   busy,
   done,
 }: {
   movement: Movement;
+  initialTarget?: string;
   data: FinanceWorkspaceData;
   run: RunAction;
   busy: boolean;
@@ -32,36 +36,26 @@ export default function MovementEditor({
 }) {
   const [category, setCategory] = useState(m.categoryId ?? "");
   const [subcategory, setSubcategory] = useState(m.subcategoryId ?? "");
-  const [search, setSearch] = useState("");
+  const [duplicateChoice, setDuplicateChoice] = useState("");
   const [occurrenceId, setOccurrenceId] = useState(
-    m.reconciliation?.occurrenceId ?? "",
+    m.reconciliation?.occurrenceId ?? [...data.occurrences].filter(o => o.targetId === initialTarget).sort((a,b) => dateDistance(a.occurrenceDate ?? a.weekStart,m.date) - dateDistance(b.occurrenceDate ?? b.weekStart,m.date))[0]?.id ?? "",
   );
   const [counterpart, setCounterpart] = useState("");
   const [history, setHistory] = useState("");
   const [refundOfId, setRefundOfId] = useState("");
   const [confirmReverse, setConfirmReverse] = useState(false);
-  const available = data.occurrences.filter(
-    (o) =>
-      (o.currency ?? "USD") === m.currency &&
-      (m.kind === "CARD_PAYMENT"
-        ? o.targetId.startsWith("credit-card:")
-        : !o.targetId.startsWith("credit-card:")) &&
-      `${o.name} ${o.categoryLabel ?? ""}`
-        .toLocaleLowerCase()
-        .includes(search.toLocaleLowerCase()),
-  );
-  const probable = available
-    .filter((o) => isLearningAmountEligible(m.amountCents, o.expectedCents))
-    .sort(
-      (a, b) =>
-        Math.abs(a.expectedCents - m.amountCents) -
-        Math.abs(b.expectedCents - m.amountCents),
-    );
-  const other = available.filter((o) => !probable.some((p) => p.id === o.id));
-  const occurrence = data.occurrences.find((o) => o.id === occurrenceId);
-  const legacy = data.legacyPayments.filter(
-    (p) => !occurrence || p.targetId === occurrence.targetId,
-  );
+  const available = data.occurrences.filter(o => (o.currency ?? "USD") === m.currency && (m.kind === "CARD_PAYMENT" ? o.targetId.startsWith("credit-card:") : m.source === "BANK" || !o.targetId.startsWith("credit-card:")));
+  const occurrence = data.occurrences.find(o => o.id === occurrenceId);
+  const legacy = data.legacyPayments.filter(p => p.amountCents === m.amountCents && (!occurrence || (p.targetId === occurrence.targetId && p.cycleReference === occurrence.cycleReference)));
+  const duplicates = m.replacementCandidates ?? [];
+  const replacing = duplicates.find(p => p.id === duplicateChoice);
+  const withClassification: RunAction = (action, completed) => run(async () => {
+    if ((category || null) !== m.categoryId || (subcategory || null) !== m.subcategoryId) {
+      const result = await classifyMovementAction({movementId:m.id,categoryId:category || null,subcategoryId:subcategory || null});
+      if (!result.success) return result;
+    }
+    return action();
+  }, completed);
   const editable = m.status === "POSTED" && !m.reversedAt && !m.needsReview;
   return (
     <div className="space-y-6">
@@ -81,11 +75,11 @@ export default function MovementEditor({
             setSubcategory(s);
           }}
           run={run}
-          busy={busy}
+          busy={busy || !!m.reversedAt || m.kind === "TRANSFER"}
         />
         <Button
           variant="outline"
-          disabled={busy}
+          disabled={busy || !!m.reversedAt || m.kind === "TRANSFER"}
           onClick={() =>
             run(
               () =>
@@ -94,7 +88,6 @@ export default function MovementEditor({
                   categoryId: category || null,
                   subcategoryId: subcategory || null,
                 }),
-              done,
             )
           }
         >
@@ -111,13 +104,13 @@ export default function MovementEditor({
         <section className="space-y-3 rounded-md border border-destructive p-3">
           <h3 className="font-medium">Cambio bancario pendiente de revisión</h3>
           <p className="text-sm">
-            {m.reconciliation || m.transferId
+            {m.reconciliation || m.transferId || m.replacesManualPayment
               ? "Desvincula el pago o la transferencia antes de aceptar el cambio."
               : "El importe, fecha o estado ha cambiado. Revisa los datos antes de aceptarlos."}
           </p>
           <Button
             variant="outline"
-            disabled={busy || !!m.reconciliation || !!m.transferId}
+            disabled={busy || !!m.reconciliation || !!m.transferId || !!m.replacesManualPayment}
             onClick={() =>
               run(() => resolveBankChangeAction({ movementId: m.id }), done)
             }
@@ -140,7 +133,7 @@ export default function MovementEditor({
           </Button>
         </section>
       )}
-      {m.reconciliation && (
+      {(m.reconciliation || m.replacesManualPayment) && (
         <section className="space-y-3 border-t pt-4">
           <h3 className="font-medium">Pago vinculado</h3>
           <Button
@@ -164,125 +157,27 @@ export default function MovementEditor({
                 ? "Vincular pago de tarjeta"
                 : "Vincular pago"}
             </h3>
-            {m.reconciliation ? (
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() =>
-                  run(
-                    () => undoReconciliationAction({ movementId: m.id }),
-                    done,
-                  )
-                }
-              >
-                Deshacer conciliación
-              </Button>
-            ) : (
-              <>
-                <input
-                  className={fieldClass}
-                  aria-label="Buscar gasto"
-                  placeholder="Buscar gasto"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                <label className="block space-y-1">
-                  <span>Gasto y semana</span>
-                  <select
-                    className={fieldClass}
-                    value={occurrenceId}
-                    onChange={(e) => setOccurrenceId(e.target.value)}
-                  >
-                    <option value="">Seleccionar gasto</option>
-                    {[
-                      { label: "Más probables", items: probable },
-                      { label: "Todos los demás gastos", items: other },
-                    ].map((group) => (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.items.map((o) => (
-                          <option value={o.id} key={o.id}>
-                            {o.name} · {weekLabel(o.weekStart)} ·{" "}
-                            {money(o.expectedCents)} ·{" "}
-                            {o.closure === "OPEN" ? "Abierto" : "Cerrado"}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </label>
-                {occurrence && (
-                  <p className="text-sm text-muted-foreground">
-                    Pagado: {money(occurrence.paidCents)} · Previsto:{" "}
-                    {money(occurrence.expectedCents)}
-                  </p>
-                )}
-                <Button
-                  disabled={busy || !occurrence}
-                  onClick={() => {
-                    if (occurrence)
-                      run(
-                        () =>
-                          reconcileMovementAction({
-                            movementId: m.id,
-                            targetId: occurrence.targetId,
-                            cycleReference: occurrence.cycleReference,
-                          }),
-                        done,
-                      );
-                  }}
-                >
-                  Confirmar pago
-                </Button>
-                {m.source === "BANK" && legacy.length > 0 && (
-                  <details className="space-y-3">
-                    <summary className="cursor-pointer text-sm">
-                      Este pago ya estaba registrado
-                    </summary>
-                    <select
-                      aria-label="Pago existente"
-                      className={fieldClass}
-                      value={history}
-                      onChange={(e) => setHistory(e.target.value)}
-                    >
-                      <option value="">Seleccionar registro</option>
-                      {legacy.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.date.slice(0, 10)} · {money(p.amountCents)} ·{" "}
-                          {data.occurrences.find(
-                            (o) => o.targetId === p.targetId,
-                          )?.name ?? p.targetId}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      variant="outline"
-                      disabled={busy || !history}
-                      onClick={() => {
-                        const p = legacy.find((p) => p.id === history);
-                        if (p)
-                          run(
-                            () =>
-                              linkExistingPaymentAction({
-                                movementId: m.id,
-                                historyId: p.id,
-                                targetId: p.targetId,
-                              }),
-                            done,
-                          );
-                      }}
-                    >
-                      Vincular sin duplicar
-                    </Button>
-                  </details>
-                )}
-              </>
-            )}
+            <OccurrencePicker occurrences={available} value={occurrenceId} onChange={setOccurrenceId} referenceDate={m.date} rankedIds={m.rankedOccurrenceIds} busy={busy} />
+            {occurrence && <div className="rounded-md bg-muted p-3 text-sm"><p>Pagado: {money(occurrence.paidCents)} · Previsto: {money(occurrence.expectedCents)}</p><p>Con este cargo: {money(occurrence.paidCents + (replacing?.targetId ? 0 : m.amountCents))}</p>{occurrence.closure !== "OPEN" && <p>El gasto seguirá cerrado; los cargos adicionales quedarán como exceso.</p>}</div>}
+            {duplicates.length > 0 && <fieldset className="space-y-2 rounded-md border p-3"><legend className="px-1 font-medium">¿Este cargo corresponde a un pago registrado?</legend>
+              {duplicates.map(p => <label key={p.id} className="flex items-start gap-2 text-sm"><input type="radio" name={`duplicate-${m.id}`} checked={duplicateChoice === p.id} disabled={busy} onChange={() => {setDuplicateChoice(p.id);if(p.targetId){setOccurrenceId(data.occurrences.find(o => o.targetId === p.targetId && o.cycleReference === p.cycleReference)?.id ?? "");}}} /><span>{p.name} · {p.date} · {money(p.amountCents)}</span></label>)}
+              <label className="flex items-start gap-2 text-sm"><input type="radio" name={`duplicate-${m.id}`} checked={duplicateChoice === "new"} disabled={busy} onChange={() => setDuplicateChoice("new")} /><span>Es otro pago; sumar ambos importes</span></label>
+            </fieldset>}
+            <Button disabled={busy || (!occurrence && !replacing) || (duplicates.length > 0 && !duplicateChoice)} onClick={() => {
+              if (occurrence) withClassification(() => reconcileMovementAction({movementId:m.id,targetId:occurrence.targetId,cycleReference:occurrence.cycleReference,replacesMovementId:replacing?.id,confirmSeparatePayment:duplicateChoice === "new"}),done);
+              else if(replacing) withClassification(() => replaceManualMovementAction({movementId:m.id,replacesMovementId:replacing.id}),done);
+            }}>{replacing ? "Vincular sin duplicar" : "Confirmar conciliación"}</Button>
+            {m.source === "BANK" && legacy.length > 0 && <details className="space-y-3"><summary className="cursor-pointer text-sm">Vincular un pago anterior</summary>
+              <select aria-label="Pago existente" className={fieldClass} value={history} onChange={e => setHistory(e.target.value)}><option value="">Seleccionar pago</option>{legacy.map(p => <option key={p.id} value={p.id}>{data.occurrences.find(o => o.targetId === p.targetId)?.name ?? "Pago"} · {p.date} · {money(p.amountCents)} · período {p.cycleReference}</option>)}</select>
+              <Button variant="outline" disabled={busy || !history} onClick={() => {const p=legacy.find(p=>p.id===history);if(p)withClassification(()=>linkExistingPaymentAction({movementId:m.id,historyId:p.id,targetId:p.targetId}),done);}}>Vincular sin duplicar</Button>
+            </details>}
           </section>
         )}
       {editable &&
         m.source === "BANK" &&
         !m.reconciliation &&
-        !m.transferId && (
+        !m.transferId &&
+        !m.replacesManualPayment && (
           <section className="space-y-3 border-t pt-4">
             <h3 className="font-medium">Tipo de movimiento</h3>
             {m.amountCents > 0 ? (
@@ -388,7 +283,8 @@ export default function MovementEditor({
       {editable &&
         m.source === "BANK" &&
         !m.reconciliation &&
-        !m.transferId && (
+        !m.transferId &&
+        !m.replacesManualPayment && (
           <section className="space-y-3 border-t pt-4">
             <h3 className="font-medium">Transferencia propia</h3>
             {m.amountCents > 0 && m.currency === "USD" && (
@@ -447,7 +343,8 @@ export default function MovementEditor({
             </Button>
           </section>
         )}
-      {editable && m.source !== "BANK" && !m.transferId && (
+      {editable && m.source !== "BANK" && !m.transferId &&
+        !m.replacesManualPayment && (
         <section className="space-y-3 border-t pt-4">
           {!confirmReverse ? (
             <Button
