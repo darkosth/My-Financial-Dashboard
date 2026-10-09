@@ -1,5 +1,5 @@
-import LearningReconciliationCard from "@/components/reconciliation/LearningReconciliationCard";
-import { loadLearningQueueData } from "@/lib/learningData";
+import DashboardReconciliationSummary from "@/components/reconciliation/DashboardReconciliationSummary";
+import { loadDashboardReconciliationSummary } from "@/lib/learningData";
 
 export default async function DashboardReconciliationSection({
   enabled,
@@ -9,6 +9,6 @@ export default async function DashboardReconciliationSection({
   workspaceId: string;
 }) {
   if (!enabled) return null;
-  const data = await loadLearningQueueData(workspaceId);
-  return <LearningReconciliationCard data={data} />;
+  const summary = await loadDashboardReconciliationSummary(workspaceId);
+  return <DashboardReconciliationSummary {...summary} />;
 }

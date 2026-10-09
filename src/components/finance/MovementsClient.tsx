@@ -39,6 +39,8 @@ export default function MovementsClient({
   initialDate = "",
   initialAmount = "",
   initialSource = "",
+  initialStatus = "",
+  initialFrom = "",
   initialMovementId = "",
 }: {
   data: FinanceWorkspaceData;
@@ -48,6 +50,8 @@ export default function MovementsClient({
   initialDate?: string;
   initialAmount?: string;
   initialSource?: string;
+  initialStatus?: string;
+  initialFrom?: string;
   initialMovementId?: string;
 }) {
   const router = useRouter();
@@ -61,11 +65,11 @@ export default function MovementsClient({
   const [selected, setSelected] = useState<string | null>(initialMovementId || null);
   const [search, setSearch] = useState("");
   const today = new Date().toLocaleDateString("en-CA");
-  const [from, setFrom] = useState(`${today.slice(0, 7)}-01`);
+  const [from, setFrom] = useState(initialFrom || `${today.slice(0, 7)}-01`);
   const [to, setTo] = useState(today);
   const [currency, setCurrency] = useState("USD");
   const [source, setSource] = useState(initialSource);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initialStatus);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState<"movements" | "obligations" | "history">(
@@ -114,11 +118,17 @@ export default function MovementsClient({
       m.currency === currency &&
       (!source || m.source === source) &&
       (!status ||
-        (status === "review"
-          ? m.needsReview
-          : status === "reconciled"
-            ? !!m.reconciliation
-            : m.status === status)) &&
+        (status === "unreconciled"
+          ? m.source === "BANK" &&
+            !m.reversedAt &&
+            !m.replacesManualPayment &&
+            ((m.status === "POSTED" && ["EXPENSE", "CARD_PAYMENT"].includes(m.kind) && !m.reconciliation && !m.transferId) ||
+              m.status === "PENDING")
+          : status === "review"
+            ? m.needsReview
+            : status === "reconciled"
+              ? !!m.reconciliation
+              : m.status === status)) &&
       `${m.name} ${m.accountName}`
         .toLocaleLowerCase()
         .includes(search.toLocaleLowerCase()),
@@ -299,6 +309,7 @@ export default function MovementsClient({
                 <option value="PENDING">Provisionales</option>
                 <option value="review">Por revisar</option>
                 <option value="reconciled">Conciliados</option>
+                <option value="unreconciled">Sin conciliar</option>
                 <option value="REMOVED">Eliminados por el banco</option>
               </select>
               <select

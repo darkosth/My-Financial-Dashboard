@@ -102,6 +102,35 @@ export const refreshLearningSuggestionsForWorkspace = async (workspaceId: string
 
 export type LearningQueueData = Awaited<ReturnType<typeof loadLearningQueueData>>;
 
+export const loadDashboardReconciliationSummary = async (workspaceId: string) => {
+  const movements = await prisma.financialMovement.findMany({
+    where: {
+      workspaceId,
+      source: "BANK",
+      kind: { in: ["EXPENSE", "CARD_PAYMENT"] },
+      status: { in: ["POSTED", "PENDING"] },
+      amountCents: { gt: 0 },
+      reversedAt: null,
+    },
+    select: {
+      status: true,
+      needsReview: true,
+      replacedManualState: true,
+      reconciliations: { where: { reversedAt: null }, select: { id: true } },
+    },
+  });
+  const unresolved = movements.filter(
+    (movement) =>
+      !movement.replacedManualState && movement.reconciliations.length === 0,
+  );
+
+  return {
+    postedCount: unresolved.filter((movement) => movement.status === "POSTED").length,
+    provisionalCount: unresolved.filter((movement) => movement.status === "PENDING").length,
+    reviewCount: unresolved.filter((movement) => movement.status === "POSTED" && movement.needsReview).length,
+  };
+};
+
 export const loadLearningQueueData = async (workspaceId: string) => {
   const [records, templates, creditCards, remoteAccounts] = await Promise.all([
     prisma.learningRecord.findMany({
