@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { ValidationError, parseRequiredText } from '@/lib/actions/validation';
 import { readLearningTransaction, toLearningJson } from '@/lib/learningStore';
 import { atomic, audit, categoryFor, cashDelta, cents, dateOnly, movementFor, manualBalanceDelta } from './core';
@@ -134,21 +135,28 @@ export async function setMovementTreatment(workspaceId: string, userId: string, 
 
 export async function ingestLearningRecordsForWorkspace(workspaceId: string) {
   return atomic(workspaceId, async tx => {
-    const accounts = await tx.plaidRemoteAccount.findMany({ where: { workspaceId, kind: 'DEPOSITORY', isImported: true, importedAccountId: { not: null } } });
-    const records = await tx.learningRecord.findMany({ where: { workspaceId, kind: 'TRANSACTION' }, orderBy: { createdAt: 'asc' } });
+    const [accounts, records, existing, transfers] = await Promise.all([
+      tx.plaidRemoteAccount.findMany({ where: { workspaceId, kind: 'DEPOSITORY', isImported: true, importedAccountId: { not: null } } }),
+      tx.learningRecord.findMany({ where: { workspaceId, kind: 'TRANSACTION' }, orderBy: { createdAt: 'asc' } }),
+      tx.financialMovement.findMany({ where: { workspaceId, source: 'BANK' }, include: { reconciliations: { where: { reversedAt: null } } } }),
+      tx.financeTransfer.findMany({ where: { workspaceId }, select: { outgoingId: true, incomingId: true } }),
+    ]);
+    const byKey = new Map(existing.map(row => [row.externalKey, row]));
+    const accountByKey = new Map(accounts.map(row => [`${row.plaidItemId}:${row.plaidAccountId}`, row]));
+    const transferred = new Set(transfers.flatMap(row => [row.outgoingId, row.incomingId]));
     const superseded = new Set(records.flatMap(record => {
       const payload = readLearningTransaction(record.payload);
       return payload && !payload.pending && payload.pendingTransactionId ? [`${record.plaidItemId}:${payload.pendingTransactionId}`] : [];
     }));
     for (const record of records) {
       const payload = readLearningTransaction(record.payload);
-      const account = payload && accounts.find(a => a.plaidAccountId === payload.accountId && a.plaidItemId === record.plaidItemId);
+      const account = payload && accountByKey.get(`${record.plaidItemId}:${payload.accountId}`);
       if (!payload || !account) continue;
       if (!Number.isSafeInteger(payload.amountCents) || Math.abs(payload.amountCents) > 1_000_000_000) throw new ValidationError('Importe bancario fuera de rango.');
       const externalKey = `${record.plaidItemId}:${payload.transactionId}`;
-      const previous = await tx.financialMovement.findUnique({ where: { workspaceId_externalKey: { workspaceId, externalKey } }, include: { reconciliations: { where: { reversedAt: null } } } });
-      const pending = payload.pendingTransactionId ? await tx.financialMovement.findUnique({ where: { workspaceId_externalKey: { workspaceId, externalKey: `${record.plaidItemId}:${payload.pendingTransactionId}` } } }) : null;
-      const transfer = previous ? await tx.financeTransfer.findFirst({ where: { workspaceId, OR: [{ outgoingId: previous.id }, { incomingId: previous.id }] } }) : null;
+      const previous = byKey.get(externalKey);
+      const pending = payload.pendingTransactionId ? byKey.get(`${record.plaidItemId}:${payload.pendingTransactionId}`) : null;
+      const transfer = previous ? transferred.has(previous.id) : false;
       const currency = payload.isoCurrencyCode ?? 'USD';
       const status = payload.removedAt || superseded.has(externalKey) ? 'REMOVED' : payload.pending ? 'PENDING' : 'POSTED';
       const changed = !!previous && (!!previous.reconciliations.length || !!transfer || !!previous.replacedManualState) && (
@@ -157,13 +165,19 @@ export async function ingestLearningRecordsForWorkspace(workspaceId: string) {
       );
       const data = { name: payload.merchantName || payload.name, amountCents: payload.amountCents, currency, date: dateOnly(payload.date), status, accountId: account.importedAccountId, bankPayload: toLearningJson(payload) };
       if (previous) {
+        // An unchanged bank snapshot must not rewrite the ledger on every render.
+        if (previous.name === data.name && previous.amountCents === data.amountCents &&
+            previous.currency === data.currency && previous.date.getTime() === data.date.getTime() &&
+            previous.status === data.status && previous.accountId === data.accountId &&
+            isDeepStrictEqual(previous.bankPayload, data.bankPayload)) continue;
         await tx.financialMovement.update({ where: { id: previous.id }, data: {
           ...data, needsReview: previous.needsReview || changed,
           ...(['EXPENSE', 'INCOME'].includes(previous.kind) && !changed ? { kind: payload.amountCents < 0 ? 'INCOME' : 'EXPENSE' } : {}),
         } });
         if (changed && !previous.needsReview) await audit(tx, workspaceId, 'bank-sync', 'BANK_CHANGE_DETECTED', previous.id, { previousAmountCents: previous.amountCents, amountCents: payload.amountCents, previousStatus: previous.status, status });
       } else {
-        await tx.financialMovement.create({ data: { ...data, workspaceId, externalKey, source: 'BANK', kind: payload.amountCents < 0 ? 'INCOME' : 'EXPENSE', categoryId: pending?.categoryId, subcategoryId: pending?.subcategoryId } });
+        const created = await tx.financialMovement.create({ data: { ...data, workspaceId, externalKey, source: 'BANK', kind: payload.amountCents < 0 ? 'INCOME' : 'EXPENSE', categoryId: pending?.categoryId, subcategoryId: pending?.subcategoryId } });
+        byKey.set(externalKey, { ...created, reconciliations: [] });
       }
     }
   });

@@ -1,6 +1,5 @@
 "use client";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AppDialogContent, Dialog, DialogTitle } from "@/components/ui/dialog";
 import type { FinanceWorkspaceData } from "@/lib/finance/uiTypes";
@@ -54,7 +53,6 @@ export default function MovementsClient({
   initialFrom?: string;
   initialMovementId?: string;
 }) {
-  const router = useRouter();
   const [busy, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -89,7 +87,6 @@ export default function MovementsClient({
         setSuccess("Guardado");
         setHistoryRevision(n => n + 1);
         done?.();
-        router.refresh();
       } catch {
         setError("No se pudo guardar. Inténtalo de nuevo.");
       }
