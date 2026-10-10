@@ -21,12 +21,19 @@ export type RunAction = (
   action: () => Promise<ActionResult<unknown>>,
   done?: () => void,
 ) => void;
+export type CategorySelection = {
+  categoryId: string;
+  subcategoryId: string;
+  categoryName: string;
+  subcategoryName: string;
+};
 export function CategoryFields({
   required = false,
   categories,
   category,
   subcategory,
   onChange,
+  onSelectionChange,
   run,
   busy,
 }: {
@@ -35,6 +42,7 @@ export function CategoryFields({
   category: string;
   subcategory: string;
   onChange: (category: string, subcategory: string) => void;
+  onSelectionChange?: (selection: CategorySelection) => void;
   run: RunAction;
   busy: boolean;
 }) {
@@ -60,7 +68,16 @@ export function CategoryFields({
           value={category}
           required={required}
           disabled={busy}
-          onChange={(e) => onChange(e.target.value, "")}
+          onChange={(e) => {
+            const nextCategory = all.find((item) => item.id === e.target.value);
+            onChange(e.target.value, "");
+            onSelectionChange?.({
+              categoryId: e.target.value,
+              subcategoryId: "",
+              categoryName: nextCategory?.name ?? "",
+              subcategoryName: "",
+            });
+          }}
         >
           <option value="">{required ? "Seleccionar categoría" : "Sin clasificar"}</option>
           {all
@@ -78,7 +95,19 @@ export function CategoryFields({
           className={fieldClass}
           disabled={!category || busy}
           value={subcategory}
-          onChange={(e) => onChange(category, e.target.value)}
+          onChange={(e) => {
+            const subcategoryName =
+              selected?.subcategories.find((item) => item.id === e.target.value)?.name ??
+              subs.find((item) => item.id === e.target.value)?.name ??
+              "";
+            onChange(category, e.target.value);
+            onSelectionChange?.({
+              categoryId: category,
+              subcategoryId: e.target.value,
+              categoryName: selected?.name ?? "",
+              subcategoryName,
+            });
+          }}
         >
           <option value="">Sin subcategoría</option>
           {selected?.subcategories
@@ -152,9 +181,11 @@ export function CategoryFields({
                       { id, name, archived: false, subcategories: [] },
                     ]);
                     onChange(id, "");
+                    onSelectionChange?.({ categoryId: id, subcategoryId: "", categoryName: name, subcategoryName: "" });
                   } else {
                     setSubs((a) => [...a, { id, name, parentId: category }]);
                     onChange(category, id);
+                    onSelectionChange?.({ categoryId: category, subcategoryId: id, categoryName: selected?.name ?? "", subcategoryName: name });
                   }
                   setCreating(null);
                   setName("");

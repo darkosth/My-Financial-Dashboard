@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CategoryFields, fieldClass, type RunAction } from "./FinanceForms";
+import { fieldClass, type CategorySelection, type RunAction } from "./FinanceForms";
+import MovementCategoryEditor from "./MovementCategoryEditor";
 import type { FinanceWorkspaceData, Movement } from "@/lib/finance/uiTypes";
 import OccurrencePicker from "./OccurrencePicker";
 import { dateDistance } from "@/lib/finance/matching";
@@ -36,6 +37,14 @@ export default function MovementEditor({
 }) {
   const [category, setCategory] = useState(m.categoryId ?? "");
   const [subcategory, setSubcategory] = useState(m.subcategoryId ?? "");
+  const [categoryName, setCategoryName] = useState(
+    data.categories.find((item) => item.id === m.categoryId)?.name ?? "",
+  );
+  const [subcategoryName, setSubcategoryName] = useState(
+    data.categories
+      .find((item) => item.id === m.categoryId)
+      ?.subcategories.find((item) => item.id === m.subcategoryId)?.name ?? "",
+  );
   const [duplicateChoice, setDuplicateChoice] = useState("");
   const [occurrenceId, setOccurrenceId] = useState(
     m.reconciliation?.occurrenceId ?? [...data.occurrences].filter(o => o.targetId === initialTarget).sort((a,b) => dateDistance(a.occurrenceDate ?? a.weekStart,m.date) - dateDistance(b.occurrenceDate ?? b.weekStart,m.date))[0]?.id ?? "",
@@ -66,33 +75,32 @@ export default function MovementEditor({
         </span>
       </p>
       <section className="space-y-3">
-        <CategoryFields
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-md border px-3 py-2">
+            <p className="text-xs text-muted-foreground">Categoría</p>
+            <p className="font-medium">{categoryName || "Sin categoría"}</p>
+          </div>
+          <div className="rounded-md border px-3 py-2">
+            <p className="text-xs text-muted-foreground">Subcategoría</p>
+            <p className="font-medium">{subcategoryName || "Sin subcategoría"}</p>
+          </div>
+        </div>
+        <MovementCategoryEditor
+          movementId={m.id}
           categories={data.categories}
-          category={category}
-          subcategory={subcategory}
-          onChange={(c, s) => {
-            setCategory(c);
-            setSubcategory(s);
-          }}
-          run={run}
-          busy={busy || !!m.reversedAt || m.kind === "TRANSFER"}
-        />
-        <Button
-          variant="outline"
+          categoryId={category}
+          subcategoryId={subcategory}
+          categoryName={categoryName}
+          subcategoryName={subcategoryName}
           disabled={busy || !!m.reversedAt || m.kind === "TRANSFER"}
-          onClick={() =>
-            run(
-              () =>
-                classifyMovementAction({
-                  movementId: m.id,
-                  categoryId: category || null,
-                  subcategoryId: subcategory || null,
-                }),
-            )
-          }
-        >
-          Guardar categoría
-        </Button>
+          run={run}
+          onSaved={(selection: CategorySelection) => {
+            setCategory(selection.categoryId);
+            setSubcategory(selection.subcategoryId);
+            setCategoryName(selection.categoryName);
+            setSubcategoryName(selection.subcategoryName);
+          }}
+        />
       </section>
       {m.status === "PENDING" && (
         <p className="text-sm text-muted-foreground">
